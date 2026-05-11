@@ -10,7 +10,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from cast.storage import TextFaceStore
 from photoalbums.lib.ai_people import CastPeopleMatcher
-from photoalbums.lib.ai_people_preprocess import _rembg_providers
+from photoalbums.lib.ai_people import _rembg_providers
 
 
 def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monkeypatch):
@@ -247,7 +247,7 @@ def test_rembg_providers_prefers_directml_when_available(monkeypatch):
             return ["DmlExecutionProvider", "CPUExecutionProvider"]
 
     monkeypatch.setattr(
-        "photoalbums.lib.ai_people_preprocess._load_onnxruntime",
+        "photoalbums.lib.ai_people._load_onnxruntime",
         lambda: _FakeOrt(),
     )
 

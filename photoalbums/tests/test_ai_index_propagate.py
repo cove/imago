@@ -15,8 +15,8 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_index_propagate, xmp_sidecar
-from photoalbums.lib.ai_index_propagate import _crop_paths_signature, run_propagate_to_crops
+from photoalbums.lib import ai_index_runner, xmp_sidecar
+from photoalbums.lib.ai_index_runner import _crop_paths_signature, run_propagate_to_crops
 
 
 class _FakeGeocodeResult:
@@ -101,7 +101,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
             tmp_dir = Path(tmp)
             image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[]):
                 result = run_propagate_to_crops(image, location_payload={}, people_payload=[])
             self.assertEqual(result["crops_updated"], 0)
 
@@ -124,7 +124,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 "country": "France",
             }
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1, crop2]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1, crop2]):
                 result = run_propagate_to_crops(image, location_payload=location_payload, people_payload=[])
 
             self.assertEqual(result["crops_updated"], 2)
@@ -147,7 +147,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
             crop1.write_bytes(b"crop1")
             _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
                 run_propagate_to_crops(image, location_payload={}, people_payload=[])
 
             step = xmp_sidecar.read_pipeline_step(crop1.with_suffix(".xmp"), "ai-index/propagate-to-crops")
@@ -194,7 +194,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 600,
             )
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
                 run_propagate_to_crops(image, location_payload={}, people_payload=[])
 
             state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
@@ -246,7 +246,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 _FakeGeocodeResult("Karnten, Austria", "46.75", "13.8333333", "Karnten", "Austria")
             )
             with (
-                mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]),
+                mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]),
                 mock.patch("photoalbums.lib.ai_geocode.NominatimGeocoder", return_value=fake_geocoder),
             ):
                 run_propagate_to_crops(
@@ -313,7 +313,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 )
             )
             with (
-                mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]),
+                mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]),
                 mock.patch("photoalbums.lib.ai_geocode.NominatimGeocoder", return_value=fake_geocoder),
             ):
                 run_propagate_to_crops(
@@ -377,7 +377,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 600,
             )
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
                 run_propagate_to_crops(
                     image,
                     location_payload={"city": "Cairo", "country": "Egypt"},
@@ -421,7 +421,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 dc_date=["1988-08"],
             )
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
                 run_propagate_to_crops(image, location_payload={}, people_payload=[])
 
             state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
@@ -454,7 +454,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 dc_date=["1988-08"],
             )
 
-            with mock.patch.object(ai_index_propagate, "_find_crop_paths_for_page", return_value=[crop1]):
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
                 run_propagate_to_crops(image, location_payload={}, people_payload=[])
 
             state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))

@@ -1,13 +1,35 @@
 from __future__ import annotations
 
+import argparse
+import contextlib
+import hashlib
+import json
+import logging
+import os
+import shutil
 import sys
 import tempfile
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..common import PHOTO_ALBUMS_DIR
+from .ai_model_settings import default_lmstudio_base_url, default_ocr_model
+from .model_store import YOLO_MODEL_DIR
+
+log = logging.getLogger(__name__)
+
+from ..naming import (
+    is_archive_dir,
+    is_pages_dir,
+    is_photos_dir,
+    parse_album_filename,
+)
 from .ai_album_titles import (
+    _album_identity_key,
+    _derived_name_match,
     _expand_album_title_dependencies,
     _is_album_title_source_candidate,
     _require_album_title_for_title_page,
@@ -15,6 +37,7 @@ from .ai_album_titles import (
     _resolve_album_title_from_sidecars,
     _resolve_album_title_hint,
     _resolve_title_page_album_title,
+    _scan_name_match,
     _store_album_printed_title_hint,
 )
 from .ai_caption import (
@@ -25,35 +48,611 @@ from .ai_caption import (
 )
 from .ai_date import DateEstimateEngine
 from .ai_geocode import NominatimGeocoder
-from .ai_index import (
-    _append_xmp_job_artifact,
-    _apply_shard,
-    _apply_title_page_location_config,
-    _coalesce_archive_processing_files,
-    _compute_people_positions,
-    _date_estimate_input_hash,
-    _dc_date_needs_refresh,
-    _dc_date_value,
-    _display_work_label,
-    _emit_prompt_debug_artifact,
-    _filter_files_by_tree,
-    _format_eta,
-    _format_location_hint_from_state,
-    _format_people_step_label,
-    _format_reprocess_reasons,
-    _has_dc_date,
-    _match_people_with_cast_store_retry,
-    _mirror_page_sidecars,
-    _progress_ticker,
-    _resolve_dc_date,
-    _resolve_upstream_page_sidecar_state,
-    _sidecar_has_lmstudio_caption_error,
-    _sidecar_has_people_to_refresh,
-    discover_images,
-    needs_processing,
-)
+# Index functions (previously ai_index.py own code)
+
+
+def _format_eta(completed_times: list[float], remaining: int) -> str:
+    if not completed_times or remaining <= 0:
+        return ""
+    avg = sum(completed_times) / len(completed_times)
+    total_seconds = int(avg * remaining)
+    if total_seconds < 60:
+        return f"eta:{total_seconds}s"
+    minutes = total_seconds // 60
+    if minutes < 60:
+        return f"eta:{minutes}m"
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"eta:{hours}h{mins:02d}m"
+
+
+def _progress_ticker(prefix: str, _interval: float = 0.5):
+    """Returns (stop, set_step). Prints each step as a new line."""
+
+    def set_step(name: str) -> None:
+        print(f"  {prefix}  [{name}]", flush=True)
+
+    def stop() -> None:
+        return
+
+    return stop, set_step
+
+
+def _display_work_label(image_path: Path) -> str:
+    if _scan_name_match(image_path):
+        collection, year, book, page = parse_album_filename(image_path.name)
+        if collection != "Unknown":
+            return f"{collection}_{year}_B{book}_P{int(page):02d}"
+    return image_path.name
+
+
+def _format_reprocess_reasons(reasons: list[str]) -> str:
+    clean = _dedupe([str(reason or "").strip() for reason in reasons])
+    return ", ".join(clean)
+
+
+def _apply_shard(files: list[Path], shard_count: int, shard_index: int) -> list[Path]:
+    if shard_count <= 1:
+        return list(files)
+    album_keys: list[str] = []
+    for path in files:
+        album_key = _album_identity_key(path)
+        if album_key not in album_keys:
+            album_keys.append(album_key)
+    album_shards = {album_key: idx % shard_count for idx, album_key in enumerate(album_keys)}
+    return [path for path in files if album_shards.get(_album_identity_key(path)) == shard_index]
+
+
+def _compute_people_positions(people_matches: list, image_path: Path) -> dict[str, str]:
+    """Return a dict mapping each identified person's name to a position label.
+
+    Uses the face bbox (absolute pixels in the image's coordinate space) and
+    the image dimensions to produce a human-readable location like 'upper-left'.
+    """
+    from ._caption_prompts import (
+        _position_label,
+    )  # pylint: disable=import-outside-toplevel
+
+    try:
+        from PIL import Image as _PILImage  # pylint: disable=import-outside-toplevel
+
+        from .image_limits import allow_large_pillow_images  # pylint: disable=import-outside-toplevel
+
+        allow_large_pillow_images(_PILImage)
+        with _PILImage.open(str(image_path)) as _img:
+            img_w, img_h = _img.size
+    except Exception:
+        return {}
+    positions: dict[str, str] = {}
+    for match in people_matches:
+        name = str(getattr(match, "name", "") or "").strip()
+        bbox = list(getattr(match, "bbox", None) or [])
+        if not name or len(bbox) < 4 or img_w <= 0 or img_h <= 0:
+            continue
+        x, y, w, h = bbox[:4]
+        cx = (x + w / 2) / img_w
+        cy = (y + h / 2) / img_h
+        label = _position_label(float(cx), float(cy))
+        if label:
+            positions[name] = label
+    return positions
+
+
+def _format_people_step_label(step: str, names: list[str]) -> str:
+    clean_names = _dedupe([str(name or "").strip() for name in names])
+    names_text = ", ".join(clean_names) if clean_names else "none"
+    return f"{step} {len(clean_names)}: {names_text}"
+
+
+JOB_ARTIFACTS_ENV = "IMAGO_JOB_ARTIFACTS"
+CAST_STORE_RETRY_ATTEMPTS = 6
+CAST_STORE_RETRY_DELAY_SECONDS = 0.5
+TITLE_PAGE_LOCATION_SOURCE = "title_page_location_config"
+
+
+def _is_retryable_cast_store_write_error(exc: Exception) -> bool:
+    if not isinstance(exc, OSError):
+        return False
+    lower = str(exc or "").strip().lower()
+    if not lower:
+        return False
+    if getattr(exc, "winerror", None) not in {5, 32} and not isinstance(exc, PermissionError):
+        return False
+    return any(name in lower for name in ("faces.jsonl", "review_queue.jsonl", "people.json"))
+
+
+def _match_people_with_cast_store_retry(
+    *,
+    people_matcher: Any,
+    image_path: Path,
+    source_path: Path,
+    bbox_offset: tuple[int, int],
+    hint_text: str,
+) -> list[Any]:
+    last_exc: Exception | None = None
+    for attempt in range(CAST_STORE_RETRY_ATTEMPTS):
+        try:
+            return people_matcher.match_image(
+                image_path,
+                source_path=source_path,
+                bbox_offset=bbox_offset,
+                hint_text=hint_text,
+            )
+        except Exception as exc:
+            if not _is_retryable_cast_store_write_error(exc) or attempt >= CAST_STORE_RETRY_ATTEMPTS - 1:
+                raise
+            last_exc = exc
+            time.sleep(CAST_STORE_RETRY_DELAY_SECONDS)
+    if last_exc is not None:
+        raise last_exc
+    return []
+
+
+def discover_images(
+    photos_root: Path,
+    *,
+    include_archive: bool,
+    include_view: bool,
+    extensions: set[str],
+) -> list[Path]:
+    files: list[Path] = []
+    for path in photos_root.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in extensions:
+            continue
+        parent_names = {parent.name for parent in path.parents}
+        in_archive = any(is_archive_dir(name) for name in parent_names)
+        in_view = any(is_pages_dir(name) for name in parent_names)
+        in_photos = any(is_photos_dir(name) for name in parent_names)
+        if in_archive and include_archive:
+            files.append(path)
+            continue
+        if include_view and (in_view or in_photos):
+            files.append(path)
+            continue
+    files.sort()
+    return files
+
+
+def append_job_artifact(record: dict[str, Any]) -> None:
+    artifact_file = str(os.environ.get(JOB_ARTIFACTS_ENV) or "").strip()
+    if not artifact_file:
+        return
+    path = Path(artifact_file).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
+        handle.write("\n")
+
+
+def _emit_prompt_debug_artifact(prompt_debug: PromptDebugSession | None, *, dry_run: bool) -> None:
+    if prompt_debug is None or not prompt_debug.has_steps():
+        return
+    append_job_artifact(prompt_debug.to_artifact())
+
+
+def _append_geocode_artifact(*, image_path: Path, record: dict[str, Any]) -> None:
+    if not isinstance(record, dict):
+        return
+    append_job_artifact(
+        {
+            "kind": "photoalbums_geocode",
+            "image_path": str(image_path),
+            "label": _display_work_label(image_path),
+            **record,
+        }
+    )
+
+
+def _is_archive_file(image_path: Path) -> bool:
+    return is_archive_dir(image_path.parent)
+
+
+def _page_sort_key(image_path: Path) -> tuple[str, int, int, str]:
+    album_key = _album_identity_key(image_path)
+    _collection, _year, _book, page_str = parse_album_filename(image_path.name)
+    try:
+        page_number = int(page_str)
+    except ValueError:
+        page_number = 0
+    if _scan_name_match(image_path):
+        kind_rank = 0
+    elif _derived_name_match(image_path):
+        kind_rank = 1
+    else:
+        kind_rank = 2
+    return album_key, page_number, kind_rank, image_path.name.casefold()
+
+
+def _coalesce_archive_processing_files(files: list[Path]) -> list[Path]:
+    scan_groups: dict[str, list[Path]] = {}
+    passthrough: list[Path] = []
+    for image_path in files:
+        if _is_archive_file(image_path) and _scan_name_match(image_path):
+            page_key = _scan_page_key(image_path)
+            if page_key is None:
+                passthrough.append(image_path)
+                continue
+            scan_groups.setdefault(page_key, []).append(image_path)
+            continue
+        passthrough.append(image_path)
+
+    selected: list[Path] = []
+    missing_s01_pages: list[str] = []
+    for _page_key, group_paths in sorted(scan_groups.items()):
+        group_paths = sorted(group_paths, key=_scan_number)
+        primary_scan = next((path for path in group_paths if _scan_number(path) == 1), None)
+        if primary_scan is None:
+            missing_s01_pages.append(" + ".join(path.name for path in group_paths))
+            continue
+        selected.append(primary_scan)
+
+    if missing_s01_pages:
+        raise RuntimeError("Missing S01 scan for page(s): " + "; ".join(missing_s01_pages))
+
+    selected.extend(passthrough)
+    selected.sort(key=_page_sort_key)
+    return selected
+
+
+def _filter_files_by_tree(files: list[Path], *, include_archive: bool, include_view: bool) -> list[Path]:
+    filtered: list[Path] = []
+    for image_path in files:
+        parent_names = {parent.name for parent in image_path.parents}
+        in_archive = any(is_archive_dir(name) for name in parent_names)
+        in_view = any(is_pages_dir(name) for name in parent_names)
+        in_photos = any(is_photos_dir(name) for name in parent_names)
+        if in_archive and include_archive:
+            filtered.append(image_path)
+            continue
+        if include_view and (in_view or in_photos):
+            filtered.append(image_path)
+            continue
+    return filtered
+
+
+def _format_location_hint_from_state(state: dict[str, Any] | None) -> str:
+    if not isinstance(state, dict):
+        return ""
+    parts = [
+        str(state.get("location_sublocation") or "").strip(),
+        str(state.get("location_city") or "").strip(),
+        str(state.get("location_state") or "").strip(),
+        str(state.get("location_country") or "").strip(),
+    ]
+    return ", ".join(part for part in parts if part)
+
+
+def _resolve_upstream_page_sidecar_state(image_path: Path) -> dict[str, Any] | None:
+    if not _derived_name_match(image_path):
+        return None
+    archive_dir = find_archive_dir_for_image(image_path)
+    if archive_dir is None or not archive_dir.is_dir():
+        return None
+    scan_filenames = _page_scan_filenames(image_path)
+    if not scan_filenames:
+        return None
+    primary_scan_name = next(
+        (
+            scan_name
+            for scan_name in scan_filenames
+            if (match := _scan_name_match(scan_name)) is not None and int(match.group("scan")) == 1
+        ),
+        "",
+    )
+    if not primary_scan_name:
+        raise RuntimeError(f"Missing S01 scan for page context: {image_path}")
+    sidecar_path = (archive_dir / primary_scan_name).with_suffix(".xmp")
+    state = read_ai_sidecar_state(sidecar_path)
+    return state if isinstance(state, dict) else None
+
+
+def _contextualize_ocr_text(ocr_text: str, *, context_ocr_text: str = "", context_location_hint: str = "") -> str:
+    parts = [str(ocr_text or "").strip()]
+    clean_context_ocr = str(context_ocr_text or "").strip()
+    if clean_context_ocr:
+        parts.append(f"Parent page OCR hint (context only):\n{clean_context_ocr}")
+    clean_location_hint = str(context_location_hint or "").strip()
+    if clean_location_hint:
+        parts.append(f"Parent page location hint (context only):\n{clean_location_hint}")
+    return "\n\n".join(part for part in parts if part)
+
+
+def _mirror_page_sidecars(primary_scan_path: Path) -> None:
+    if not _scan_name_match(primary_scan_path):
+        return
+    sibling_scans = _scan_group_paths(primary_scan_path)
+    if len(sibling_scans) <= 1:
+        return
+    source_sidecar = primary_scan_path.with_suffix(".xmp")
+    if not source_sidecar.is_file():
+        raise RuntimeError(f"Page sidecar missing for copy step: {source_sidecar}")
+    for sibling_path in sibling_scans:
+        if sibling_path == primary_scan_path:
+            continue
+        shutil.copy2(source_sidecar, sibling_path.with_suffix(".xmp"))
+
+
+def _artifact_sidecar_paths(image_path: Path, sidecar_path: Path) -> list[Path]:
+    if _scan_name_match(image_path):
+        return [path.with_suffix(".xmp") for path in _scan_group_paths(image_path)]
+    return [sidecar_path]
+
+
+def _append_xmp_job_artifact(image_path: Path, sidecar_path: Path) -> None:
+    sidecar_paths = _artifact_sidecar_paths(image_path, sidecar_path)
+    append_job_artifact(
+        {
+            "kind": "photoalbums_xmp",
+            "image_path": str(image_path),
+            "sidecar_path": str(sidecar_path),
+            "sidecar_paths": [str(path) for path in sidecar_paths],
+            "label": _display_work_label(image_path),
+        }
+    )
+
+
+def _configured_title_page_location_payload(
+    image_path: Path,
+    title_page_location: dict[str, str] | None,
+) -> dict[str, Any]:
+    if not isinstance(title_page_location, dict):
+        return {}
+    _, _, _, page_str = parse_album_filename(image_path.name)
+    if not page_str.isdigit() or int(page_str) != 1:
+        return {}
+    latitude = str(title_page_location.get("gps_latitude") or "").strip()
+    longitude = str(title_page_location.get("gps_longitude") or "").strip()
+    if not latitude or not longitude:
+        return {}
+    payload: dict[str, Any] = {
+        "gps_latitude": float(latitude),
+        "gps_longitude": float(longitude),
+        "map_datum": "WGS-84",
+        "source": TITLE_PAGE_LOCATION_SOURCE,
+    }
+    address = str(title_page_location.get("address") or "").strip()
+    if address:
+        payload["query"] = address
+        payload["display_name"] = address
+    for key in ("city", "state", "country", "sublocation"):
+        value = str(title_page_location.get(key) or "").strip()
+        if value:
+            payload[key] = value
+    return payload
+
+
+def _apply_title_page_location_config(
+    *,
+    image_path: Path,
+    location_payload: dict[str, Any] | None,
+    detections_payload: dict[str, Any] | None = None,
+    title_page_location: dict[str, str] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    loc = dict(location_payload or {})
+    configured = _configured_title_page_location_payload(image_path, title_page_location)
+    if configured:
+        loc = configured
+    elif str(loc.get("source") or "").strip() == TITLE_PAGE_LOCATION_SOURCE:
+        loc = {}
+    if not isinstance(detections_payload, dict):
+        return loc, detections_payload
+    detections = dict(detections_payload)
+    if loc:
+        detections["location"] = dict(loc)
+    elif "location" in detections:
+        del detections["location"]
+    return loc, detections
+
+
+def _known_sidecar_needs_reprocess(path: Path, stat: os.stat_result, sidecar_state: dict[str, Any]) -> bool:
+    if str(sidecar_state.get("processor_signature") or "") != PROCESSOR_SIGNATURE:
+        return True
+    recorded_size = int(sidecar_state.get("size") or -1)
+    recorded_mtime = int(sidecar_state.get("mtime_ns") or -1)
+    if int(stat.st_size) != recorded_size or int(stat.st_mtime_ns) != recorded_mtime:
+        return True
+    return not has_current_sidecar(path)
+
+
+def needs_processing(
+    path: Path,
+    sidecar_state: dict[str, Any] | None,
+    force: bool,
+    *,
+    reprocess_required: bool = False,
+) -> bool:
+    if force:
+        return True
+    if _is_album_title_source_candidate(path) and isinstance(sidecar_state, dict):
+        ocr = str(sidecar_state.get("ocr_text") or "").strip()
+        title = str(sidecar_state.get("album_title") or "").strip()
+        if ocr and title == ocr:
+            return True
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return False
+    sidecar_path = path.with_suffix(".xmp")
+    if not reprocess_required and has_current_sidecar(path):
+        return False
+    if reprocess_required:
+        return True
+    if sidecar_state is not None:
+        return _known_sidecar_needs_reprocess(path, stat, sidecar_state)
+    if not has_valid_sidecar(path):
+        return True
+    return int(sidecar_path.stat().st_mtime_ns) < int(stat.st_mtime_ns)
+
+
+def _sidecar_has_lmstudio_caption_error(state: dict[str, Any] | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    detections = state.get("detections")
+    if not isinstance(detections, dict):
+        return False
+    caption = detections.get("caption")
+    if not isinstance(caption, dict):
+        return False
+    error_text = str(caption.get("error") or "").strip()
+    if not error_text:
+        return False
+    requested_engine = str(caption.get("requested_engine") or "").strip().lower()
+    effective_engine = str(caption.get("effective_engine") or "").strip().lower()
+    return "lmstudio" in {requested_engine, effective_engine}
+
+
+def _sidecar_has_people_to_refresh(state: dict[str, Any] | None) -> bool:
+    if not isinstance(state, dict):
+        return False
+    detections = state.get("detections")
+    if isinstance(detections, dict):
+        people = detections.get("people")
+        if isinstance(people, list) and any(isinstance(person, dict) for person in people):
+            return True
+    if state.get("people_identified") is True:
+        return True
+    people_detected = state.get("people_detected")
+    if people_detected is not None:
+        return bool(people_detected)
+    return False
+
+
+def _date_estimate_input_hash(ocr_text: str, album_title: str) -> str:
+    clean_ocr = str(ocr_text or "").strip()
+    clean_album_title = str(album_title or "").strip()
+    if not clean_ocr and not clean_album_title:
+        return ""
+    return _hash_text(
+        json.dumps(
+            {
+                "ocr_text": clean_ocr,
+                "album_title": clean_album_title,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    )
+
+
+def _dc_date_value(sidecar_state: dict[str, Any] | None) -> str | list[str]:
+    if not isinstance(sidecar_state, dict):
+        return ""
+    raw_values = sidecar_state.get("dc_date_values")
+    if isinstance(raw_values, list):
+        values = [str(item or "").strip() for item in raw_values if str(item or "").strip()]
+        if values:
+            return values
+    return str(sidecar_state.get("dc_date") or "").strip()
+
+
+def _has_dc_date(value: str | list[str]) -> bool:
+    if isinstance(value, list):
+        return any(str(item or "").strip() for item in value)
+    return bool(str(value or "").strip())
+
+
+def _dc_date_needs_refresh(
+    image_path: Path,
+    sidecar_state: dict[str, Any] | None,
+    *,
+    enabled: bool,
+) -> bool:
+    if not isinstance(sidecar_state, dict):
+        return False
+    current_dc_date = _dc_date_value(sidecar_state)
+    current_date_time_original = str(sidecar_state.get("date_time_original") or "").strip()
+    if _has_dc_date(current_dc_date):
+        return _resolve_date_time_original(dc_date=current_dc_date) != current_date_time_original
+    if not enabled:
+        return False
+    current_hash = _date_estimate_input_hash(
+        _effective_sidecar_ocr_text(image_path, sidecar_state),
+        str(sidecar_state.get("album_title") or ""),
+    )
+    if not current_hash:
+        return False
+    return current_hash != str(sidecar_state.get("date_estimate_input_hash") or "").strip()
+
+
+def _clean_existing_dc_date(existing_dc_date: str | list[str]) -> str | list[str] | None:
+    if isinstance(existing_dc_date, list):
+        clean = [str(item or "").strip() for item in existing_dc_date if str(item or "").strip()]
+        return clean if clean else None
+    clean = str(existing_dc_date or "").strip()
+    return clean if clean else None
+
+
+def _estimate_dc_date_from_engine(
+    *,
+    ocr_text: str,
+    album_title: str,
+    image_path: Path,
+    date_engine: DateEstimateEngine,
+    prompt_debug: PromptDebugSession | None,
+) -> str:
+    input_hash = _date_estimate_input_hash(ocr_text, album_title)
+    if not input_hash:
+        return ""
+    result = date_engine.estimate(
+        ocr_text=ocr_text,
+        album_title=album_title,
+        source_path=image_path,
+        debug_recorder=(prompt_debug.record if prompt_debug is not None else None),
+        debug_step="date_estimate",
+    )
+    if str(result.error or "").strip():
+        raise RuntimeError(f"Date estimate failed: {result.error}")
+    return str(result.date or "").strip()
+
+
+def _resolve_dc_date(
+    *,
+    existing_dc_date: str | list[str],
+    ocr_text: str,
+    album_title: str,
+    image_path: Path,
+    date_engine: DateEstimateEngine | None,
+    prompt_debug: PromptDebugSession | None,
+) -> str | list[str]:
+    cleaned = _clean_existing_dc_date(existing_dc_date)
+    if cleaned is not None:
+        return cleaned
+    if date_engine is None:
+        return ""
+    return _estimate_dc_date_from_engine(
+        ocr_text=ocr_text,
+        album_title=album_title,
+        image_path=image_path,
+        date_engine=date_engine,
+        prompt_debug=prompt_debug,
+    )
+
+
+def _write_sidecar_and_record(*args: Any, **kwargs: Any) -> None:
+    """Re-exported from ai_index_runner for backward compatibility."""
+    from .ai_index_runner import _write_sidecar_and_record as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def run(argv: list[str] | None = None) -> int:
+    from .ai_index_runner import IndexRunner
+
+    return IndexRunner(argv).run()
+
+
+def main() -> None:
+    raise SystemExit(run())
+
+
+if __name__ == "__main__":
+    main()
+
 from .ai_index_analysis import (
     ArchiveScanOCRAuthority,
+    ImageAnalysis,  # noqa: F401 - re-exported for tests and compatibility callers
     _build_caption_metadata,
     _estimate_people_from_detections,
     _get_image_dimensions,
@@ -63,21 +662,750 @@ from .ai_index_analysis import (
     _run_image_analysis,
     _serialize_people_matches,
 )
-from .ai_index_args import (
-    IMAGE_EXTENSIONS,
-    _absolute_cli_path,
-    _explicit_cli_flags,
-    _resolve_caption_prompt,
-    parse_args,
-)
-from .ai_index_engine_cache import (
-    PROCESSOR_SIGNATURE,
-    _init_caption_engine,
-    _init_date_engine,
-    _init_object_detector,
-    _init_people_matcher,
-    _settings_signature,
-)
+# CLI argument parsing (previously ai_index_args.py)
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
+DEFAULT_CAST_STORE = Path(__file__).resolve().parents[2] / "cast" / "data"
+
+
+def _explicit_cli_flags(argv: list[str] | None) -> set[str]:
+    flags: set[str] = set()
+    for item in list(argv or []):
+        text = str(item or "")
+        if not text.startswith("--"):
+            continue
+        flags.add(text.split("=", 1)[0])
+    return flags
+
+
+def _resolve_caption_prompt(prompt_text: str, prompt_file: str) -> str:
+    file_text = str(prompt_file or "").strip()
+    if file_text:
+        path = Path(file_text).expanduser()
+        try:
+            return path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError as exc:
+            raise SystemExit(f"Caption prompt file does not exist: {path}") from exc
+        except OSError as exc:
+            raise SystemExit(f"Could not read caption prompt file {path}: {exc}") from exc
+    return str(prompt_text or "").strip()
+
+
+def _absolute_cli_path(path_text: str | Path) -> Path:
+    return Path(os.path.abspath(os.fspath(Path(path_text).expanduser())))
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Index photo album images with cast people matching, YOLO objects, OCR, and XMP sidecars.",
+    )
+    parser.add_argument(
+        "--photos-root",
+        default=str(PHOTO_ALBUMS_DIR),
+        help="Photo Albums root directory.",
+    )
+    parser.add_argument("--cast-store", default=str(DEFAULT_CAST_STORE), help="Cast store directory.")
+    parser.add_argument("--model", default="models/yolo11n.pt", help="Ultralytics model path/name.")
+    parser.add_argument(
+        "--object-threshold",
+        type=float,
+        default=0.30,
+        help="Object detection confidence.",
+    )
+    parser.add_argument(
+        "--people-threshold",
+        type=float,
+        default=0.72,
+        help="Face similarity threshold.",
+    )
+    parser.add_argument("--min-face-size", type=int, default=40, help="Minimum face size in pixels.")
+    parser.add_argument(
+        "--ocr-engine",
+        choices=["none", "local", "lmstudio"],
+        default="none",
+        help="OCR backend.",
+    )
+    parser.add_argument(
+        "--ocr-model",
+        default=default_ocr_model(),
+        help="Optional model id/path used by the selected OCR engine.",
+    )
+    parser.add_argument("--ocr-lang", default="eng", help="OCR language.")
+    parser.add_argument(
+        "--caption-engine",
+        choices=["none", "lmstudio"],
+        default="lmstudio",
+        help="Caption backend for XMP description.",
+    )
+    parser.add_argument(
+        "--caption-model",
+        default="",
+        help="Optional model id/path used by the selected caption engine.",
+    )
+    parser.add_argument(
+        "--caption-prompt",
+        dest="caption_prompt",
+        default="",
+        help="Exact prompt text for model captioning. When set, built-in prompt hints are disabled.",
+    )
+    parser.add_argument(
+        "--caption-prompt-file",
+        dest="caption_prompt_file",
+        default="",
+        help="Read exact model caption prompt text from a file. Overrides --caption-prompt when set.",
+    )
+    parser.add_argument(
+        "--local-prompt",
+        dest="caption_prompt",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--local-prompt-file",
+        dest="caption_prompt_file",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--qwen-prompt",
+        dest="caption_prompt",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--qwen-prompt-file",
+        dest="caption_prompt_file",
+        default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--lmstudio-base-url",
+        default=default_lmstudio_base_url(),
+        help="Base URL for the LM Studio OpenAI-compatible API.",
+    )
+    parser.add_argument(
+        "--caption-max-tokens",
+        type=int,
+        default=96,
+        help="Max new tokens for caption models.",
+    )
+    parser.add_argument(
+        "--caption-temperature",
+        type=float,
+        default=0.2,
+        help="Sampling temperature for local captioning.",
+    )
+    parser.add_argument(
+        "--caption-max-edge",
+        type=int,
+        default=0,
+        help="Optional long-edge cap, in pixels, applied only during caption generation.",
+    )
+    parser.add_argument("--max-images", type=int, default=0, help="Optional processing limit.")
+    parser.add_argument(
+        "--photo",
+        default="",
+        help="Process a single photo file. Bypasses discovery and implies --force.",
+    )
+    parser.add_argument(
+        "--album",
+        default="",
+        help="Filter to photos whose parent directory name contains this substring (case-insensitive).",
+    )
+    parser.add_argument(
+        "--photo-offset",
+        type=int,
+        default=0,
+        help="Skip first N discovered images. Use with --max-images to process a range.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore manifest and process all files. Equivalent to --reprocess-mode=all.",
+    )
+    parser.add_argument(
+        "--reprocess-mode",
+        default="unprocessed",
+        choices=["unprocessed", "new_only", "errors_only", "outdated", "cast_changed", "gps", "all"],
+        help=(
+            "Controls which images are processed. "
+            "'unprocessed' (default): images with missing or stale sidecar. "
+            "'new_only': only images with no manifest entry (never indexed). "
+            "'errors_only': only images whose sidecar contains a processing error. "
+            "'outdated': only images where the sidecar is older than the image file. "
+            "'cast_changed': only images needing people re-detection when the cast store changes. "
+            "'gps': re-run only the GPS location estimate step for already-indexed images. "
+            "'all': force reprocess everything (same as --force)."
+        ),
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Do not write sidecar/manifest.")
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Print generated caption text to stdout only. Implies --dry-run and forced reprocessing.",
+    )
+    parser.add_argument(
+        "--include-view",
+        action="store_true",
+        help="Include files in rendered *_Pages and *_Photos folders.",
+    )
+    parser.add_argument(
+        "--include-archive",
+        action="store_true",
+        help="Include files in *_Archive folders.",
+    )
+    parser.add_argument("--disable-people", action="store_true", help="Disable cast people matching.")
+    parser.add_argument("--disable-objects", action="store_true", help="Disable object detection.")
+    parser.add_argument(
+        "--ignore-render-settings",
+        action="store_true",
+        help="Ignore per-archive render_settings.json overrides.",
+    )
+    parser.add_argument("--verbose", action="store_true", help="Verbose logging.")
+    parser.add_argument(
+        "--stitch-scans",
+        action="store_true",
+        help=(
+            "Deprecated. Multi-scan archive page OCR now uses a temporary stitched composite during normal processing."
+        ),
+    )
+    parser.add_argument(
+        "--extensions",
+        default=",".join(sorted(IMAGE_EXTENSIONS)),
+        help="Comma-separated file extensions to include.",
+    )
+    parser.add_argument(
+        "--shard-count",
+        type=int,
+        default=1,
+        help="Split discovered files into N deterministic shards.",
+    )
+    parser.add_argument(
+        "--shard-index",
+        type=int,
+        default=0,
+        help="Zero-based shard index to process when --shard-count is greater than 1.",
+    )
+    parser.add_argument(
+        "--steps",
+        default="",
+        help=(
+            "Comma-separated list of step names to force re-run unconditionally "
+            "(e.g. 'caption', 'ocr,people'). Downstream steps are also marked stale."
+        ),
+    )
+    return parser.parse_args(argv)
+
+
+# Engine cache (previously ai_index_engine_cache.py + ai_objects.py)
+
+# Propagate-to-crops (previously ai_index_propagate.py)
+
+
+def _crop_paths_signature(crop_paths: list[Path]) -> str:
+    combined = "|".join(str(p) for p in sorted(str(p) for p in crop_paths))
+    return hashlib.sha256(combined.encode()).hexdigest()[:16]
+
+
+def _get_image_dimensions_safe(image_path: Path) -> tuple[int, int]:
+    try:
+        from PIL import Image as _PILImage
+
+        from .image_limits import allow_large_pillow_images
+
+        allow_large_pillow_images(_PILImage)
+        with _PILImage.open(str(image_path)) as img:
+            return img.size
+    except Exception:
+        return 0, 0
+
+
+def _find_crop_paths_for_page(image_path: Path) -> list[Path]:
+    """Return existing crop file paths for a page image. Returns [] if not a pages-dir page."""
+    from ..naming import is_pages_dir, photos_dir_for_album_dir
+
+    if not is_pages_dir(image_path.parent):
+        return []
+
+    photos_dir = photos_dir_for_album_dir(image_path.parent)
+    if not photos_dir.is_dir():
+        return []
+
+    sidecar_path = image_path.with_suffix(".xmp")
+    if not sidecar_path.is_file():
+        return []
+
+    img_w, img_h = _get_image_dimensions_safe(image_path)
+    if img_w <= 0 or img_h <= 0:
+        return []
+
+    try:
+        regions = read_region_list(sidecar_path, img_w, img_h)
+    except Exception:
+        return []
+
+    if not regions:
+        return []
+
+    from .ai_photo_crops import _expected_crop_output_paths
+
+    candidates = _expected_crop_output_paths(image_path, photos_dir, len(regions))
+    return [p for p in candidates if p.is_file()]
+
+
+def _read_regions_safe(sidecar_path: Path, img_w: int, img_h: int) -> list[dict]:
+    if not sidecar_path.is_file():
+        return []
+    try:
+        return read_region_list(sidecar_path, img_w, img_h)
+    except Exception:
+        return []
+
+
+def _region_caption(region_state: dict) -> str:
+    return str(region_state.get("caption") or region_state.get("caption_hint") or "")
+
+
+def _resolve_crop_metadata(
+    region_state: dict,
+    locations_shown: list,
+    page_location: dict[str, Any],
+    names_from_region: list[str],
+    existing_person_names: list[str],
+    geocoder: Any = None,
+) -> tuple[dict, list, list[str]]:
+    region_override = dict(region_state.get("location_override") or {})
+    region_assigned = dict(region_state.get("location_payload") or {})
+    caption = _region_caption(region_state)
+    crop_location = resolve_crop_location(
+        region_location_override=region_override,
+        region_location_assigned=region_assigned,
+        caption=caption,
+        locations_shown=locations_shown,
+        page_location=page_location,
+    )
+    crop_location = _materialize_crop_location(crop_location, geocoder=geocoder)
+    crop_locations_shown = resolve_crop_locations_shown(
+        region_location_override=region_override,
+        region_location_assigned=region_assigned,
+        caption=caption,
+        locations_shown=locations_shown,
+    )
+    if crop_location and (
+        not crop_locations_shown
+        or not all(str(location.get("gps_latitude") or "").strip() for location in crop_locations_shown)
+    ):
+        materialized_location_shown = location_shown_from_payload(crop_location)
+        crop_locations_shown = [materialized_location_shown] if materialized_location_shown else crop_locations_shown
+    new_person_names = resolve_person_in_image(
+        _dedupe(names_from_region + existing_person_names),
+        locations_shown=locations_shown,
+        location_payload=crop_location,
+    )
+    return crop_location, crop_locations_shown, new_person_names
+
+
+def _materialize_crop_location(payload: dict[str, Any] | None, *, geocoder: Any = None) -> dict[str, Any]:
+    return materialize_location_payload(payload, geocoder=geocoder)
+
+
+def _build_detections_payload(existing_state: dict, crop_location: dict, step_timestamp: str) -> dict:
+    existing_detections = dict(existing_state.get("detections") or {})
+    if crop_location:
+        existing_detections["location"] = crop_location
+    existing_pipeline = dict(existing_detections.get("pipeline") or {})
+    existing_pipeline["ai-index/propagate-to-crops"] = {
+        "timestamp": step_timestamp,
+        "input_hash": "",
+        "result": "ok",
+    }
+    existing_detections["pipeline"] = existing_pipeline
+    return existing_detections
+
+
+def _str_field(d: dict, key: str) -> str:
+    return str(d.get(key) or "")
+
+
+def _write_propagated_crop(
+    crop_xmp: Path,
+    existing_state: dict,
+    *,
+    crop_location: dict,
+    crop_locations_shown: list,
+    new_person_names: list[str],
+    step_timestamp: str,
+    region_caption: str = "",
+    page_dc_date_values: list[str] | None = None,
+) -> None:
+    detections_payload = _build_detections_payload(existing_state, crop_location, step_timestamp)
+    dc_date = list(existing_state.get("dc_date_values") or page_dc_date_values or [])
+    description = _str_field(existing_state, "description") or str(region_caption or "").strip()
+    write_xmp_sidecar(
+        crop_xmp,
+        person_names=new_person_names,
+        subjects=list(existing_state.get("subjects") or []),
+        title=_str_field(existing_state, "title"),
+        title_source=_str_field(existing_state, "title_source"),
+        description=description,
+        ocr_text=_str_field(existing_state, "ocr_text"),
+        parent_ocr_text=_str_field(existing_state, "parent_ocr_text"),
+        ocr_lang=_str_field(existing_state, "ocr_lang"),
+        author_text=_str_field(existing_state, "author_text"),
+        scene_text=_str_field(existing_state, "scene_text"),
+        album_title=_str_field(existing_state, "album_title"),
+        gps_latitude=_str_field(crop_location, "gps_latitude").strip(),
+        gps_longitude=_str_field(crop_location, "gps_longitude").strip(),
+        location_address=_str_field(crop_location, "address").strip(),
+        location_city=_str_field(crop_location, "city").strip(),
+        location_state=_str_field(crop_location, "state").strip(),
+        location_country=_str_field(crop_location, "country").strip(),
+        location_sublocation=_str_field(crop_location, "sublocation").strip(),
+        locations_shown=crop_locations_shown,
+        source_text=_str_field(existing_state, "source_text"),
+        detections_payload=detections_payload,
+        create_date=_str_field(existing_state, "create_date"),
+        dc_date=dc_date,
+        date_time_original=_str_field(existing_state, "date_time_original"),
+        ocr_ran=bool(existing_state.get("ocr_ran", False)),
+        people_detected=bool(new_person_names),
+        people_identified=bool(new_person_names),
+    )
+
+
+def _propagate_one_crop(
+    crop_xmp: Path,
+    region_state: dict,
+    *,
+    names_from_region: list[str],
+    locations_shown: list,
+    page_location: dict[str, Any],
+    step_timestamp: str,
+    page_dc_date_values: list[str] | None = None,
+    geocoder: Any = None,
+) -> bool:
+    if not crop_xmp.is_file():
+        return False
+    existing_state = read_ai_sidecar_state(crop_xmp)
+    if not isinstance(existing_state, dict):
+        return False
+    existing_person_names = read_person_in_image(crop_xmp)
+    crop_location, crop_locations_shown, new_person_names = _resolve_crop_metadata(
+        region_state,
+        locations_shown,
+        page_location,
+        names_from_region,
+        existing_person_names,
+        geocoder=geocoder,
+    )
+    _write_propagated_crop(
+        crop_xmp,
+        existing_state,
+        crop_location=crop_location,
+        crop_locations_shown=crop_locations_shown,
+        new_person_names=new_person_names,
+        step_timestamp=step_timestamp,
+        region_caption=_region_caption(region_state),
+        page_dc_date_values=page_dc_date_values,
+    )
+    return True
+
+
+def _location_needs_geocoding(location: dict) -> bool:
+    normalized = normalize_location_payload(location)
+    has_address = bool(normalized.get("address") or str(location.get("name") or "").strip())
+    has_gps = bool(normalized.get("gps_latitude"))
+    return has_address and not has_gps
+
+
+def _propagation_needs_geocoder(locations_shown: list, regions: list) -> bool:
+    if any(_location_needs_geocoding(loc) for loc in locations_shown if isinstance(loc, dict)):
+        return True
+    return any(location_payload_from_caption(_region_caption(region)) for region in regions if isinstance(region, dict))
+
+
+def _propagate_all_crops(
+    crop_paths: list[Path],
+    regions: list[dict],
+    *,
+    region_person_names: list[list[str]],
+    locations_shown: list,
+    location_payload: dict[str, Any],
+    step_timestamp: str,
+    page_dc_date_values: list[str],
+    geocoder: Any,
+) -> int:
+    crops_updated = 0
+    for i, crop_path in enumerate(crop_paths):
+        names_from_region = region_person_names[i] if i < len(region_person_names) else []
+        region_state = regions[i] if i < len(regions) else {}
+        if _propagate_one_crop(
+            crop_path.with_suffix(".xmp"),
+            region_state,
+            names_from_region=names_from_region,
+            locations_shown=locations_shown,
+            page_location=location_payload,
+            step_timestamp=step_timestamp,
+            page_dc_date_values=page_dc_date_values,
+            geocoder=geocoder,
+        ):
+            crops_updated += 1
+    return crops_updated
+
+
+def run_propagate_to_crops(
+    image_path: Path,
+    *,
+    location_payload: dict[str, Any],
+    people_payload: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Propagate location GPS and person names from page XMP to each crop XMP.
+
+    Returns a dict with a 'crops_updated' count (for diagnostic use).
+    Eligible to return None if engine not configured, but this step always runs.
+    """
+    crop_paths = _find_crop_paths_for_page(image_path)
+    if not crop_paths:
+        return {"crops_updated": 0}
+
+    sidecar_path = image_path.with_suffix(".xmp")
+    img_w, img_h = _get_image_dimensions_safe(image_path)
+    regions = _read_regions_safe(sidecar_path, img_w, img_h)
+    region_person_names: list[list[str]] = [list(r.get("person_names") or []) for r in regions]
+    locations_shown = read_locations_shown(sidecar_path)
+    page_state = read_ai_sidecar_state(sidecar_path)
+    page_dc_date_values = list((page_state or {}).get("dc_date_values") or [])
+    step_timestamp = xmp_datetime_now()
+    geocoder = None
+    if _propagation_needs_geocoder(locations_shown, regions):
+        from .ai_geocode import NominatimGeocoder  # pylint: disable=import-outside-toplevel
+
+        geocoder = NominatimGeocoder()
+
+    crops_updated = _propagate_all_crops(
+        crop_paths,
+        regions,
+        region_person_names=region_person_names,
+        locations_shown=locations_shown,
+        location_payload=location_payload,
+        step_timestamp=step_timestamp,
+        page_dc_date_values=page_dc_date_values,
+        geocoder=geocoder,
+    )
+    return {"crops_updated": crops_updated}
+
+
+PROCESSOR_SIGNATURE = "page_split_v17_people_recovery_any_people"
+
+
+# YOLO object detection (previously ai_objects.py)
+
+
+def _resolve_model_reference(model_name: str) -> tuple[str, Path | None]:
+    text = str(model_name or "").strip()
+    if not text:
+        text = "models/yolo11n.pt"
+
+    path = Path(text).expanduser()
+    # Keep explicit paths unchanged so callers can still opt into custom models.
+    if path.is_absolute() or any(part not in {"", "."} for part in path.parts[:-1]):
+        return str(path), None
+
+    model_file = path.name
+    if model_file.lower().endswith(".pt"):
+        YOLO_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+        return model_file, YOLO_MODEL_DIR
+    return text, None
+
+
+@contextmanager
+def _pushd(path: Path):
+    current = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(current)
+
+
+@dataclass
+class ObjectDetection:
+    label: str
+    score: float
+
+
+def _boxes_to_label_scores(boxes, names: dict) -> dict[str, float]:
+    cls_vals = boxes.cls.tolist() if getattr(boxes, "cls", None) is not None else []
+    conf_vals = boxes.conf.tolist() if getattr(boxes, "conf", None) is not None else []
+    labels_by_name: dict[str, float] = {}
+    for idx, raw in enumerate(cls_vals):
+        label = str(names.get(int(raw), int(raw)))
+        score = float(conf_vals[idx]) if idx < len(conf_vals) else 0.0
+        current = labels_by_name.get(label)
+        if current is None or score > current:
+            labels_by_name[label] = score
+    return labels_by_name
+
+
+class YOLOObjectDetector:
+    def __init__(
+        self,
+        *,
+        model_name: str = "models/yolo11n.pt",
+        confidence: float = 0.30,
+        max_detections: int = 100,
+    ):
+        try:
+            from ultralytics import YOLO
+        except Exception as exc:  # pragma: no cover - dependency optional
+            raise RuntimeError(
+                "Ultralytics is required for object detection. Run 'uv sync' to install project dependencies."
+            ) from exc
+
+        model_ref, model_dir = _resolve_model_reference(model_name)
+        if model_dir is None:
+            self._model = YOLO(model_ref)
+        else:
+            # When downloading stock YOLO weights, keep them under repo-root models/.
+            with _pushd(model_dir):
+                self._model = YOLO(model_ref)
+        self.model_name = str(model_name or "models/yolo11n.pt")
+        self.confidence = float(confidence)
+        self.max_detections = int(max_detections)
+
+    def detect_image(self, image_path: str | Path) -> list[ObjectDetection]:
+        import cv2
+
+        img = cv2.imread(str(image_path))
+        if img is not None and (img.ndim == 2 or (img.ndim == 3 and img.shape[2] == 1)):
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        source = img if img is not None else str(image_path)
+        results = self._model.predict(
+            source=source,
+            conf=self.confidence,
+            max_det=self.max_detections,
+            verbose=False,
+        )
+        if not results:
+            return []
+        result = results[0]
+        boxes = getattr(result, "boxes", None)
+        if boxes is None:
+            return []
+        names = getattr(result, "names", {}) or {}
+        labels_by_name = _boxes_to_label_scores(boxes, names)
+        out = [ObjectDetection(label=label, score=score) for label, score in labels_by_name.items()]
+        out.sort(key=lambda row: row.score, reverse=True)
+        return out
+
+
+def _init_people_matcher(
+    *,
+    cast_store: Path,
+    min_similarity: float,
+    min_face_size: int,
+) -> Any | None:
+    if cast_store is None:
+        return None
+    from .ai_people import CastPeopleMatcher
+
+    return CastPeopleMatcher(
+        cast_store_dir=cast_store,
+        min_similarity=float(min_similarity),
+        min_face_size=int(min_face_size),
+    )
+
+
+def _init_object_detector(
+    *,
+    model_name: str,
+    confidence: float,
+) -> Any | None:
+    if not str(model_name or "").strip():
+        return None
+    return YOLOObjectDetector(
+        model_name=str(model_name),
+        confidence=float(confidence),
+    )
+
+
+def _init_caption_engine(
+    *,
+    engine: str,
+    model_name: str,
+    caption_prompt: str,
+    max_tokens: int,
+    temperature: float,
+    lmstudio_base_url: str,
+    max_image_edge: int,
+    stream: bool = False,
+    thinking: bool = False,
+    override_sources: dict[str, str] | None = None,
+):
+    kwargs = {
+        "engine": str(engine),
+        "model_name": str(model_name),
+        "caption_prompt": str(caption_prompt),
+        "max_tokens": int(max_tokens),
+        "temperature": float(temperature),
+        "lmstudio_base_url": str(lmstudio_base_url),
+        "max_image_edge": int(max_image_edge),
+        "stream": stream,
+        "thinking": thinking,
+    }
+    if override_sources:
+        kwargs["override_sources"] = dict(override_sources)
+    return CaptionEngine(**kwargs)
+
+
+def _init_date_engine(
+    *,
+    engine: str,
+    model_name: str,
+    max_tokens: int,
+    temperature: float,
+    lmstudio_base_url: str,
+):
+    return DateEstimateEngine(
+        engine=str(engine),
+        model_name=str(model_name),
+        max_tokens=int(max_tokens),
+        temperature=float(temperature),
+        lmstudio_base_url=str(lmstudio_base_url),
+    )
+
+
+def _settings_signature(settings: dict[str, Any]) -> str:
+    caption_engine = str(settings.get("caption_engine", "lmstudio"))
+    caption_model = resolve_caption_model(
+        caption_engine,
+        str(settings.get("caption_model", "")),
+    )
+    compact = {
+        "processor_signature": PROCESSOR_SIGNATURE,
+        "skip": bool(settings.get("skip", False)),
+        "enable_people": bool(settings.get("enable_people", True)),
+        "enable_objects": bool(settings.get("enable_objects", True)),
+        "ocr_engine": str(settings.get("ocr_engine", "none")),
+        "ocr_lang": str(settings.get("ocr_lang", "eng")),
+        "ocr_model": str(settings.get("ocr_model", "")),
+        "people_threshold": float(settings.get("people_threshold", 0.72)),
+        "object_threshold": float(settings.get("object_threshold", 0.30)),
+        "min_face_size": int(settings.get("min_face_size", 40)),
+        "model": str(settings.get("model", "models/yolo11n.pt")),
+        "caption_engine": caption_engine,
+        "caption_model": caption_model,
+        "caption_prompt": str(settings.get("caption_prompt", "")),
+        "caption_max_tokens": int(settings.get("caption_max_tokens", 96)),
+        "caption_temperature": float(settings.get("caption_temperature", 0.2)),
+        "caption_max_edge": int(settings.get("caption_max_edge", 0)),
+        "lmstudio_base_url": normalize_lmstudio_base_url(
+            str(settings.get("lmstudio_base_url", default_lmstudio_base_url()))
+        ),
+    }
+    return json.dumps(compact, sort_keys=True, ensure_ascii=True)
+
+
 from .ai_index_scan import (
     _bounds_offset,
     _build_dc_source,
@@ -89,6 +1417,8 @@ from .ai_index_scan import (
     _resolve_archive_scan_authoritative_ocr,
     _scan_group_paths,
     _scan_group_signature,
+    _scan_number,
+    _scan_page_key,
 )
 from .ai_index_steps import StepRunner
 from .ai_location import (
@@ -98,12 +1428,155 @@ from .ai_location import (
 from .ai_metadata import MetadataEngine
 from .ai_ocr import OCREngine
 from .ai_page_layout import prepare_image_layout
-from .ai_processing_locks import (
-    _acquire_batch_processing_lock,
-    _acquire_image_processing_lock,
-    _release_batch_processing_lock,
-    _release_image_processing_lock,
+from .metadata_resolver import (
+    location_payload_from_caption,
+    location_shown_from_payload,
+    materialize_location_payload,
+    normalize_location_payload,
+    resolve_crop_location,
+    resolve_crop_locations_shown,
 )
+# Processing locks (previously ai_processing_locks.py)
+
+PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
+BATCH_LOCK_SUFFIX = ".photoalbums-ai.batch.lock"
+JOB_ID_ENV = "IMAGO_JOB_ID"
+
+
+def _processing_lock_path(image_path: Path) -> Path:
+    return image_path.with_name(f"{image_path.name}{PROCESSING_LOCK_SUFFIX}")
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _read_processing_lock(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _release_image_processing_lock(lock_path: Path | None) -> None:
+    if lock_path is None:
+        return
+    for attempt in range(5):
+        try:
+            lock_path.unlink()
+            return
+        except FileNotFoundError:
+            log.debug("Lock file already removed: %s", lock_path)
+            return
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) != 32:
+                raise
+            if attempt == 4:
+                return
+            time.sleep(0.1)
+
+
+def _release_batch_processing_lock(lock_path: Path | None) -> None:
+    _release_image_processing_lock(lock_path)
+
+
+def _clear_stale_processing_lock(lock_path: Path) -> bool:
+    payload = _read_processing_lock(lock_path)
+    pid = payload.get("pid")
+    if isinstance(pid, int) and pid > 0 and not _pid_alive(pid):
+        with contextlib.suppress(FileNotFoundError):
+            lock_path.unlink()
+        return True
+    return False
+
+
+def _cleanup_stale_processing_locks(photos_root: Path) -> list[Path]:
+    cleaned: list[Path] = []
+    if not photos_root.exists():
+        return cleaned
+
+    batch_lock_path = _batch_processing_lock_path(photos_root)
+    if _clear_stale_processing_lock(batch_lock_path):
+        cleaned.append(batch_lock_path)
+
+    for lock_path in photos_root.rglob(f"*{PROCESSING_LOCK_SUFFIX}"):
+        if _clear_stale_processing_lock(lock_path):
+            cleaned.append(lock_path)
+    return cleaned
+
+
+def _acquire_image_processing_lock(image_path: Path) -> Path:
+    lock_path = _processing_lock_path(image_path)
+    payload = {
+        "image_path": str(image_path.resolve()),
+        "pid": os.getpid(),
+        "job_id": str(os.environ.get(JOB_ID_ENV) or "").strip(),
+    }
+    for _ in range(2):
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            if _clear_stale_processing_lock(lock_path):
+                continue
+            current = _read_processing_lock(lock_path)
+            owner_parts = []
+            job_id = str(current.get("job_id") or "").strip()
+            if job_id:
+                owner_parts.append(f"job {job_id}")
+            pid = current.get("pid")
+            if isinstance(pid, int):
+                owner_parts.append(f"pid {pid}")
+            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
+            raise RuntimeError(f"already processing {image_path.name} ({owner})")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        return lock_path
+    raise RuntimeError(f"could not acquire processing lock for {image_path.name}")
+
+
+def _batch_processing_lock_path(photos_root: Path) -> Path:
+    return photos_root / BATCH_LOCK_SUFFIX
+
+
+def _acquire_batch_processing_lock(photos_root: Path) -> Path:
+    lock_path = _batch_processing_lock_path(photos_root)
+    payload = {
+        "photos_root": str(photos_root.resolve()),
+        "pid": os.getpid(),
+        "job_id": str(os.environ.get(JOB_ID_ENV) or "").strip(),
+    }
+    for _ in range(2):
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            if _clear_stale_processing_lock(lock_path):
+                continue
+            current = _read_processing_lock(lock_path)
+            owner_parts = []
+            current_root = str(current.get("photos_root") or "").strip()
+            if current_root:
+                owner_parts.append(current_root)
+            job_id = str(current.get("job_id") or "").strip()
+            if job_id:
+                owner_parts.append(f"job {job_id}")
+            pid = current.get("pid")
+            if isinstance(pid, int):
+                owner_parts.append(f"pid {pid}")
+            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
+            raise RuntimeError(f"another photoalbums ai batch run is already active ({owner})")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        return lock_path
+    raise RuntimeError("could not acquire photoalbums ai batch lock")
+
+
 from .ai_prompt_assets import load_params
 from .ai_render_settings import (
     find_archive_dir_for_image,
@@ -133,8 +1606,10 @@ from .xmp_sidecar import (
     read_locations_shown,
     read_person_in_image,
     read_pipeline_state,
+    read_region_list,
     sidecar_has_expected_ai_fields,
     write_xmp_sidecar,
+    xmp_datetime_now,
 )
 
 
@@ -1027,7 +2502,7 @@ class IndexRunner:
                 return reviewed_signature
         return str(people_matcher.store_signature())
 
-    # ── Per-image dispatch ──────────────────────────────────────────────────
+    # Per-image dispatch
 
     def _process_one(self, idx: int, image_path: Path) -> None:
         sidecar_path = image_path.with_suffix(".xmp")
@@ -1174,8 +2649,7 @@ class IndexRunner:
     def _check_album_title_missing(state: _ProcessOneState) -> None:
         existing_album_title = str((state.existing_sidecar_state or {}).get("album_title") or "").strip()
         if not existing_album_title and (
-            _is_album_title_source_candidate(state.image_path)
-            or _resolve_album_title_from_sidecars(state.image_path)
+            _is_album_title_source_candidate(state.image_path) or _resolve_album_title_from_sidecars(state.image_path)
         ):
             state.reprocess_required = True
             state.reprocess_reasons.append("missing_album_title")
@@ -1183,9 +2657,7 @@ class IndexRunner:
     @staticmethod
     def _check_stitched_authority_mismatch(state: _ProcessOneState) -> None:
         ocr_text = str((state.existing_sidecar_state or {}).get("ocr_text") or "")
-        if state.archive_stitched_ocr_required and not _sidecar_matches_stitched_authority(
-            state, _hash_text(ocr_text)
-        ):
+        if state.archive_stitched_ocr_required and not _sidecar_matches_stitched_authority(state, _hash_text(ocr_text)):
             state.reprocess_required = True
             state.reprocess_reasons.append("missing_stitched_authority")
 
@@ -1194,9 +2666,7 @@ class IndexRunner:
         if state.existing_sidecar_state is None:
             return
         old_sig = str(state.existing_sidecar_state.get("settings_signature") or "")
-        if old_sig != state.settings_sig and not (
-            state.existing_sidecar_current and state.existing_sidecar_complete
-        ):
+        if old_sig != state.settings_sig and not (state.existing_sidecar_current and state.existing_sidecar_complete):
             state.reprocess_required = True
             state.reprocess_reasons.append("settings_signature_mismatch")
 
@@ -1348,7 +2818,7 @@ class IndexRunner:
             extra_forced_steps=state.extra_forced or None,
         )
 
-    # ── Refresh fast-path ───────────────────────────────────────────────────
+    # Refresh fast-path
 
     def _process_refresh(
         self,
@@ -1488,7 +2958,7 @@ class IndexRunner:
             return self._get_date_engine(effective)
         return None
 
-    # ── People-update fast-path (deleted — routed via _process_full + StepRunner) ──
+    # People-update fast-path (deleted, routed via _process_full + StepRunner)
 
     def _process_people_update(
         self,
@@ -1817,7 +3287,7 @@ class IndexRunner:
             title_page_location=self.title_page_location,
         )
 
-    # ── GPS-update path ─────────────────────────────────────────────────────
+    # GPS-update path
 
     def _format_progress_prefix(self, idx: int, image_path: Path) -> str:
         eta_str = _format_eta(self.completed_times, len(self.files) - idx + 1)
@@ -1835,7 +3305,7 @@ class IndexRunner:
             flush=True,
         )
 
-    # ── Full processing path ────────────────────────────────────────────────
+    # Full processing path
 
     def _process_full(
         self,
@@ -2007,12 +3477,7 @@ class IndexRunner:
         existing_sidecar_state: dict | None,
         extra_forced_steps: set[str] | None,
     ) -> tuple[StepRunner, dict[str, Any]]:
-        from .ai_index_propagate import (  # pylint: disable=import-outside-toplevel
-            _crop_paths_signature as _cps_fn,
-        )
-        from .ai_index_propagate import (
-            _find_crop_paths_for_page,
-        )
+        # propagate functions now inlined at module level
 
         crop_paths = _find_crop_paths_for_page(image_path)
         step_settings = {
@@ -2026,7 +3491,7 @@ class IndexRunner:
             "nominatim_base_url": str(getattr(self.geocoder, "base_url", "") or "") if self.geocoder else "",
             "model": str(effective.get("model", self.defaults.get("model", ""))),
             "enable_objects": bool(effective.get("enable_objects", True)),
-            "crop_paths_signature": _cps_fn(crop_paths),
+            "crop_paths_signature": _crop_paths_signature(crop_paths),
         }
         existing_pipeline_state = read_pipeline_state(sidecar_path)
         existing_detections = dict((existing_sidecar_state or {}).get("detections") or {})
@@ -2259,7 +3724,6 @@ class IndexRunner:
         )
 
     def _run_propagate_to_crops(self, image_path: Path, outcome: _FullAnalysisOutcome) -> None:
-        from .ai_index_propagate import run_propagate_to_crops  # pylint: disable=import-outside-toplevel
 
         locations_out = dict(outcome.payload.get("location") or {})
         people_out = list(outcome.payload.get("people") or [])
