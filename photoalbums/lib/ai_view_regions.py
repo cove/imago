@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 from dataclasses import dataclass, field, replace
@@ -15,6 +16,7 @@ from .ai_model_settings import (
     default_docling_retries,
     default_view_region_model,
 )
+from .image_limits import allow_large_pillow_images
 from .image_limits import get_image_dimensions as _image_dimensions  # noqa
 from .prompt_debug import debug_root_for_image_path
 
@@ -25,6 +27,127 @@ log = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 300.0
 _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
+
+# Region debug rendering (previously ai_view_region_render.py)
+
+_MAX_EDGE = 1500
+
+_PALETTE = [
+    (255, 60, 60),  # red
+    (60, 255, 60),  # lime
+    (60, 220, 255),  # cyan
+    (255, 230, 0),  # yellow
+    (220, 60, 255),  # magenta
+    (255, 140, 0),  # orange
+    (255, 255, 255),  # white
+    (0, 160, 255),  # deepskyblue
+]
+
+
+def _load_default_font(ImageFont, size: int):
+    """Load the default PIL font at the requested size, falling back to the no-arg form."""
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _draw_label_background(draw, pos: tuple[int, int], label: str, font) -> None:
+    """Draw a dark background rectangle behind the label text if textbbox is available."""
+    try:
+        bbox = draw.textbbox(pos, label, font=font)
+        draw.rectangle(bbox, fill=(0, 0, 0, 180))
+    except AttributeError:
+        log.debug("textbbox unavailable in older Pillow; skipping label background")
+        return
+
+
+def _render_regions(
+    image_path: str | Path,
+    regions: list[dict],
+    output_path: str | Path,
+    *,
+    prompt_safe: bool,
+) -> bytes:
+    from PIL import Image, ImageDraw, ImageFont  # pylint: disable=import-outside-toplevel
+
+    allow_large_pillow_images(Image)
+
+    path = Path(image_path)
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    img = Image.open(str(path)).convert("RGB")
+    try:
+        orig_w, orig_h = img.size
+        longest = max(orig_w, orig_h)
+        if longest > _MAX_EDGE:
+            scale = _MAX_EDGE / longest
+            new_w = max(1, int(round(orig_w * scale)))
+            new_h = max(1, int(round(orig_h * scale)))
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        else:
+            scale = 1.0
+
+        draw_w, draw_h = img.size
+        outline_width = max(2, draw_w // 400)
+
+        draw = ImageDraw.Draw(img)
+        font = _load_default_font(ImageFont, size=max(12, draw_w // 60))
+
+        for reg in regions:
+            idx = int(reg.get("index") or 0)
+            colour = _PALETTE[idx % len(_PALETTE)]
+
+            # Scale pixel coords to downscaled image
+            rx = int(round(reg["x"] * scale))
+            ry = int(round(reg["y"] * scale))
+            rw = int(round(reg["width"] * scale))
+            rh = int(round(reg["height"] * scale))
+
+            # Clamp to image bounds
+            x0 = max(0, min(draw_w - 1, rx))
+            y0 = max(0, min(draw_h - 1, ry))
+            x1 = max(x0, min(draw_w - 1, rx + rw))
+            y1 = max(y0, min(draw_h - 1, ry + rh))
+
+            draw.rectangle([x0, y0, x1, y1], outline=colour, width=outline_width)
+
+            label = f"#{idx + 1}"
+            caption = str(reg.get("caption") or "").strip()
+            if caption and not prompt_safe:
+                max_cap = 30
+                label += f" {caption[:max_cap]}{'...' if len(caption) > max_cap else ''}"
+
+            # Draw label background and text
+            label_pos = (x0 + outline_width, y0 + outline_width)
+            _draw_label_background(draw, label_pos, label, font)
+            draw.text(label_pos, label, fill=colour, font=font)
+
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=88)
+        jpeg_bytes = buf.getvalue()
+
+        out_path.write_bytes(jpeg_bytes)
+        return jpeg_bytes
+    finally:
+        img.close()
+
+
+def render_regions_debug(
+    image_path: str | Path,
+    regions: list[dict],
+    output_path: str | Path,
+) -> bytes:
+    return _render_regions(image_path, regions, output_path, prompt_safe=False)
+
+
+def render_regions_overlay(
+    image_path: str | Path,
+    regions: list[dict],
+    output_path: str | Path,
+) -> bytes:
+    return _render_regions(image_path, regions, output_path, prompt_safe=True)
 
 
 @dataclass(frozen=True)
@@ -235,9 +358,6 @@ def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[Regio
     return results
 
 
-
-
-
 def _failed_regions_debug_path(image_path: str | Path, attempt_number: int | None = None) -> Path:
     path = Path(image_path)
     filename = f"{path.stem}.view-regions.failed-boxes.jpg"
@@ -321,8 +441,6 @@ def _write_accepted_regions_debug_image(
     *,
     attempt_number: int | None = None,
 ) -> Path | None:
-    from .ai_view_region_render import render_regions_debug  # pylint: disable=import-outside-toplevel
-
     overlay_regions: list[dict[str, object]] = []
     for region in sorted(regions, key=lambda item: item.index):
         label_parts: list[str] = []
@@ -356,8 +474,6 @@ def _write_region_association_overlay_image(
     *,
     attempt_number: int | None = None,
 ) -> Path | None:
-    from .ai_view_region_render import render_regions_overlay  # pylint: disable=import-outside-toplevel
-
     overlay_regions = [
         {
             "index": region.index,
@@ -398,8 +514,6 @@ def _write_failed_regions_debug_image(
 ) -> Path | None:
     if not regions:
         return None
-
-    from .ai_view_region_render import render_regions_debug  # pylint: disable=import-outside-toplevel
 
     page_level_notes: list[str] = []
     notes_by_index: dict[int, list[str]] = {}

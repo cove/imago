@@ -22,8 +22,6 @@ from cast.storage import TextFaceStore
 from photoalbums.lib import (
     ai_index,
     ai_index_analysis,
-    ai_index_args,
-    ai_index_engine_cache,
     ai_index_runner,
     xmp_sidecar,
 )
@@ -123,7 +121,7 @@ class TestAIIndex(unittest.TestCase):
             scan1.write_bytes(b"a")
             scan2.write_bytes(b"b")
 
-            with mock.patch.object(ai_index, "append_job_artifact") as append_mock:
+            with mock.patch.object(ai_index_runner, "append_job_artifact") as append_mock:
                 ai_index._append_xmp_job_artifact(scan1, scan1.with_suffix(".xmp"))
 
             payload = append_mock.call_args.args[0]
@@ -3704,7 +3702,7 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
                 mock.patch.object(ai_index_runner, "_mirror_page_sidecars"),
-                mock.patch.object(ai_index, "append_job_artifact") as append_mock,
+                mock.patch.object(ai_index_runner, "append_job_artifact") as append_mock,
             ):
                 result = ai_index.run(
                     [
@@ -3833,7 +3831,7 @@ class TestAIIndex(unittest.TestCase):
                 mock.patch.object(ai_index_runner, "_run_image_analysis", return_value=analysis) as analysis_mock,
                 mock.patch.object(ai_index_runner, "_build_flat_payload", return_value=analysis.payload),
                 mock.patch.object(ai_index_runner, "_resolve_dc_date", return_value=""),
-                mock.patch.object(ai_index_engine_cache, "CaptionEngine", return_value=fake_caption_engine),
+                mock.patch.object(ai_index_runner, "CaptionEngine", return_value=fake_caption_engine),
                 mock.patch.object(ai_index_runner, "write_xmp_sidecar") as write_mock,
                 mock.patch.object(ai_index_runner, "_mirror_page_sidecars"),
                 mock.patch.object(
@@ -3852,7 +3850,7 @@ class TestAIIndex(unittest.TestCase):
                     ),
                 ),
                 mock.patch.object(
-                    ai_index,
+                    ai_index_runner,
                     "append_job_artifact",
                     side_effect=lambda record: recorded_artifacts.append(record),
                 ),
@@ -4176,8 +4174,8 @@ class TestAIIndex(unittest.TestCase):
 
     def test_parse_args_defaults_use_lmstudio_for_caption_and_disable_ocr(self):
         with (
-            mock.patch.object(ai_index_args, "default_ocr_model", return_value="qwen/qwen3-vl-30b"),
-            mock.patch.object(ai_index_args, "default_lmstudio_base_url", return_value="http://lmstudio.local:1234/v1"),
+            mock.patch.object(ai_index_runner, "default_ocr_model", return_value="qwen/qwen3-vl-30b"),
+            mock.patch.object(ai_index_runner, "default_lmstudio_base_url", return_value="http://lmstudio.local:1234/v1"),
         ):
             args = ai_index.parse_args([])
         self.assertEqual(args.caption_engine, "lmstudio")
@@ -4191,7 +4189,7 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(args.caption_max_edge, 0)
 
     def test_init_caption_engine_forwards_caption_prompt(self):
-        with mock.patch.object(ai_index_engine_cache, "CaptionEngine") as engine_ctor:
+        with mock.patch.object(ai_index_runner, "CaptionEngine") as engine_ctor:
             ai_index._init_caption_engine(
                 engine="lmstudio",
                 model_name="qwen2.5-vl-instruct",

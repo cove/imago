@@ -35,7 +35,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
             self.skipTest("PIL not available")
 
     def test_returns_valid_jpeg_bytes(self):
-        from photoalbums.lib.ai_view_region_render import render_regions_debug
+        from photoalbums.lib.ai_view_regions import render_regions_debug
 
         regions = [
             {"index": 0, "x": 0, "y": 0, "width": 400, "height": 600, "caption": "Left"},
@@ -55,7 +55,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
             self.assertEqual(out_path.read_bytes(), result)
 
     def test_empty_regions_still_returns_valid_jpeg(self):
-        from photoalbums.lib.ai_view_region_render import render_regions_debug
+        from photoalbums.lib.ai_view_regions import render_regions_debug
 
         with tempfile.TemporaryDirectory() as tmp:
             img_path = Path(tmp) / "test_V.jpg"
@@ -69,7 +69,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
     def test_downscales_large_image(self):
         from PIL import Image
 
-        from photoalbums.lib.ai_view_region_render import _MAX_EDGE, render_regions_debug
+        from photoalbums.lib.ai_view_regions import _MAX_EDGE, render_regions_debug
 
         with tempfile.TemporaryDirectory() as tmp:
             # Image larger than _MAX_EDGE on longest edge
@@ -87,7 +87,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
     def test_small_image_not_upscaled(self):
         from PIL import Image
 
-        from photoalbums.lib.ai_view_region_render import render_regions_debug
+        from photoalbums.lib.ai_view_regions import render_regions_debug
 
         with tempfile.TemporaryDirectory() as tmp:
             small_w, small_h = 400, 300
@@ -103,7 +103,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
             self.assertEqual(out_h, small_h)
 
     def test_prompt_safe_overlay_ignores_caption_text(self):
-        from photoalbums.lib.ai_view_region_render import render_regions_overlay
+        from photoalbums.lib.ai_view_regions import render_regions_overlay
 
         regions_a = [{"index": 0, "x": 50, "y": 30, "width": 120, "height": 90, "caption": "Temple visit"}]
         regions_b = [{"index": 0, "x": 50, "y": 30, "width": 120, "height": 90, "caption": "Audrey Cordell"}]
@@ -119,7 +119,7 @@ class TestRenderRegionsDebug(unittest.TestCase):
             self.assertEqual(result_a, result_b)
 
     def test_prompt_safe_overlay_draws_region_marks(self):
-        from photoalbums.lib.ai_view_region_render import render_regions_overlay
+        from photoalbums.lib.ai_view_regions import render_regions_overlay
 
         regions = [{"index": 0, "x": 40, "y": 40, "width": 120, "height": 120}]
         with tempfile.TemporaryDirectory() as tmp:

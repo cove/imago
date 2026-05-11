@@ -13,7 +13,9 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib import ai_index, ai_processing_locks
+from photoalbums.lib import ai_index_runner
+
+ai_index = ai_index_runner
 
 
 class TestAIIndexLocking(unittest.TestCase):
@@ -96,29 +98,29 @@ class TestAIIndexLocking(unittest.TestCase):
         image_path = self.root / "Photo_01.jpg"
         image_path.touch()
 
-        lock_path = ai_index._acquire_image_processing_lock(image_path)
+        lock_path = ai_index_runner._acquire_image_processing_lock(image_path)
         try:
             with self.assertRaises(RuntimeError) as exc:
-                ai_index._acquire_image_processing_lock(image_path)
+                ai_index_runner._acquire_image_processing_lock(image_path)
             self.assertIn("already processing", str(exc.exception))
         finally:
-            ai_index._release_image_processing_lock(lock_path)
+            ai_index_runner._release_image_processing_lock(lock_path)
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_image_processing_lock_clears_stale_lock(self):
         image_path = self.root / "Photo_01.jpg"
         image_path.touch()
-        lock_path = ai_processing_locks._processing_lock_path(image_path)
+        lock_path = ai_index._processing_lock_path(image_path)
         lock_path.write_text('{"pid": 999999, "job_id": "old"}', encoding="utf-8")
 
-        with mock.patch.object(ai_processing_locks, "_pid_alive", return_value=False):
-            acquired = ai_index._acquire_image_processing_lock(image_path)
+        with mock.patch.object(ai_index, "_pid_alive", return_value=False):
+            acquired = ai_index_runner._acquire_image_processing_lock(image_path)
         try:
             self.assertEqual(acquired, lock_path)
-            payload = ai_processing_locks._read_processing_lock(lock_path)
-            self.assertEqual(payload["pid"], ai_processing_locks.os.getpid())
+            payload = ai_index._read_processing_lock(lock_path)
+            self.assertEqual(payload["pid"], ai_index.os.getpid())
         finally:
-            ai_index._release_image_processing_lock(acquired)
+            ai_index_runner._release_image_processing_lock(acquired)
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_release_image_processing_lock_retries_windows_sharing_violation(self):
@@ -134,9 +136,9 @@ class TestAIIndexLocking(unittest.TestCase):
                 autospec=True,
                 side_effect=[sharing_violation, None],
             ) as unlink,
-            mock.patch.object(ai_processing_locks.time, "sleep") as sleep,
+            mock.patch.object(ai_index.time, "sleep") as sleep,
         ):
-            ai_index._release_image_processing_lock(lock_path)
+            ai_index_runner._release_image_processing_lock(lock_path)
 
         self.assertEqual(unlink.call_count, 2)
         sleep.assert_called_once_with(0.1)
@@ -145,20 +147,20 @@ class TestAIIndexLocking(unittest.TestCase):
     def test_run_returns_error_when_single_photo_is_locked(self):
         image_path = self.root / "Photo_01.jpg"
         image_path.touch()
-        lock_path = ai_index._acquire_image_processing_lock(image_path)
+        lock_path = ai_index_runner._acquire_image_processing_lock(image_path)
         try:
             with mock.patch("sys.stdout", new=io.StringIO()), mock.patch("sys.stderr", new=io.StringIO()):
                 result = ai_index.run(self._single_photo_args(image_path))
             self.assertEqual(result, 1)
         finally:
-            ai_index._release_image_processing_lock(lock_path)
+            ai_index_runner._release_image_processing_lock(lock_path)
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_run_returns_error_when_batch_lock_exists(self):
         view_dir = self.root / "Album_Pages"
         view_dir.mkdir(parents=True)
         (view_dir / "Photo_01.jpg").touch()
-        batch_lock_path = ai_index._acquire_batch_processing_lock(self.root)
+        batch_lock_path = ai_index_runner._acquire_batch_processing_lock(self.root)
         try:
             stdout = io.StringIO()
             with mock.patch("sys.stdout", new=stdout), mock.patch("sys.stderr", new=io.StringIO()):
@@ -166,7 +168,7 @@ class TestAIIndexLocking(unittest.TestCase):
             self.assertEqual(result, 1)
             self.assertIn("another photoalbums ai batch run is already active", stdout.getvalue())
         finally:
-            ai_index._release_batch_processing_lock(batch_lock_path)
+            ai_index_runner._release_batch_processing_lock(batch_lock_path)
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_sharded_run_ignores_existing_batch_lock(self):
@@ -174,7 +176,7 @@ class TestAIIndexLocking(unittest.TestCase):
         view_dir.mkdir(parents=True)
         image_path = view_dir / "Photo_01.jpg"
         image_path.touch()
-        batch_lock_path = ai_index._acquire_batch_processing_lock(self.root)
+        batch_lock_path = ai_index_runner._acquire_batch_processing_lock(self.root)
         try:
             stdout = io.StringIO()
             args = self._batch_args() + ["--shard-count", "2", "--shard-index", "0", "--dry-run"]
@@ -193,7 +195,7 @@ class TestAIIndexLocking(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertIn("Processed: 1", stdout.getvalue())
         finally:
-            ai_index._release_batch_processing_lock(batch_lock_path)
+            ai_index_runner._release_batch_processing_lock(batch_lock_path)
 
     @skip("Temporarily disabled due to intermittent Windows KeyboardInterrupt reporting during pytest teardown.")
     def test_sharded_run_skips_locked_dependency_collision(self):
@@ -201,7 +203,7 @@ class TestAIIndexLocking(unittest.TestCase):
         view_dir.mkdir(parents=True)
         image_path = view_dir / "Photo_01.jpg"
         image_path.touch()
-        lock_path = ai_index._acquire_image_processing_lock(image_path)
+        lock_path = ai_index_runner._acquire_image_processing_lock(image_path)
         try:
             stdout = io.StringIO()
             args = self._batch_args() + ["--shard-count", "2", "--shard-index", "0", "--verbose"]
@@ -210,7 +212,7 @@ class TestAIIndexLocking(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertIn("skip  Photo_01.jpg (already processing", stdout.getvalue())
         finally:
-            ai_index._release_image_processing_lock(lock_path)
+            ai_index_runner._release_image_processing_lock(lock_path)
 
 
 if __name__ == "__main__":

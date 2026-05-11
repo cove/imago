@@ -1492,8 +1492,7 @@ def _run_image_analysis(
     existing_sidecar_state: dict | None = None,
     metadata_engine: MetadataEngine | None = None,
 ) -> ImageAnalysis:
-    # Deferred imports to avoid circular dependency with ai_index
-    from .ai_index import (  # pylint: disable=import-outside-toplevel
+    from .ai_index_runner import (  # pylint: disable=import-outside-toplevel
         _append_geocode_artifact,
         _apply_title_page_location_config,
         _compute_people_positions,
