@@ -12,7 +12,7 @@ cd "$repo_root"
 uv run python scripts/check_skylos.py --duplicates-only
 echo "[pre-push] Running Vulture dead-code check..."
 uv run python scripts/check_vulture.py
-echo "[pre-push] Running Radon complexity check..."
+echo "[pre-push] Running Ruff complexity check..."
 just complexity
 echo "[pre-push] Running tests..."
 just test
