@@ -35,9 +35,11 @@ dependencies = [
 [dependency-groups]
 dev = [
   "basedpyright",
+  "cosmic-ray>=8.4.6",
+  "mutmut>=3.5.0",
   "opencv-stubs",
   "pytest",
-  "radon",
+  "pytest-cov>=7.1.0",
   "ruff",
   "skylos",
   "vulture",

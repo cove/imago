@@ -16,6 +16,9 @@ bootstrap:
 test:
   {{python}} -m pytest "cast/tests" "photoalbums/tests" "vhs/test" "tests"
 
+codecoverage:
+  {{python}} -m pytest "cast/tests" "photoalbums/tests" "vhs/test" "tests" --cov=cast --cov=photoalbums --cov=vhs --cov=tests --cov-report=term-missing
+
 evals:
    {{python}} -m pytest photoalbums/tests/test_rule_extraction_eval.py -v -m integration -s
 
@@ -38,7 +41,7 @@ deadcode:
   {{python}} scripts/check_vulture.py
 
 complexity:
-  {{python}} scripts/check_radon.py
+  {{ruff}} check --select C90 photoalbums vhs cast
 
 quality:
   {{python}} scripts/check_ruff.py
