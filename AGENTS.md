@@ -6,7 +6,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 - You use `just dupes`, `just deadcode`, `just complexity`, `just lint` and `just test` to validate the quality of the code changes.
 - Prefer stateless and reconstructing state from ground truth and rather than storing data in a database when possible.
-- Limit code file sizes to about 500 lines.
+- Prefer fewer files with clear internal structure over many small files. A single module with logical sections is better than splitting into multiple files that only have one caller. Only create a new module when it has a genuinely distinct responsibility and will be imported from multiple places.
 - Do not use brittle regex and string replaacments to edit AI model responses, improve the prompt instead to get the correct output in JSON.
 - Always bubble up the underlining errors when error reporting, don't interpet the errors or discard low level errors, for example if you try to write to a file and you get a permission error, you would buble up the error to the user or write the log as: <intention or process failed due to>:<OS permission error output>.
 - Documentation: Don't add docstrings, comments, or type annotations to code you didn't change. Only add comments where the logic isn't self-evident.
