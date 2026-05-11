@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
+from typing import NamedTuple
 
 log = logging.getLogger(__name__)
 
@@ -989,6 +990,21 @@ def _bgr_to_jpeg_b64(bgr: np.ndarray, width: int = 160) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+class FrameCallbackData(NamedTuple):
+    fid: int
+    frame_b64: str
+    chroma: float
+    noise: float
+    tear: float
+    wave: float
+    done: int
+    total: int
+
+    @property
+    def progress(self) -> float:
+        return self.done / max(self.total, 1)
+
+
 def _process_extracted_frame(
     *,
     fid: int,
@@ -1014,16 +1030,16 @@ def _process_extracted_frame(
     tear_s.append(te)
     wave_s.append(wa)
     if callable(frame_callback):
-        frame_callback(
-            fid,
-            frame_thumb,
-            float(ch),
-            float(no),
-            float(te),
-            float(wa),
-            idx + 1,
-            len(frame_ids),
-        )
+        frame_callback(FrameCallbackData(
+            fid=fid,
+            frame_b64=frame_thumb,
+            chroma=float(ch),
+            noise=float(no),
+            tear=float(te),
+            wave=float(wa),
+            done=idx + 1,
+            total=len(frame_ids),
+        ))
 
 
 def extract_frames(

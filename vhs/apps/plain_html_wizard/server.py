@@ -65,6 +65,7 @@ from common import (
 from libs.vhs_tuner_core import (
     RENDER_DEBUG_EXTRACT_FRAME_NUMBERS_ENV,
     TUNER_DEBUG_EXTRACT_ENV,
+    FrameCallbackData,
     _chapter_bad_overrides,
     _chapter_extract_cache_path,
     _ensure_render_chapter_extract,
@@ -4014,13 +4015,13 @@ class WizardHandler(BaseHTTPRequestHandler):
                 sample_total=frame_target,
             )
 
-        def _sample_frame(fid, frame_b64, chroma, noise, tear, wave, _done, _total) -> None:
-            session.partial_fids.append(int(fid))
-            session.partial_b64.append(str(frame_b64 or ""))
-            session.partial_sigs["chroma"].append(float(chroma))
-            session.partial_sigs["noise"].append(float(noise))
-            session.partial_sigs["tear"].append(float(tear))
-            session.partial_sigs["wave"].append(float(wave))
+        def _sample_frame(d: FrameCallbackData) -> None:
+            session.partial_fids.append(d.fid)
+            session.partial_b64.append(d.frame_b64)
+            session.partial_sigs["chroma"].append(d.chroma)
+            session.partial_sigs["noise"].append(d.noise)
+            session.partial_sigs["tear"].append(d.tear)
+            session.partial_sigs["wave"].append(d.wave)
 
         fids, b64, sigs, err = extract_frames(
             str(read_video),

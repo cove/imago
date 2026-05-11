@@ -32,7 +32,7 @@ from apps.plain_html_wizard.server import (
     _set_load_progress,
 )
 from common import merge_bad_frames_in_render_settings
-from libs.vhs_tuner_core import _chapter_bad_overrides
+from libs.vhs_tuner_core import FrameCallbackData, _chapter_bad_overrides
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "apps" / "plain_html_wizard" / "static" / "index.html"
@@ -854,8 +854,8 @@ def test_handle_load_chapter_populates_session_from_video_and_metadata(
         if callable(progress):
             progress(0.5, "half")
         if callable(frame_callback):
-            frame_callback(100, "data:image/jpeg;base64,AA==", 0.1, 0.0, 0.0, 0.0, 1, 3)
-            frame_callback(101, "data:image/jpeg;base64,AQ==", 0.2, 0.0, 0.0, 0.0, 2, 3)
+            frame_callback(FrameCallbackData(fid=100, frame_b64="data:image/jpeg;base64,AA==", chroma=0.1, noise=0.0, tear=0.0, wave=0.0, done=1, total=3))
+            frame_callback(FrameCallbackData(fid=101, frame_b64="data:image/jpeg;base64,AQ==", chroma=0.2, noise=0.0, tear=0.0, wave=0.0, done=2, total=3))
         sigs = {
             "chroma": np.array([0.1, 0.2, 0.3], dtype=np.float64),
             "noise": np.zeros(3, dtype=np.float64),
