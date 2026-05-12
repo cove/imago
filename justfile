@@ -43,10 +43,7 @@ deadcode:
 complexity:
   {{ruff}} check --select C90 photoalbums vhs cast
 
-quality:
-  {{python}} scripts/check_ruff.py
-  {{python}} scripts/check_basedpyright.py
-  {{python}} scripts/check_skylos.py
+quality: lint typecheck dupes skylos deadcode complexity
 
 verification:
   uv run qodo

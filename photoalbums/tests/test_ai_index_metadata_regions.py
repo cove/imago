@@ -575,7 +575,7 @@ class TestMetadataResponseParsing(unittest.TestCase):
 
         captured: dict = {}
 
-        def _fake_request(_url, *, payload, timeout):  # noqa: ARG001
+        def _fake_request(_url, *, payload, timeout):
             captured["payload"] = payload
             return {
                 "choices": [

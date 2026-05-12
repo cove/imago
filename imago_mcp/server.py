@@ -1031,7 +1031,7 @@ def photoalbums_render_view_regions(
     import base64  # pylint: disable=import-outside-toplevel
     from photoalbums.lib.xmp_sidecar import read_region_list  # pylint: disable=import-outside-toplevel
     from photoalbums.lib.ai_view_regions import _image_dimensions  # pylint: disable=import-outside-toplevel
-    from photoalbums.lib.ai_view_region_render import render_regions_debug  # pylint: disable=import-outside-toplevel
+    from photoalbums.lib.ai_view_regions import render_regions_debug  # pylint: disable=import-outside-toplevel
 
     set_config = _archive_set(album_set)
     photos_root = Path(set_config.photos_root)

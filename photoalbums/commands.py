@@ -331,13 +331,13 @@ def _is_derived_view(filename: str) -> bool:
 
 
 def _acquire_page_pipeline_lock(page_image_path: Path) -> Path:
-    from .lib.ai_processing_locks import _acquire_image_processing_lock
+    from .lib.ai_index_runner import _acquire_image_processing_lock
 
     return _acquire_image_processing_lock(page_image_path)
 
 
 def _release_page_pipeline_lock(lock_path: Path | None) -> None:
-    from .lib.ai_processing_locks import _release_image_processing_lock
+    from .lib.ai_index_runner import _release_image_processing_lock
 
     _release_image_processing_lock(lock_path)
 
@@ -544,7 +544,9 @@ def _render_pipeline_detect_regions(
     summary: dict[str, int],
     deps: dict,
 ) -> None:
-    if _check_skip_detect_regions(xmp_path, view_path, force=force, skip_validation=skip_validation, summary=summary, deps=deps):
+    if _check_skip_detect_regions(
+        xmp_path, view_path, force=force, skip_validation=skip_validation, summary=summary, deps=deps
+    ):
         return
 
     if not force and deps["read_pipeline_step"](xmp_path, "view_regions") is not None:
@@ -555,9 +557,14 @@ def _render_pipeline_detect_regions(
     prompt_debug = deps["PromptDebugSession"](view_path, label=view_path.name) if debug else None
     try:
         regions = deps["detect_regions"](
-            view_path, force=force, album_context=album_context, page_caption=page_caption,
-            people_roster=people_roster, prompt_debug=prompt_debug,
-            skip_validation=skip_validation, write_debug=debug,
+            view_path,
+            force=force,
+            album_context=album_context,
+            page_caption=page_caption,
+            people_roster=people_roster,
+            prompt_debug=prompt_debug,
+            skip_validation=skip_validation,
+            write_debug=debug,
         )
     finally:
         debug_path = _write_view_regions_debug_artifact(prompt_debug, image_path=view_path)
@@ -566,8 +573,15 @@ def _render_pipeline_detect_regions(
     if debug:
         _print_render_pipeline_debug_paths(view_path, deps)
     _write_detect_regions_result(
-        xmp_path, view_path, regions,
-        img_w=img_w, img_h=img_h, model_name=model_name, debug=debug, summary=summary, deps=deps,
+        xmp_path,
+        view_path,
+        regions,
+        img_w=img_w,
+        img_h=img_h,
+        model_name=model_name,
+        debug=debug,
+        summary=summary,
+        deps=deps,
     )
 
 
@@ -654,8 +668,12 @@ def _render_pipeline_propagate_metadata(*, xmp_path, view_path, archive_sidecar,
             deps["propagate_archive_copy_safe_fields"](xmp_path, archive_sidecar)
     except Exception as exc:
         _record_render_pipeline_failure(
-            failures=failures, summary=summary, page_label=page_label,
-            step="propagate-archive-metadata", exc=exc, warning=True,
+            failures=failures,
+            summary=summary,
+            page_label=page_label,
+            step="propagate-archive-metadata",
+            exc=exc,
+            warning=True,
         )
 
 
@@ -702,8 +720,13 @@ def _run_render_pipeline_locked_steps(
         return
 
     _render_pipeline_propagate_metadata(
-        xmp_path=xmp_path, view_path=view_path, archive_sidecar=archive_sidecar,
-        failures=failures, summary=summary, page_label=page_label, deps=deps,
+        xmp_path=xmp_path,
+        view_path=view_path,
+        archive_sidecar=archive_sidecar,
+        failures=failures,
+        summary=summary,
+        page_label=page_label,
+        deps=deps,
     )
 
     if _is_title_page_view(view_path):
@@ -715,8 +738,15 @@ def _run_render_pipeline_locked_steps(
     else:
         try:
             _render_pipeline_detect_regions(
-                view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
-                force=force, debug=debug, skip_validation=skip_validation, summary=summary, deps=deps,
+                view_path=view_path,
+                xmp_path=xmp_path,
+                root=root,
+                model_name=model_name,
+                force=force,
+                debug=debug,
+                skip_validation=skip_validation,
+                summary=summary,
+                deps=deps,
             )
         except Exception as exc:
             _record_render_pipeline_failure(
@@ -726,8 +756,12 @@ def _run_render_pipeline_locked_steps(
         if not skip_crops:
             try:
                 _render_pipeline_crop_regions(
-                    view_path=view_path, photos_dir=photos_dir, force=force,
-                    force_restoration=force_restoration, summary=summary, deps=deps,
+                    view_path=view_path,
+                    photos_dir=photos_dir,
+                    force=force,
+                    force_restoration=force_restoration,
+                    summary=summary,
+                    deps=deps,
                 )
             except Exception as exc:
                 _record_render_pipeline_failure(
@@ -1047,14 +1081,27 @@ def _dispatch_pipeline_step(
             _print_outcome(outcome, stale_dep)
         case "propagate-metadata":
             _run_pipeline_propagate_metadata_step(
-                xmp_path=xmp_path, view_path=view_path, archive_sidecar=archive_sidecar,
-                counters=counters, step_just_ran=step_just_ran, stale_dep=stale_dep, deps=deps,
+                xmp_path=xmp_path,
+                view_path=view_path,
+                archive_sidecar=archive_sidecar,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
             )
         case "detect-regions":
             _run_pipeline_detect_regions_step(
-                view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
-                force=force_this_step, debug=debug, no_validation=no_validation,
-                counters=counters, step_just_ran=step_just_ran, stale_dep=stale_dep, deps=deps,
+                view_path=view_path,
+                xmp_path=xmp_path,
+                root=root,
+                model_name=model_name,
+                force=force_this_step,
+                debug=debug,
+                no_validation=no_validation,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
             )
         case "crop-regions":
             _run_pipeline_crop_regions_step(
@@ -1153,15 +1200,32 @@ def _run_process_pipeline_step(
 
     try:
         ai_page_idx = _dispatch_pipeline_step(
-            step=step, group=group, primary_scan=primary_scan,
-            view_path=view_path, xmp_path=xmp_path, archive_sidecar=archive_sidecar,
-            archive=archive, view_dir=view_dir, photos_dir=photos_dir,
-            current_page=current_page, current_page_token=current_page_token,
-            counters=counters, step_just_ran=step_just_ran, stale_dep=stale_dep,
-            ai_runner=ai_runner, ai_page_idx=ai_page_idx, face_session=face_session,
-            root=root, model_name=model_name, force_this_step=force_this_step,
-            debug=debug, no_validation=no_validation, skip_restoration=skip_restoration,
-            force_restoration=force_restoration, should_redo=should_redo, deps=deps,
+            step=step,
+            group=group,
+            primary_scan=primary_scan,
+            view_path=view_path,
+            xmp_path=xmp_path,
+            archive_sidecar=archive_sidecar,
+            archive=archive,
+            view_dir=view_dir,
+            photos_dir=photos_dir,
+            current_page=current_page,
+            current_page_token=current_page_token,
+            counters=counters,
+            step_just_ran=step_just_ran,
+            stale_dep=stale_dep,
+            ai_runner=ai_runner,
+            ai_page_idx=ai_page_idx,
+            face_session=face_session,
+            root=root,
+            model_name=model_name,
+            force_this_step=force_this_step,
+            debug=debug,
+            no_validation=no_validation,
+            skip_restoration=skip_restoration,
+            force_restoration=force_restoration,
+            should_redo=should_redo,
+            deps=deps,
         )
     except Exception as exc:
         counters[step.id]["failed"] += 1
@@ -1183,12 +1247,28 @@ def _run_pipeline_propagate_metadata_step(
 
 
 def _run_pipeline_detect_regions_step(
-    *, view_path, xmp_path, root, model_name, force, debug, no_validation,
-    counters, step_just_ran, stale_dep, deps,
+    *,
+    view_path,
+    xmp_path,
+    root,
+    model_name,
+    force,
+    debug,
+    no_validation,
+    counters,
+    step_just_ran,
+    stale_dep,
+    deps,
 ) -> None:
     skipped, _ran = _run_step_detect_regions(
-        view_path=view_path, xmp_path=xmp_path, root=root, model_name=model_name,
-        force=force, debug=debug, skip_validation=no_validation, counters=counters,
+        view_path=view_path,
+        xmp_path=xmp_path,
+        root=root,
+        model_name=model_name,
+        force=force,
+        debug=debug,
+        skip_validation=no_validation,
+        counters=counters,
         prompt_debug_cls=deps["PromptDebugSession"] if debug else None,
         write_region_list=deps["write_region_list"],
         read_pipeline_step=deps["read_pipeline_step"],
@@ -2198,8 +2278,12 @@ def _detect_view_regions_for_path(
 
         if not regions:
             _handle_no_detected_view_regions(
-                view_path, xmp_path, redetect_reason=redetect_reason,
-                img_w=img_w, img_h=img_h, model_name=model_name,
+                view_path,
+                xmp_path,
+                redetect_reason=redetect_reason,
+                img_w=img_w,
+                img_h=img_h,
+                model_name=model_name,
                 _failed_regions_debug_path=_failed_regions_debug_path,
                 read_pipeline_step=read_pipeline_step,
                 write_pipeline_step=write_pipeline_step,

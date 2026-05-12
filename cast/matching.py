@@ -26,8 +26,7 @@ def face_embedding_model(face: dict[str, Any]) -> str:
 
 def parse_embedding(raw: Any) -> np.ndarray:
     if isinstance(raw, np.ndarray):
-        arr = raw.astype(np.float32).reshape(-1)
-        return arr
+        return raw.astype(np.float32).reshape(-1)
     if isinstance(raw, (list, tuple)):
         values = [float(item) for item in raw]
         return np.asarray(values, dtype=np.float32).reshape(-1)
@@ -191,10 +190,7 @@ def suggest_people_from_prototypes(
             if candidate.shape != query.shape:
                 continue
             exemplar_scores.append(float(np.dot(query, candidate)))
-        if exemplar_scores:
-            exemplar_score = float(max(exemplar_scores))
-        else:
-            exemplar_score = prototype_score
+        exemplar_score = float(max(exemplar_scores)) if exemplar_scores else prototype_score
 
         sample_count = int(details.get("count", 0))
         normalized_count = float(min(_COUNT_BOOST_CAP, max(0, sample_count))) / float(_COUNT_BOOST_CAP)

@@ -17,7 +17,7 @@ from .ai_model_settings import (
     default_view_region_model,
 )
 from .image_limits import allow_large_pillow_images
-from .image_limits import get_image_dimensions as _image_dimensions  # noqa
+from .image_limits import get_image_dimensions as _image_dimensions
 from .prompt_debug import debug_root_for_image_path
 
 if TYPE_CHECKING:

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import cv2
 import numpy as np
+import pytest
 
 from cast import ingest
 from cast.ingest import FaceIngestor, crop_has_visual_detail
@@ -222,11 +223,9 @@ def test_ingest_photo_rejects_directory_path(tmp_path):
     folder = tmp_path / "not_a_photo"
     folder.mkdir()
 
-    try:
+    with pytest.raises(IsADirectoryError) as exc_info:
         ingestor.ingest_photo(image_path=folder)
-        assert False, "Expected IsADirectoryError"
-    except IsADirectoryError as exc:
-        log.debug("ingest_photo correctly raised IsADirectoryError: %s", exc)
+    log.debug("ingest_photo correctly raised IsADirectoryError: %s", exc_info.value)
 
 
 def test_get_insightface_app_suppresses_startup_noise(monkeypatch):
@@ -264,11 +263,8 @@ def test_ingest_photo_requires_primary_model_when_configured(tmp_path):
     cv2.rectangle(image, (30, 30), (90, 90), (220, 220, 220), -1)
     cv2.imwrite(str(image_path), image)
 
-    try:
+    with pytest.raises(RuntimeError, match="InsightFace buffalo_l is unavailable"):
         ingestor.ingest_photo(image_path=image_path, max_faces=5)
-        assert False, "Expected RuntimeError"
-    except RuntimeError as exc:
-        assert "InsightFace buffalo_l is unavailable" in str(exc)
 
 
 def test_resolve_haarcascade_dir_falls_back_to_cv2_data_dir_neighbor(tmp_path, monkeypatch):

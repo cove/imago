@@ -9,8 +9,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from cast.storage import TextFaceStore
-from photoalbums.lib.ai_people import CastPeopleMatcher
-from photoalbums.lib.ai_people import _rembg_providers
+from photoalbums.lib.ai_people import CastPeopleMatcher, _rembg_providers
 
 
 def test_matcher_refreshes_legacy_reviewed_face_to_current_model(tmp_path, monkeypatch):

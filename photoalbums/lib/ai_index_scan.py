@@ -19,7 +19,7 @@ from .xmp_sidecar import _dedupe
 
 
 def _hash_text(value: str) -> str:
-    return hashlib.sha1(str(value or "").encode("utf-8")).hexdigest()
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()
 
 
 def _scan_page_key(image_path: Path) -> str | None:

@@ -29,7 +29,7 @@ try:
 except Exception:
     AffineStitcher = None
 
-from photoalbums.common import (  # noqa: E402
+from photoalbums.common import (
     PHOTO_ALBUMS_DIR,
     configure_imagemagick,
     dir_created_ts,
@@ -37,7 +37,7 @@ from photoalbums.common import (  # noqa: E402
     list_archive_dirs,
     list_page_scan_groups,
 )
-from photoalbums.naming import (  # noqa: E402
+from photoalbums.naming import (
     BASE_PAGE_NAME_RE,
     SCAN_NAME_RE,
     SCAN_TIFF_RE,

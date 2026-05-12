@@ -7,7 +7,7 @@ import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
 log = logging.getLogger(__name__)
@@ -352,7 +352,7 @@ class _CastHandlerFaceMixin:
         faces = list(result.get("faces") or [])
         reviews_created, reviews_reused = self._auto_queue_faces(faces, top_k, policy) if auto_queue else (0, 0)
         top_photos = sorted(
-            list(result.get("per_photo") or []),
+            result.get("per_photo") or [],
             key=lambda row: int(row.get("faces_created", 0)),
             reverse=True,
         )[:10]
@@ -429,7 +429,7 @@ class _CastHandlerFaceMixin:
         if max(w, h) > max_dim:
             scale = float(max_dim) / float(max(w, h))
             image = cv2.resize(
-                image, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))), interpolation=cv2.INTER_AREA
+                image, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA
             )
 
         ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])  # type: ignore[arg-type]
@@ -692,7 +692,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         except Exception as exc:
             raise ValueError(f"Invalid JSON body: {exc}") from exc
         if not isinstance(payload, dict):
-            raise ValueError("JSON body must be an object.")
+            raise TypeError("JSON body must be an object.")
         return payload
 
     def _send_json(self, payload: Any, status: int = 200) -> None:
@@ -1499,7 +1499,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         all_names = (
             existing
             if display_name.casefold() in {str(name or "").casefold() for name in existing}
-            else existing + [display_name]
+            else [*existing, display_name]
         )
         merge_persons_xmp(xmp_path, all_names)
         verified_names = read_person_in_image(xmp_path)
@@ -1761,7 +1761,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
             return
         self._not_found()
 
-    _POST_ROUTE_MAP = {
+    _POST_ROUTE_MAP: ClassVar[dict[str, str]] = {
         "/api/people": "_handle_create_person",
         "/api/people/update": "_handle_update_person",
         "/api/faces": "_handle_create_face",

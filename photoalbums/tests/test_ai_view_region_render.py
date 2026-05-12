@@ -30,7 +30,7 @@ def _is_valid_jpeg(data: bytes) -> bool:
 class TestRenderRegionsDebug(unittest.TestCase):
     def setUp(self):
         try:
-            from PIL import Image  # noqa: F401
+            from PIL import Image
         except ImportError:
             self.skipTest("PIL not available")
 

@@ -1,6 +1,37 @@
 {
-  "files": {},
+  "files": {
+    "photoalbums/lib/ai_view_regions.py": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 723
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-11T05:30:37.084Z"
+    },
+    "photoalbums/lib/ai_index_runner.py": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 3778
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-11T05:30:37.362Z"
+    },
+    "photoalbums/commands.py": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 2389
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-05-11T05:30:38.597Z"
+    }
+  },
   "turnCycles": 0,
   "maxCycles": 3,
-  "lastUpdated": "2026-05-11T01:33:02.941Z"
+  "lastUpdated": "2026-05-11T05:30:38.597Z"
 }

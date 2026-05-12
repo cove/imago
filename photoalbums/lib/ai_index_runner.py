@@ -48,6 +48,7 @@ from .ai_caption import (
 )
 from .ai_date import DateEstimateEngine
 from .ai_geocode import NominatimGeocoder
+
 # Index functions (previously ai_index.py own code)
 
 
@@ -652,7 +653,7 @@ if __name__ == "__main__":
 
 from .ai_index_analysis import (
     ArchiveScanOCRAuthority,
-    ImageAnalysis,  # noqa: F401 - re-exported for tests and compatibility callers
+    ImageAnalysis,
     _build_caption_metadata,
     _estimate_people_from_detections,
     _get_image_dimensions,
@@ -662,6 +663,7 @@ from .ai_index_analysis import (
     _run_image_analysis,
     _serialize_people_matches,
 )
+
 # CLI argument parsing (previously ai_index_args.py)
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}
@@ -1436,6 +1438,7 @@ from .metadata_resolver import (
     resolve_crop_location,
     resolve_crop_locations_shown,
 )
+
 # Processing locks (previously ai_processing_locks.py)
 
 PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"

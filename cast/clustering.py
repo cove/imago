@@ -286,7 +286,7 @@ def _review_cluster_payload(
     min_consensus: float,
     sample_face_limit: int,
 ) -> dict[str, Any]:
-    member_vectors, medoid_member, sample_face_ids, source_paths, quality_values, centroid, stats = _cluster_geometry(
+    _member_vectors, medoid_member, sample_face_ids, source_paths, quality_values, centroid, stats = _cluster_geometry(
         members,
         sample_face_limit=sample_face_limit,
     )

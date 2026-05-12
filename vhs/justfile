@@ -1,0 +1,33 @@
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+python := "uv run python"
+ruff := "uv run ruff"
+
+[default]
+default:
+  @just --list
+
+test:
+  {{python}} -m pytest "test"
+
+quality:
+  {{python}} ../scripts/check_skylos.py .
+  {{python}} ../scripts/check_vulture.py . --min-confidence 80
+  {{ruff}} check --select C90 .
+
+tuner:
+  {{python}} vhs.py tuner
+
+render *args:
+  {{python}} vhs.py render {{args}}
+
+subtitles archive="":
+  {{python}} vhs.py subtitles {{if archive != "" { "--archive " + archive } else { "" }}}
+
+metadata-build:
+  {{python}} vhs.py metadata build
+
+metadata-embed file="":
+  {{python}} vhs.py metadata embed {{if file != "" { '"' + file + '"' } else { "" }}}
+
+verify-archive archive="":
+  {{python}} vhs.py verify archive {{if archive != "" { "--archive " + archive } else { "" }}}

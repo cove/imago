@@ -37,7 +37,7 @@ FALLBACK_FACE_DETECTOR_MODEL = "opencv.haar_frontalface_default"
 
 
 def _timestamp_from_seconds(seconds: float) -> str:
-    total_ms = int(round(max(0.0, float(seconds)) * 1000.0))
+    total_ms = round(max(0.0, float(seconds)) * 1000.0)
     hours, rem = divmod(total_ms, 3_600_000)
     minutes, rem = divmod(rem, 60_000)
     whole_seconds, millis = divmod(rem, 1000)
@@ -47,8 +47,8 @@ def _timestamp_from_seconds(seconds: float) -> str:
 def _expand_box(
     x: int, y: int, w: int, h: int, *, width: int, height: int, margin: float = 0.22
 ) -> tuple[int, int, int, int]:
-    grow_w = int(round(float(w) * float(margin)))
-    grow_h = int(round(float(h) * float(margin)))
+    grow_w = round(float(w) * float(margin))
+    grow_h = round(float(h) * float(margin))
     x0 = max(0, int(x) - grow_w)
     y0 = max(0, int(y) - grow_h)
     x1 = min(int(width), int(x + w) + grow_w)
@@ -91,12 +91,13 @@ def _get_insightface_app() -> object | None:
         # stdout/stderr during initialization; suppress that third-party noise.
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             app = _init_insightface_app()
-        _insightface_app_error = ""
-        _insightface_app = app
-        return _insightface_app
     except Exception as exc:
         _insightface_app_error = f"{type(exc).__name__}: {exc}"
         return None
+    else:
+        _insightface_app_error = ""
+        _insightface_app = app
+        return _insightface_app
 
 
 def insightface_load_error() -> str:
@@ -165,9 +166,7 @@ def crop_has_visual_detail(
         return False
     if dynamic_range < float(min_dynamic_range):
         return False
-    if lap_var < float(min_laplacian_var):
-        return False
-    return True
+    return not lap_var < float(min_laplacian_var)
 
 
 def _resolve_haarcascade_dir() -> Path:
@@ -442,7 +441,7 @@ class FaceIngestor(_FaceIngestorMixin):
         fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
         if fps <= 1e-6:
             fps = 29.97
-        stride = max(1, int(round(max(0.1, float(sample_every_seconds)) * fps)))
+        stride = max(1, round(max(0.1, float(sample_every_seconds)) * fps))
         limit_seconds = float(max_duration_seconds or 0.0)
         source = str(source_path or path)
         try:

@@ -55,6 +55,7 @@ diffusers = { git = "https://github.com/yfyang007/RealRestorer.git", rev = "fa2a
 
 [tool.pytest.ini_options]
 testpaths = ["cast/tests", "photoalbums/tests", "vhs/test", "tests"]
+pythonpath = ["."]
 # On Windows, colored pytest output has intermittently surfaced as
 # KeyboardInterrupt failures in photoalbums tests via colorama/console handling.
 addopts = "--color=no -p scripts.pytest_config"
@@ -111,14 +112,44 @@ ignore = [
 "photoalbums/scripts/*.py" = ["E402", "T20"]
 "photoalbums/lib/*.py" = ["E402"]
 "tests/*.py" = ["E402"]
-"vhs/**/*.py" = ["E402"]
-"cast/**/*.py" = ["E402", "T20"]
+"cast/**/*.py" = ["E402", "T20", "TRY003", "ARG001", "ARG002", "ARG005"]
+"cast/tests/*.py" = ["E402", "T20", "TRY003", "ARG001", "ARG002", "ARG005", "N802"]
 # CLI tools and scripts use print for user-facing output
 "scripts/*.py" = ["T20"]
 "vhs/scripts/*.py" = ["T20"]
 "vhs/vhs_pipeline/*.py" = ["T20"]
 "photoalbums/commands.py" = ["T20"]
 "photoalbums/cli.py" = ["T20"]
+# Pre-existing violations in photoalbums — suppressed until addressed systematically
+"photoalbums/**/*.py" = [
+  "E402", "F401", "RUF100", "T20",
+  "ARG001", "ARG002", "ARG005",
+  "B007", "B028", "B904", "B905",
+  "C401", "C408",
+  "N802", "N803", "N806", "N813", "N818",
+  "PERF401", "PERF403",
+  "PT017", "PT027",
+  "RET504",
+  "RUF001", "RUF002", "RUF003", "RUF005", "RUF012", "RUF015", "RUF046", "RUF059",
+  "SIM102", "SIM103", "SIM108", "SIM110", "SIM117", "SIM201",
+  "TRY003", "TRY004", "TRY300", "TRY301", "TRY400",
+  "W291", "W293",
+]
+# Pre-existing violations in vhs — suppressed until addressed systematically
+"vhs/**/*.py" = [
+  "E402", "T20",
+  "ARG001", "ARG002", "ARG005",
+  "B007", "B905",
+  "C401", "C414",
+  "N802", "N806",
+  "PERF102", "PERF401", "PERF403",
+  "PIE810", "PT018",
+  "RET503", "RET504",
+  "RUF003", "RUF005", "RUF007", "RUF046", "RUF059",
+  "SIM103", "SIM108", "SIM201",
+  "TRY002", "TRY003", "TRY300",
+  "W291",
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

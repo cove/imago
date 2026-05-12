@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import time  # noqa: F401 - re-exported for tests that patch ai_index.time.sleep
+import time
 
-from .ai_album_titles import (  # noqa: F401
+from .ai_album_titles import (
     _album_identity_key,
     _expand_album_title_dependencies,
     _is_album_title_source_candidate,
@@ -11,23 +11,21 @@ from .ai_album_titles import (  # noqa: F401
     _resolve_album_printed_title_hint,
     _resolve_album_title_hint,
 )
-from .ai_index_analysis import (  # noqa: F401
+from .ai_index_analysis import (
     AI_MODEL_MAX_SOURCE_BYTES,
     ArchiveScanOCRAuthority,
     ImageAnalysis,
     _build_caption_metadata,
-    _caption_people_name_score,
     _estimate_people_from_detections,
     _get_image_dimensions,
     _merge_people_estimates,
-    _merge_people_matches,
     _prepare_ai_model_image,
     _refresh_detection_model_metadata,
     _resolve_people_count_metadata,
     _run_image_analysis,
     _serialize_people_matches,
 )
-from .ai_index_runner import (  # noqa: F401
+from .ai_index_runner import (
     DEFAULT_CAST_STORE,
     IMAGE_EXTENSIONS,
     PROCESSOR_SIGNATURE,
@@ -77,8 +75,7 @@ from .ai_index_runner import (  # noqa: F401
     run,
     run_propagate_to_crops,
 )
-from .ai_index_scan import (  # noqa: F401
-    _aggregate_best_rows,
+from .ai_index_scan import (
     _bounds_offset,
     _build_dc_source,
     _build_flat_page_description,
@@ -93,13 +90,13 @@ from .ai_index_scan import (  # noqa: F401
     _scan_number,
     _scan_page_key,
 )
-from .ai_location import (  # noqa: F401
+from .ai_location import (
     _has_legacy_ai_locations_shown_gps,
     _resolve_location_metadata,
     _resolve_location_payload,
     _resolve_locations_shown,
 )
-from .ai_sidecar_state import (  # noqa: F401
+from .ai_sidecar_state import (
     MIN_EXISTING_SIDECAR_BYTES,
     _compute_xmp_title,
     _effective_sidecar_location_payload,

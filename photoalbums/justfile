@@ -1,0 +1,34 @@
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+python := "uv run python"
+ruff := "uv run ruff"
+photoalbums_root := `uv run --directory ".." python -c "from photoalbums.common import get_photo_albums_dir; print(get_photo_albums_dir())"`
+
+[default]
+default:
+  @just --list
+
+test:
+  {{python}} -m pytest "tests"
+
+quality:
+  {{python}} ../scripts/check_skylos.py .
+  {{python}} ../scripts/check_vulture.py . --min-confidence 80
+  {{ruff}} check --select C90 .
+
+map:
+  {{python}} -m photoalbums metadata map "{{photoalbums_root}}" --port 8095
+
+list-render-pipeline-steps:
+  {{python}} -m photoalbums process --photos-root "." --list-steps
+
+render-pipeline *args:
+  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
+
+list-scan-pipeline-steps:
+  {{python}} -m photoalbums watch --list-steps
+
+scan-pipeline:
+  {{python}} -m photoalbums watch
+
+bennett-scan-pipeline:
+  {{python}} -m photoalbums.bennett watch

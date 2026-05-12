@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from photoalbums.lib.ai_processing_locks import _cleanup_stale_processing_locks
+from photoalbums.lib.ai_index_runner import _cleanup_stale_processing_locks
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JOBS_DIR = REPO_ROOT / "mcp" / "jobs"

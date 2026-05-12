@@ -1,0 +1,21 @@
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+python := "uv run python"
+ruff := "uv run ruff"
+
+[default]
+default:
+  @just --list
+
+test:
+  {{python}} -m pytest "tests"
+
+quality:
+  {{python}} ../scripts/check_skylos.py .
+  {{python}} ../scripts/check_vulture.py . --min-confidence 80
+  {{ruff}} check --select C90 .
+
+init:
+  {{python}} -m cast init
+
+web:
+  {{python}} -m cast web

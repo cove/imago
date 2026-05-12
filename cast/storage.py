@@ -48,8 +48,7 @@ def _parse_jsonl_text(text: str) -> list[dict]:
 
 def _try_json_loads(text: str) -> Any | None:
     try:
-        result = json.loads(text)
-        return result
+        return json.loads(text)
     except json.JSONDecodeError as exc:
         log.debug("json parse failed: %s", exc)
         return None
@@ -310,12 +309,13 @@ class TextFaceStore:
         for attempt in range(_WRITE_RETRY_ATTEMPTS):
             try:
                 temp_path.replace(path)
-                return
             except PermissionError:
                 if attempt >= _WRITE_RETRY_ATTEMPTS - 1:
                     temp_path.unlink(missing_ok=True)
                     raise
                 time.sleep(_WRITE_RETRY_DELAY_SECONDS)
+            else:
+                return
 
     def list_people(self) -> list[dict[str, Any]]:
         with self._lock:

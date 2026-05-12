@@ -88,7 +88,7 @@ def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
     source_video, fps = _write_test_video(tmp_path)
     frame_index = 5
     timestamp_seconds = float(frame_index) / float(fps)
-    timestamp = f"00:00:00.{int(round(timestamp_seconds * 1000.0)):03d}"
+    timestamp = f"00:00:00.{round(timestamp_seconds * 1000.0):03d}"
 
     face = store.add_face(
         embedding=[0.2, 0.3, 0.4],

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import urllib.request  # noqa: F401 — kept at module level for test patching via ai_caption.urllib.request
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from ._caption_lmstudio import (  # noqa: F401
+from ._caption_lmstudio import (
     DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE,
     DEFAULT_LMSTUDIO_BASE_URL,
     DEFAULT_LMSTUDIO_MAX_NEW_TOKENS,
@@ -36,7 +36,7 @@ from ._caption_prompts import (
     location_shown_prompt_metadata,
     people_count_prompt_metadata,
 )
-from ._caption_text import clean_lines, clean_text, dedupe, join_human  # noqa: F401
+from ._caption_text import clean_lines, clean_text, dedupe
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from .ai_prompt_assets import load_params, params_metadata
