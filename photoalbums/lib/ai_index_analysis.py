@@ -117,22 +117,6 @@ def _estimate_people_from_detections(
     return estimated_people_count > 0, estimated_people_count
 
 
-def _caption_people_name_score(text: str, people_names: list[str] | None = None) -> int:
-    caption_text = str(text or "").casefold()
-    score = 0
-    for name in _dedupe([str(item or "").strip() for item in list(people_names or [])]):
-        if not name:
-            continue
-        normalized_name = name.casefold()
-        if normalized_name in caption_text:
-            score += 2
-            continue
-        first_token = normalized_name.split()[0]
-        if len(first_token) >= 4 and re.search(rf"\b{re.escape(first_token)}\b", caption_text):
-            score += 1
-    return score
-
-
 def _merge_people_estimates(
     *,
     local_people_present: bool,
@@ -219,34 +203,6 @@ def _serialize_people_matches(people_matches: list) -> list[dict[str, Any]]:
         }
         for row in people_matches
     ]
-
-
-def _merge_people_matches(*match_groups: list) -> list:
-    merged: dict[str, Any] = {}
-    for group in match_groups:
-        for row in list(group or []):
-            name = str(getattr(row, "name", "") or "").strip()
-            if not name:
-                continue
-            current = merged.get(name)
-            if current is None:
-                merged[name] = row
-                continue
-            row_certainty = float(getattr(row, "certainty", getattr(row, "score", 0.0)) or 0.0)
-            current_certainty = float(getattr(current, "certainty", getattr(current, "score", 0.0)) or 0.0)
-            row_score = float(getattr(row, "score", 0.0) or 0.0)
-            current_score = float(getattr(current, "score", 0.0) or 0.0)
-            if row_certainty > current_certainty or (row_certainty == current_certainty and row_score > current_score):
-                merged[name] = row
-    out = list(merged.values())
-    out.sort(
-        key=lambda row: (
-            -float(getattr(row, "certainty", getattr(row, "score", 0.0)) or 0.0),
-            -float(getattr(row, "score", 0.0) or 0.0),
-            str(getattr(row, "name", "") or "").casefold(),
-        )
-    )
-    return out
 
 
 @contextlib.contextmanager

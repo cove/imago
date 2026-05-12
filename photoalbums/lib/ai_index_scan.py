@@ -253,27 +253,6 @@ def _dc_source_needs_refresh(image_path: Path, sidecar_state: dict[str, Any] | N
     return source_text != expected_source
 
 
-def _aggregate_best_rows(results: list[ImageAnalysis], section: str, key_name: str) -> list[dict[str, Any]]:
-    best_rows: dict[str, dict[str, Any]] = {}
-    for result in results:
-        for row in list(result.payload.get(section) or []):
-            name = str(row.get(key_name) or "").strip()
-            if not name:
-                continue
-            score = float(row.get("score") or 0.0)
-            current = best_rows.get(name)
-            if current is None or score > float(current.get("score") or 0.0):
-                best_rows[name] = dict(row)
-    out = list(best_rows.values())
-    out.sort(
-        key=lambda row: (
-            -float(row.get("score") or 0.0),
-            str(row.get(key_name) or "").casefold(),
-        )
-    )
-    return out
-
-
 def _layout_payload(layout: PreparedImageLayout) -> dict[str, Any]:
     return {
         "kind": str(layout.kind),

@@ -15,7 +15,6 @@ try:
 except ImportError:
     from naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
 
-CREATOR = "Audrey D. Cordell"
 INCOMING_NAME = "incoming_scan.tif"
 PHOTO_ALBUMS_DIR_ENV = "PHOTOALBUMS_DIR"
 PHOTO_SCANNING_DIR_ENV = "PHOTO_SCANNING_DIR"

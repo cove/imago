@@ -1305,29 +1305,6 @@ def toggle_frame_override(
     return out
 
 
-def _toggle_frame_override_wtp(
-    fid: int,
-    fids: list[int],
-    sigs: dict[str, np.ndarray],
-    overrides: dict[int, str],
-    wtp: _WeightThreshParams,
-) -> dict[int, str]:
-    return toggle_frame_override(
-        fid=fid,
-        fids=fids,
-        sigs=sigs,
-        overrides=overrides,
-        wc=wtp.wc,
-        wn=wtp.wn,
-        wt=wtp.wt,
-        ww=wtp.ww,
-        tm=wtp.tm,
-        ik=wtp.ik,
-        tv=wtp.tv,
-        bp=wtp.bp,
-    )
-
-
 def set_frame_override_mode(
     fid: int,
     fids: list[int],
