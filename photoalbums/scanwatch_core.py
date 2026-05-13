@@ -36,10 +36,11 @@ def alert_beep() -> None:
         try:
             import winsound
 
-            winsound.MessageBeep(winsound.MB_ICONHAND)
             winsound.Beep(1000, 300)
         except Exception:
-            print("\a", end="", flush=True)
+            pass
+
+        print("\a", end="", flush=True)
 
         try:
             import ctypes
