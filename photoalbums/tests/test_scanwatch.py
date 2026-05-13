@@ -30,6 +30,28 @@ class TtyBuffer:
         return True
 
 
+class FakeObserver:
+    def __init__(self):
+        self.started = False
+        self.stopped = False
+        self.join_timeout = None
+
+    def schedule(self, *_args, **_kwargs):
+        pass
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+
+    def join(self, timeout=None):
+        self.join_timeout = timeout
+
+    def is_alive(self):
+        return self.started and not self.stopped
+
+
 class TestScanWatch(unittest.TestCase):
     def test_transient_status_writes_and_clears_tty_line(self):
         stream = TtyBuffer()
@@ -148,6 +170,83 @@ class TestScanWatch(unittest.TestCase):
             self.assertEqual((archive_dir / "Album_P02_S01.tif").read_text(), "second")
             self.assertFalse((archive_dir / "incoming_scan0001.tif").exists())
             self.assertFalse((archive_dir / "incoming_scan0002.tif").exists())
+
+    def test_compress_existing_tiffs_processes_only_needed_launch_directory_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scan_dir = Path(tmp)
+            needed = scan_dir / "Album_P02_S01.tif"
+            already_done = scan_dir / "Album_P03_S01.tiff"
+            incoming = scan_dir / "incoming_scan.tif"
+            nested = scan_dir / "nested" / "Album_P04_S01.tif"
+            nested.parent.mkdir()
+            for path in [needed, already_done, incoming, nested]:
+                path.touch()
+
+            process_mock = mock.Mock(return_value=True)
+            needs_mock = mock.Mock(side_effect=lambda path: path == needed)
+            service = scanwatch.ScanWatchService(
+                process_tiff_fn=process_mock,
+                tiff_needs_conversion_fn=needs_mock,
+                sleep_fn=lambda *_: None,
+            )
+
+            results = service.compress_existing_tiffs(scan_dir)
+
+            process_mock.assert_called_once_with(needed.resolve(strict=False), log_error=service.log_error_fn)
+            checked_paths = [call.args[0] for call in needs_mock.call_args_list]
+            self.assertEqual(checked_paths, [needed.resolve(strict=False), already_done.resolve(strict=False)])
+            self.assertEqual(
+                results,
+                [
+                    {"path": str(needed.resolve(strict=False)), "status": "processed"},
+                    {"path": str(already_done.resolve(strict=False)), "status": "skipped"},
+                ],
+            )
+
+    def test_start_checks_startup_scan_directory_for_tiffs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "root"
+            root.mkdir()
+            scan_dir = Path(tmp) / "Album_Archive"
+            scan_dir.mkdir()
+            tiff_path = scan_dir / "Album_P02_S01.tif"
+            tiff_path.touch()
+
+            process_mock = mock.Mock(return_value=True)
+            service = scanwatch.ScanWatchService(
+                root=root,
+                process_tiff_fn=process_mock,
+                tiff_needs_conversion_fn=mock.Mock(return_value=True),
+                validate_stitch_fn=lambda *_args, **_kwargs: (True, None),
+                display_image_fn=mock.Mock(return_value=False),
+                sleep_fn=lambda *_: None,
+            )
+
+            with mock.patch("scanwatch.Observer", FakeObserver):
+                status = service.start(startup_scan_dir=scan_dir)
+                service.stop(timeout=0.1)
+
+            self.assertTrue(status["running"])
+            process_mock.assert_called_once_with(tiff_path.resolve(strict=False), log_error=service.log_error_fn)
+
+    def test_resolve_watch_root_uses_matching_archive_for_album_filter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Family_1907-1946_B01_Archive"
+            archive.mkdir()
+
+            resolved = scanwatch.resolve_watch_root("1907-1946", base_dir=root)
+
+            self.assertEqual(resolved, archive.resolve(strict=False))
+
+    def test_resolve_watch_root_rejects_ambiguous_album_filter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "Family_1907-1946_B01_Archive").mkdir()
+            (root / "Family_1907-1946_B02_Archive").mkdir()
+
+            with self.assertRaisesRegex(ValueError, "ambiguous"):
+                scanwatch.resolve_watch_root("Family", base_dir=root)
 
     def test_apply_decision_displays_renamed_scan(self):
         with tempfile.TemporaryDirectory() as tmp:

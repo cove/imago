@@ -29,11 +29,13 @@ try:
         PHOTO_SCANNING_DIR,
         configure_imagemagick,
         get_next_filename,
+        list_archive_dirs,
         list_page_scan_groups,
         list_page_scans_for_page,
         open_image_fullscreen,
         process_tiff_in_place,
         rename_with_retry,
+        tiff_needs_conversion,
     )
     from .lib.ai_orientation import correct_orientation_after_scan, rotate_image_180_in_place
     from .terminal_images import display_inline_image
@@ -45,11 +47,13 @@ except ImportError:
         PHOTO_SCANNING_DIR,
         configure_imagemagick,
         get_next_filename,
+        list_archive_dirs,
         list_page_scan_groups,
         list_page_scans_for_page,
         open_image_fullscreen,
         process_tiff_in_place,
         rename_with_retry,
+        tiff_needs_conversion,
     )
     from lib.ai_orientation import correct_orientation_after_scan, rotate_image_180_in_place
     from terminal_images import display_inline_image
@@ -79,6 +83,7 @@ except ImportError:
 
 INCOMING_BACKLOG_RE = re.compile(r"^incoming_scan(?P<number>\d{4})\.tif$", re.IGNORECASE)
 WATCHER_STEPS: tuple[tuple[str, str], ...] = (
+    ("startup-compress", "Compress already-named TIFF files in the selected album archive when needed"),
     ("detect-incoming", "Detect incoming_scan.tif or numbered incoming_scan####.tif files"),
     ("rename", "Rename the incoming TIFF to the next archive scan filename"),
     ("process-tiff", "Normalize TIFF alpha, compression, and predictor settings"),
@@ -137,6 +142,7 @@ class ScanWatchService:
         open_image_fn=open_image_fullscreen,
         display_image_fn=display_inline_image,
         orient_image_fn=correct_orientation_after_scan,
+        tiff_needs_conversion_fn=tiff_needs_conversion,
     ) -> None:
         self.root = _normalize_path(root)
         self.incoming_name = incoming_name
@@ -150,6 +156,7 @@ class ScanWatchService:
         self.open_image_fn = open_image_fn
         self.display_image_fn = display_image_fn
         self.orient_image_fn = orient_image_fn
+        self.tiff_needs_conversion_fn = tiff_needs_conversion_fn
         self._orientation_cache: dict[tuple[str, int], int] = {}
         self._lock = threading.RLock()
         self._events: dict[str, ScanEvent] = {}
@@ -278,8 +285,10 @@ class ScanWatchService:
             self._sync_pending_events_for_archive(archive_key)
             return self._archives[archive_key]
 
-    def start(self) -> dict[str, object]:
+    def start(self, *, startup_scan_dir: str | Path | None = None) -> dict[str, object]:
         configure_imagemagick()
+        if startup_scan_dir is not None:
+            self.compress_existing_tiffs(startup_scan_dir)
         self.rebuild()
         if self._observer is not None and self._observer.is_alive():
             return self.status()
@@ -295,6 +304,29 @@ class ScanWatchService:
         self._observer = observer
         threading.Thread(target=self.apply_pending_incoming_scans, daemon=True).start()
         return self.status()
+
+    def compress_existing_tiffs(self, directory: str | Path) -> list[dict[str, object]]:
+        scan_dir = _normalize_path(directory)
+        if not scan_dir.is_dir():
+            raise ValueError(f"Startup scan directory not found: {scan_dir}")
+
+        results = []
+        tiff_paths = [
+            path
+            for path in scan_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in {".tif", ".tiff"} and not self._is_incoming_name(path.name)
+        ]
+        for tiff_path in sorted(tiff_paths, key=lambda path: path.name.casefold()):
+            if not self.tiff_needs_conversion_fn(tiff_path):
+                results.append({"path": str(tiff_path), "status": "skipped"})
+                continue
+            self.log_info_fn(f"  [startup-compress] {tiff_path.name}")
+            if self.process_tiff_fn(tiff_path, log_error=self.log_error_fn):
+                results.append({"path": str(tiff_path), "status": "processed"})
+                continue
+            self.log_error_fn(f"Startup TIFF compression failed: {tiff_path}")
+            results.append({"path": str(tiff_path), "status": "failed"})
+        return results
 
     def stop(self, *, timeout: float | None = 5.0) -> dict[str, object]:
         observer = self._observer
@@ -883,12 +915,37 @@ def _handle_keyboard_command(service: ScanWatchService, command: str) -> bool:
     return True
 
 
-def main() -> None:
-    service = ScanWatchService(root=PHOTO_ALBUMS_DIR)
+def resolve_watch_root(album_id: str = "", *, base_dir: str | Path = PHOTO_ALBUMS_DIR) -> Path:
+    base_path = _normalize_path(base_dir)
+    album_filter = str(album_id or "").strip()
+    if not album_filter:
+        return base_path
+
+    archive_dirs = list_archive_dirs(base_path)
+    album_filter_lower = album_filter.casefold()
+    matches = [path for path in archive_dirs if album_filter_lower in path.name.casefold()]
+    if not matches:
+        raise ValueError(f"No _Archive directory found matching '{album_filter}' under {base_path}")
+    if len(matches) > 1:
+        names = ", ".join(path.name for path in matches[:10])
+        extra = f", ... {len(matches) - 10} more" if len(matches) > 10 else ""
+        raise ValueError(f"Album filter '{album_filter}' is ambiguous: {names}{extra}")
+    return _normalize_path(matches[0])
+
+
+def main(album_id: str = "") -> int:
+    try:
+        root = resolve_watch_root(album_id)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    service = ScanWatchService(root=root)
+    startup_scan_dir = root if str(album_id or "").strip() else None
     stopped = False
     try:
         print(f"Starting watcher - scanning {service.root} ...")
-        status = service.start()
+        status = service.start(startup_scan_dir=startup_scan_dir)
         print(f"Watching for {service.incoming_name} in:")
         print(status["root"])
         _print_keyboard_prompt()
@@ -902,7 +959,7 @@ def main() -> None:
                         service.stop(timeout=2.0)
                     stopped = True
                     print("Watcher stopped.")
-                    return
+                    return 0
                 keep_running = _handle_keyboard_command(service, command)
             time.sleep(0.1)
     except KeyboardInterrupt:
@@ -911,6 +968,7 @@ def main() -> None:
         if not stopped:
             service.stop(timeout=2.0)
             print("Watcher stopped.")
+    return 0
 
 
 __all__ = [
@@ -921,6 +979,7 @@ __all__ = [
     "alert_beep",
     "cleanup_preview_file",
     "main",
+    "resolve_watch_root",
     "save_stitch_preview",
     "validate_stitch",
 ]

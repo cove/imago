@@ -27,8 +27,8 @@ render-pipeline *args:
 list-scan-pipeline-steps:
   {{python}} -m photoalbums watch --list-steps
 
-scan-pipeline:
-  {{python}} -m photoalbums watch
+scan-pipeline album="":
+  {{python}} -m photoalbums watch {{if album != "" { "--album " + '"' + album + '"' } else { "" }}}
 
 bennett-scan-pipeline:
   {{python}} -m photoalbums.bennett watch

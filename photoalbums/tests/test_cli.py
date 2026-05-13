@@ -108,6 +108,16 @@ class TestPhotoalbumsCLI(unittest.TestCase):
         self.assertEqual(rc, 0)
         fake.run_checksum_tree.assert_called_once_with(base_dir="Photo Albums", verify=True)
 
+    def test_watch_album_dispatch(self):
+        fake = mock.Mock()
+        fake.run_watch_incoming.return_value = 0
+
+        with mock.patch("cli._import_commands", return_value=fake):
+            rc = cli.main(["watch", "--album", "Family_1907-1946_B01"])
+
+        self.assertEqual(rc, 0)
+        fake.run_watch_incoming.assert_called_once_with(album_id="Family_1907-1946_B01")
+
     def test_face_refresh_dispatch(self):
         fake = mock.Mock()
         fake.run_face_refresh.return_value = 0

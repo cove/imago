@@ -175,6 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     watch_parser = subparsers.add_parser("watch", help="Watch for incoming scans and register pending events")
     watch_parser.add_argument("--list-steps", action="store_true", help="Print watcher ingest steps and exit")
+    watch_parser.add_argument("--album", default="", help="Album _Archive folder name fragment to watch")
 
     _add_detection_and_pipeline_subparsers(subparsers)
 
@@ -407,7 +408,7 @@ def _run_watch_group(args, commands) -> int | None:
         for i, (step_id, label) in enumerate(WATCHER_STEPS, 1):
             print(f"  [{i}] {step_id}  —  {label}")
         return 0
-    return commands.run_watch_incoming()
+    return commands.run_watch_incoming(album_id=args.album)
 
 
 def _run_album_pipeline_group(args, commands) -> int | None:

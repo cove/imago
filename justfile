@@ -90,8 +90,8 @@ photoalbums-render-pipeline *args:
 photoalbums-list-scan-pipeline-steps:
   {{python}} -m photoalbums watch --list-steps
 
-photoalbums-scan-pipeline:
-  {{python}} -m photoalbums watch
+photoalbums-scan-pipeline album="":
+  {{python}} -m photoalbums watch {{if album != "" { "--album " + '"' + album + '"' } else { "" }}}
 
 photoalbums-bennett-scan-pipeline:
   {{python}} -m photoalbums.bennett watch
