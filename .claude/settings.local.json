@@ -343,7 +343,10 @@
       "Bash(echo \"VULTURE: $?\")",
       "Bash(echo \"PYLINT: $?\")",
       "Bash(echo \"SKYLOS: $?\")",
-      "Bash(echo \"PYRIGHT: $?\")"
+      "Bash(echo \"PYRIGHT: $?\")",
+      "Bash(Get-ChildItem -Path 'C:\\\\Users\\\\covec\\\\Videos\\\\imago' -Force)",
+      "Bash(pip install *)",
+      "Bash(echo \"exit=$?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
