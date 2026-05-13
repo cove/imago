@@ -31,33 +31,23 @@ def _require_stitcher() -> None:
         raise RuntimeError("stitching package is required to validate stitches.")
 
 
+_STITCH_FAILED_MSG = "Scan stitch failed. Scan another copy of the same page."
+
+
 def alert_beep() -> None:
+    print(_STITCH_FAILED_MSG, flush=True)
     if sys.platform.startswith("win"):
         try:
             import winsound
 
-            winsound.MessageBeep(winsound.MB_ICONHAND)
-            winsound.Beep(1000, 300)
+            for _ in range(3):
+                winsound.Beep(1000, 300)
+                time.sleep(0.15)
         except Exception:
-            print("\a", end="", flush=True)
-
-        try:
-            import ctypes
-
-            threading.Thread(
-                target=lambda: ctypes.windll.user32.MessageBoxW(
-                    0,
-                    "Scan stitch failed. Scan another copy of the same page.",
-                    "Photo Albums",
-                    0x00000010,
-                ),
-                daemon=True,
-            ).start()
-        except Exception as exc:
-            log.debug("Windows MessageBox alert unavailable: %s", exc)
+            print("\a\a\a", end="", flush=True)
         return
 
-    print("\a", end="", flush=True)
+    print("\a\a\a", end="", flush=True)
 
 
 def save_stitch_preview(panorama) -> Path | None:
