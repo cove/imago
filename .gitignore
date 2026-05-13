@@ -56,7 +56,7 @@ mcp/jobs/
 
 # Skylos temp output
 skylos_out.json
-cast/.skylos/
+.skylos/
 
 # Skill eval workspaces
 skills/*-workspace/
