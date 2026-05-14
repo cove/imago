@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from .server import run as run_web
@@ -58,6 +59,51 @@ def build_parser() -> argparse.ArgumentParser:
         default=".jpg,.jpeg,.tif,.tiff,.png",
         help="Comma-separated photo extensions to scan (default: .jpg,.jpeg,.tif,.tiff,.png).",
     )
+
+    immich = subparsers.add_parser(
+        "immich-sync",
+        help=(
+            "Sync named face bounding boxes from Immich into local XMP sidecars "
+            "and the cast store."
+        ),
+    )
+    immich.add_argument(
+        "--immich-url",
+        default=os.environ.get("IMMICH_URL", ""),
+        help="Immich base URL, e.g. http://immich.local:2283 (or set IMMICH_URL env var).",
+    )
+    immich.add_argument(
+        "--api-key",
+        default=os.environ.get("IMMICH_API_KEY", ""),
+        help="Immich API key from Account Settings → API Keys (or set IMMICH_API_KEY env var).",
+    )
+    immich.add_argument(
+        "--photos-root",
+        default=".",
+        help="Root directory of local photo albums to update. Defaults to current directory.",
+    )
+    immich.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be updated without writing any files.",
+    )
+    immich.add_argument(
+        "--skip-castdb",
+        action="store_true",
+        help="Do not add new Immich people names to the cast store.",
+    )
+    immich.add_argument(
+        "--extensions",
+        default=".jpg,.jpeg,.tif,.tiff,.png",
+        help="Comma-separated photo extensions to match (default: .jpg,.jpeg,.tif,.tiff,.png).",
+    )
+    immich.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging.",
+    )
+
     return parser
 
 
@@ -103,6 +149,43 @@ def main(argv: list[str] | None = None) -> int:
             overwrite=bool(args.overwrite),
             extensions=extensions,
         )
+        return 0
+
+    if args.command == "immich-sync":
+        import logging
+
+        from .immich_sync import IMMICH_API_KEY_ENV, IMMICH_URL_ENV, sync_immich_faces
+
+        if bool(getattr(args, "verbose", False)):
+            logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+        immich_url = str(getattr(args, "immich_url", "") or "").rstrip("/")
+        api_key = str(getattr(args, "api_key", "") or "")
+        if not immich_url:
+            parser.error(f"--immich-url is required (or set {IMMICH_URL_ENV}).")
+        if not api_key:
+            parser.error(f"--api-key is required (or set {IMMICH_API_KEY_ENV}).")
+
+        photos_root = Path(str(getattr(args, "photos_root", ".") or "."))
+        extensions = tuple(
+            e.strip() if e.strip().startswith(".") else f".{e.strip()}"
+            for e in str(args.extensions).split(",")
+            if e.strip()
+        )
+
+        stats = sync_immich_faces(
+            immich_url,
+            api_key,
+            photos_root,
+            store,
+            dry_run=bool(getattr(args, "dry_run", False)),
+            update_castdb=not bool(getattr(args, "skip_castdb", False)),
+            extensions=extensions,
+        )
+        print(f"People synced to cast store : {stats['people_synced']}")
+        print(f"Assets matched to local files: {stats['assets_matched']}")
+        print(f"XMP sidecars updated         : {stats['xmp_updated']}")
+        print(f"Assets with no named faces   : {stats['xmp_skipped']}")
         return 0
 
     parser.error("Unknown command.")
