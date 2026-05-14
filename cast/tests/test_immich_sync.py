@@ -4,8 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from cast.immich_sync import (
     _dedupe_names,
     _faces_to_regions,
@@ -325,7 +323,7 @@ def test_fetch_all_named_people_paginates(tmp_path: Path) -> None:
         return {}
 
     with patch("cast.immich_sync._http_get", side_effect=paging_mock):
-        stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
+        sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert call_count == 2
     names = {p["display_name"] for p in store.list_people()}

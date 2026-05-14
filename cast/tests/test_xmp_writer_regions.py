@@ -4,8 +4,6 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import pytest
-
 from cast.xmp_writer import (
     merge_face_regions_xmp,
     merge_persons_xmp,
