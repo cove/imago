@@ -116,6 +116,45 @@ def cmd_init(store: TextFaceStore) -> int:
     return 0
 
 
+def _parse_extensions(raw: str) -> tuple[str, ...]:
+    return tuple(
+        e.strip() if e.strip().startswith(".") else f".{e.strip()}"
+        for e in raw.split(",")
+        if e.strip()
+    )
+
+
+def cmd_immich_sync(args: argparse.Namespace, store: TextFaceStore, parser: argparse.ArgumentParser) -> int:
+    import logging
+
+    from .immich_sync import IMMICH_API_KEY_ENV, IMMICH_URL_ENV, sync_immich_faces
+
+    if bool(getattr(args, "verbose", False)):
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    immich_url = str(getattr(args, "immich_url", "") or "").rstrip("/")
+    api_key = str(getattr(args, "api_key", "") or "")
+    if not immich_url:
+        parser.error(f"--immich-url is required (or set {IMMICH_URL_ENV}).")
+    if not api_key:
+        parser.error(f"--api-key is required (or set {IMMICH_API_KEY_ENV}).")
+
+    stats = sync_immich_faces(
+        immich_url,
+        api_key,
+        Path(str(getattr(args, "photos_root", ".") or ".")),
+        store,
+        dry_run=bool(getattr(args, "dry_run", False)),
+        update_castdb=not bool(getattr(args, "skip_castdb", False)),
+        extensions=_parse_extensions(str(args.extensions)),
+    )
+    print(f"People synced to cast store : {stats['people_synced']}")
+    print(f"Assets matched to local files: {stats['assets_matched']}")
+    print(f"XMP sidecars updated         : {stats['xmp_updated']}")
+    print(f"Assets with no named faces   : {stats['xmp_skipped']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -136,57 +175,17 @@ def main(argv: list[str] | None = None) -> int:
         from .ingest import FaceIngestor
         from .label_photos import run_label_photos
 
-        extensions = tuple(
-            e.strip() if e.strip().startswith(".") else f".{e.strip()}"
-            for e in str(args.extensions).split(",")
-            if e.strip()
-        )
         ingestor = FaceIngestor(store, require_primary_model=True)
         run_label_photos(
             Path(args.directory),
             store,
             ingestor=ingestor,
             overwrite=bool(args.overwrite),
-            extensions=extensions,
+            extensions=_parse_extensions(str(args.extensions)),
         )
         return 0
-
     if args.command == "immich-sync":
-        import logging
-
-        from .immich_sync import IMMICH_API_KEY_ENV, IMMICH_URL_ENV, sync_immich_faces
-
-        if bool(getattr(args, "verbose", False)):
-            logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-
-        immich_url = str(getattr(args, "immich_url", "") or "").rstrip("/")
-        api_key = str(getattr(args, "api_key", "") or "")
-        if not immich_url:
-            parser.error(f"--immich-url is required (or set {IMMICH_URL_ENV}).")
-        if not api_key:
-            parser.error(f"--api-key is required (or set {IMMICH_API_KEY_ENV}).")
-
-        photos_root = Path(str(getattr(args, "photos_root", ".") or "."))
-        extensions = tuple(
-            e.strip() if e.strip().startswith(".") else f".{e.strip()}"
-            for e in str(args.extensions).split(",")
-            if e.strip()
-        )
-
-        stats = sync_immich_faces(
-            immich_url,
-            api_key,
-            photos_root,
-            store,
-            dry_run=bool(getattr(args, "dry_run", False)),
-            update_castdb=not bool(getattr(args, "skip_castdb", False)),
-            extensions=extensions,
-        )
-        print(f"People synced to cast store : {stats['people_synced']}")
-        print(f"Assets matched to local files: {stats['assets_matched']}")
-        print(f"XMP sidecars updated         : {stats['xmp_updated']}")
-        print(f"Assets with no named faces   : {stats['xmp_skipped']}")
-        return 0
+        return cmd_immich_sync(args, store, parser)
 
     parser.error("Unknown command.")
     return 2

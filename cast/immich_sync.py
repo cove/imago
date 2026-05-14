@@ -57,7 +57,7 @@ def _http_get(url: str, api_key: str, params: dict[str, str] | None = None) -> A
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
-        log.error("Immich HTTP %d %s: %s", exc.code, url, exc.reason)
+        log.exception("Immich HTTP %d %s: %s", exc.code, url, exc.reason)
         raise
 
 
@@ -72,9 +72,10 @@ def fetch_all_named_people(base_url: str, api_key: str) -> list[dict[str, Any]]:
             params={"page": str(page), "size": str(_PEOPLE_PAGE_SIZE)},
         )
         batch: list[Any] = data.get("people", []) if isinstance(data, dict) else []
-        for person in batch:
-            if isinstance(person, dict) and str(person.get("name") or "").strip():
-                people.append(person)
+        people.extend(
+            p for p in batch
+            if isinstance(p, dict) and str(p.get("name") or "").strip()
+        )
         if not (isinstance(data, dict) and data.get("hasNextPage") and batch):
             break
         page += 1
@@ -124,36 +125,38 @@ def build_local_index(
 # ---------------------------------------------------------------------------
 
 
+def _bbox_to_relative(face: dict[str, Any]) -> dict[str, float] | None:
+    img_w = int(face.get("imageWidth", 0))
+    img_h = int(face.get("imageHeight", 0))
+    if img_w <= 0 or img_h <= 0:
+        return None
+    x1 = int(face.get("boundingBoxX1", 0))
+    y1 = int(face.get("boundingBoxY1", 0))
+    x2 = int(face.get("boundingBoxX2", 0))
+    y2 = int(face.get("boundingBoxY2", 0))
+    pw = x2 - x1
+    ph = y2 - y1
+    if pw <= 0 or ph <= 0:
+        return None
+    return {"rx": x1 / img_w, "ry": y1 / img_h, "rw": pw / img_w, "rh": ph / img_h}
+
+
+def _face_to_region(face: dict[str, Any]) -> dict[str, Any] | None:
+    person = face.get("person")
+    if not isinstance(person, dict):
+        return None
+    name = str(person.get("name") or "").strip()
+    if not name:
+        return None
+    coords = _bbox_to_relative(face)
+    if coords is None:
+        return None
+    return {"name": name, **coords}
+
+
 def _faces_to_regions(faces: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert Immich face dicts to relative-coordinate region dicts."""
-    regions: list[dict[str, Any]] = []
-    for face in faces:
-        person = face.get("person")
-        if not isinstance(person, dict):
-            continue
-        name = str(person.get("name") or "").strip()
-        if not name:
-            continue
-        img_w = int(face.get("imageWidth") or 0)
-        img_h = int(face.get("imageHeight") or 0)
-        if img_w <= 0 or img_h <= 0:
-            continue
-        x1 = int(face.get("boundingBoxX1") or 0)
-        y1 = int(face.get("boundingBoxY1") or 0)
-        x2 = int(face.get("boundingBoxX2") or 0)
-        y2 = int(face.get("boundingBoxY2") or 0)
-        pw = x2 - x1
-        ph = y2 - y1
-        if pw <= 0 or ph <= 0:
-            continue
-        regions.append({
-            "name": name,
-            "rx": x1 / img_w,
-            "ry": y1 / img_h,
-            "rw": pw / img_w,
-            "rh": ph / img_h,
-        })
-    return regions
+    return [r for f in faces if (r := _face_to_region(f)) is not None]
 
 
 def _dedupe_names(names: list[str]) -> list[str]:
@@ -166,6 +169,47 @@ def _dedupe_names(names: list[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Main sync entry point
 # ---------------------------------------------------------------------------
+
+
+def _upsert_people_to_store(people: list[dict[str, Any]], store: TextFaceStore) -> int:
+    existing: set[str] = {p["display_name"].casefold() for p in store.list_people()}
+    count = 0
+    for person in people:
+        name = str(person.get("name") or "").strip()
+        if name and name.casefold() not in existing:
+            store.add_person(name)
+            log.info("Added to cast store: %s", name)
+            existing.add(name.casefold())
+            count += 1
+    return count
+
+
+def _write_asset_xmp(
+    asset_id: str,
+    local_path: Path,
+    base_url: str,
+    api_key: str,
+    dry_run: bool,
+) -> tuple[int, int]:
+    raw_faces = fetch_asset_faces(base_url, api_key, asset_id)
+    named = [
+        f for f in raw_faces
+        if isinstance(f.get("person"), dict)
+        and str(f["person"].get("name") or "").strip()
+    ]
+    if not named:
+        return 0, 1
+    names = _dedupe_names([str(f["person"]["name"]).strip() for f in named])
+    regions = _faces_to_regions(named)
+    xmp_path = local_path.with_suffix(".xmp")
+    if dry_run:
+        print(f"[DRY RUN] {xmp_path.name}: {', '.join(names)}")
+        return 1, 0
+    merge_persons_xmp(xmp_path, names)
+    if regions:
+        merge_face_regions_xmp(xmp_path, regions)
+    log.info("Updated %s -> %s", xmp_path.name, ", ".join(names))
+    return 1, 0
 
 
 def sync_immich_faces(
@@ -181,10 +225,10 @@ def sync_immich_faces(
     """Pull named face data from Immich and update local XMP sidecars.
 
     Returns a stats dict with keys:
-      people_synced   – new people added to the cast store
-      assets_matched  – Immich assets matched to local files
-      xmp_updated     – XMP sidecars written
-      xmp_skipped     – matched assets with no named faces (nothing to write)
+      people_synced   - new people added to the cast store
+      assets_matched  - Immich assets matched to local files
+      xmp_updated     - XMP sidecars written
+      xmp_skipped     - matched assets with no named faces (nothing to write)
     """
     stats: dict[str, int] = {
         "people_synced": 0,
@@ -201,18 +245,9 @@ def sync_immich_faces(
     if not people:
         return stats
 
-    # Sync person names into cast store so they're available for face matching
     if update_castdb and not dry_run:
-        existing: set[str] = {p["display_name"].casefold() for p in store.list_people()}
-        for person in people:
-            name = str(person.get("name") or "").strip()
-            if name and name.casefold() not in existing:
-                store.add_person(name)
-                log.info("Added to cast store: %s", name)
-                existing.add(name.casefold())
-                stats["people_synced"] += 1
+        stats["people_synced"] = _upsert_people_to_store(people, store)
 
-    # Collect asset_id → local path by matching Immich originalFileName stems
     asset_to_local: dict[str, Path] = {}
     for person in people:
         for asset in fetch_person_assets(base_url, api_key, str(person.get("id") or "")):
@@ -224,31 +259,9 @@ def sync_immich_faces(
     stats["assets_matched"] = len(asset_to_local)
     log.info("Matched %d Immich assets to local files", len(asset_to_local))
 
-    # Fetch faces per matched asset and write XMP sidecars
     for asset_id, local_path in asset_to_local.items():
-        raw_faces = fetch_asset_faces(base_url, api_key, asset_id)
-        named = [
-            f for f in raw_faces
-            if isinstance(f.get("person"), dict)
-            and str(f["person"].get("name") or "").strip()
-        ]
-        if not named:
-            stats["xmp_skipped"] += 1
-            continue
-
-        names = _dedupe_names([str(f["person"]["name"]).strip() for f in named])
-        regions = _faces_to_regions(named)
-        xmp_path = local_path.with_suffix(".xmp")
-
-        if dry_run:
-            print(f"[DRY RUN] {xmp_path.name}: {', '.join(names)}")
-            stats["xmp_updated"] += 1
-            continue
-
-        merge_persons_xmp(xmp_path, names)
-        if regions:
-            merge_face_regions_xmp(xmp_path, regions)
-        log.info("Updated %s → %s", xmp_path.name, ", ".join(names))
-        stats["xmp_updated"] += 1
+        updated, skipped = _write_asset_xmp(asset_id, local_path, base_url, api_key, dry_run)
+        stats["xmp_updated"] += updated
+        stats["xmp_skipped"] += skipped
 
     return stats

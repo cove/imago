@@ -266,6 +266,53 @@ def _add_region_name_alt(parent: ET.Element, name: str) -> None:  # type: ignore
     li.text = name
 
 
+def _remove_face_regions(
+    ir_elem: ET.Element,  # type: ignore[type-arg]
+    desc: ET.Element,  # type: ignore[type-arg]
+) -> ET.Element | None:  # type: ignore[type-arg]
+    bag = ir_elem.find(_RDF_BAG)
+    if bag is not None:
+        for li in list(bag.findall(_RDF_LI)):
+            if _region_is_face(li):
+                bag.remove(li)
+        if not list(bag):
+            ir_elem.remove(bag)
+    if not list(ir_elem):
+        desc.remove(ir_elem)
+        return None
+    return ir_elem
+
+
+def _valid_face_regions(regions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        r for r in regions
+        if str(r.get("name") or "").strip()
+        and float(r.get("rw") or 0) > 0
+        and float(r.get("rh") or 0) > 0
+    ]
+
+
+def _build_face_region_li(
+    bag: ET.Element,  # type: ignore[type-arg]
+    n: int,
+    region: dict[str, Any],
+) -> None:
+    name = str(region.get("name") or "").strip()
+    li = ET.SubElement(bag, _RDF_LI)
+    li.set(_RDF_PARSE_TYPE, "Resource")
+    boundary = ET.SubElement(li, _IPTC_REGION_BOUNDARY_TAG)
+    boundary.set(_RDF_PARSE_TYPE, "Resource")
+    ET.SubElement(boundary, _IPTC_RB_SHAPE_TAG).text = "rectangle"
+    ET.SubElement(boundary, _IPTC_RB_UNIT_TAG).text = "relative"
+    ET.SubElement(boundary, _IPTC_RB_X_TAG).text = f"{float(region.get('rx', 0)):.6f}"
+    ET.SubElement(boundary, _IPTC_RB_Y_TAG).text = f"{float(region.get('ry', 0)):.6f}"
+    ET.SubElement(boundary, _IPTC_RB_W_TAG).text = f"{float(region.get('rw', 0)):.6f}"
+    ET.SubElement(boundary, _IPTC_RB_H_TAG).text = f"{float(region.get('rh', 0)):.6f}"
+    ET.SubElement(li, _IPTC_RCTYPE_TAG).text = "face-identified"
+    ET.SubElement(li, _IPTC_RID_TAG).text = f"face-{n}"
+    _add_region_name_alt(li, name)
+
+
 def _set_face_regions_in_desc(
     desc: ET.Element,  # type: ignore[type-arg]
     regions: list[dict[str, Any]],
@@ -273,23 +320,9 @@ def _set_face_regions_in_desc(
     """Replace all face-identified ImageRegion items with *regions* (relative coords)."""
     ir_elem = desc.find(_IPTC_IMAGE_REGION_TAG)
     if ir_elem is not None:
-        bag = ir_elem.find(_RDF_BAG)
-        if bag is not None:
-            for li in list(bag.findall(_RDF_LI)):
-                if _region_is_face(li):
-                    bag.remove(li)
-            if not list(bag):
-                ir_elem.remove(bag)
-        if not list(ir_elem):
-            desc.remove(ir_elem)
-            ir_elem = None
+        ir_elem = _remove_face_regions(ir_elem, desc)
 
-    valid = [
-        r for r in regions
-        if str(r.get("name") or "").strip()
-        and float(r.get("rw") or 0) > 0
-        and float(r.get("rh") or 0) > 0
-    ]
+    valid = _valid_face_regions(regions)
     if not valid:
         return
 
@@ -300,24 +333,7 @@ def _set_face_regions_in_desc(
         bag = ET.SubElement(ir_elem, _RDF_BAG)
 
     for n, region in enumerate(valid, 1):
-        name = str(region.get("name") or "").strip()
-        rx = float(region.get("rx") or 0)
-        ry = float(region.get("ry") or 0)
-        rw = float(region.get("rw") or 0)
-        rh = float(region.get("rh") or 0)
-        li = ET.SubElement(bag, _RDF_LI)
-        li.set(_RDF_PARSE_TYPE, "Resource")
-        boundary = ET.SubElement(li, _IPTC_REGION_BOUNDARY_TAG)
-        boundary.set(_RDF_PARSE_TYPE, "Resource")
-        ET.SubElement(boundary, _IPTC_RB_SHAPE_TAG).text = "rectangle"
-        ET.SubElement(boundary, _IPTC_RB_UNIT_TAG).text = "relative"
-        ET.SubElement(boundary, _IPTC_RB_X_TAG).text = f"{rx:.6f}"
-        ET.SubElement(boundary, _IPTC_RB_Y_TAG).text = f"{ry:.6f}"
-        ET.SubElement(boundary, _IPTC_RB_W_TAG).text = f"{rw:.6f}"
-        ET.SubElement(boundary, _IPTC_RB_H_TAG).text = f"{rh:.6f}"
-        ET.SubElement(li, _IPTC_RCTYPE_TAG).text = "face-identified"
-        ET.SubElement(li, _IPTC_RID_TAG).text = f"face-{n}"
-        _add_region_name_alt(li, name)
+        _build_face_region_li(bag, n, region)
 
 
 def merge_face_regions_xmp(
@@ -330,7 +346,7 @@ def merge_face_regions_xmp(
     non-face region types.  Creates a minimal sidecar if none exists.
 
     regions: list of {"name": str, "rx": float, "ry": float, "rw": float, "rh": float}
-      where coordinates are relative (0.0–1.0), origin at top-left.
+      where coordinates are relative (0.0-1.0), origin at top-left.
 
     Returns the path written.
     """
