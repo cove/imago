@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 # Namespaces copied from photoalbums/lib/xmp_sidecar.py (stdlib only, no cross-project import)
 X_NS = "adobe:ns:meta/"
@@ -21,6 +22,19 @@ _RDF_ALT = f"{{{RDF_NS}}}Alt"
 _RDF_LI = f"{{{RDF_NS}}}li"
 _RDF_DESC = f"{{{RDF_NS}}}Description"
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
+_RDF_PARSE_TYPE = f"{{{RDF_NS}}}parseType"
+
+_IPTC_IMAGE_REGION_TAG = f"{{{IPTC_EXT_NS}}}ImageRegion"
+_IPTC_REGION_BOUNDARY_TAG = f"{{{IPTC_EXT_NS}}}RegionBoundary"
+_IPTC_RCTYPE_TAG = f"{{{IPTC_EXT_NS}}}RCtype"
+_IPTC_RID_TAG = f"{{{IPTC_EXT_NS}}}rId"
+_IPTC_NAME_TAG = f"{{{IPTC_EXT_NS}}}Name"
+_IPTC_RB_SHAPE_TAG = f"{{{IPTC_EXT_NS}}}rbShape"
+_IPTC_RB_UNIT_TAG = f"{{{IPTC_EXT_NS}}}rbUnit"
+_IPTC_RB_X_TAG = f"{{{IPTC_EXT_NS}}}rbX"
+_IPTC_RB_Y_TAG = f"{{{IPTC_EXT_NS}}}rbY"
+_IPTC_RB_W_TAG = f"{{{IPTC_EXT_NS}}}rbW"
+_IPTC_RB_H_TAG = f"{{{IPTC_EXT_NS}}}rbH"
 
 
 def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:  # type: ignore[type-arg]
@@ -229,3 +243,125 @@ def _write_minimal(
 
     tree = ET.ElementTree(xmpmeta)
     tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
+
+
+# ---------------------------------------------------------------------------
+# IPTC ImageRegion face bounding boxes (written by immich-sync)
+# ---------------------------------------------------------------------------
+
+
+def _region_is_face(li: ET.Element) -> bool:  # type: ignore[type-arg]
+    rctype = str(li.findtext(_IPTC_RCTYPE_TAG, default="") or "").strip().lower()
+    if rctype.startswith("face-"):
+        return True
+    rid = str(li.findtext(_IPTC_RID_TAG, default="") or "").strip()
+    return rid.startswith("face-")
+
+
+def _add_region_name_alt(parent: ET.Element, name: str) -> None:  # type: ignore[type-arg]
+    field = ET.SubElement(parent, _IPTC_NAME_TAG)
+    alt = ET.SubElement(field, _RDF_ALT)
+    li = ET.SubElement(alt, _RDF_LI)
+    li.set("{http://www.w3.org/XML/1998/namespace}lang", "x-default")
+    li.text = name
+
+
+def _set_face_regions_in_desc(
+    desc: ET.Element,  # type: ignore[type-arg]
+    regions: list[dict[str, Any]],
+) -> None:
+    """Replace all face-identified ImageRegion items with *regions* (relative coords)."""
+    ir_elem = desc.find(_IPTC_IMAGE_REGION_TAG)
+    if ir_elem is not None:
+        bag = ir_elem.find(_RDF_BAG)
+        if bag is not None:
+            for li in list(bag.findall(_RDF_LI)):
+                if _region_is_face(li):
+                    bag.remove(li)
+            if not list(bag):
+                ir_elem.remove(bag)
+        if not list(ir_elem):
+            desc.remove(ir_elem)
+            ir_elem = None
+
+    valid = [
+        r for r in regions
+        if str(r.get("name") or "").strip()
+        and float(r.get("rw") or 0) > 0
+        and float(r.get("rh") or 0) > 0
+    ]
+    if not valid:
+        return
+
+    if ir_elem is None:
+        ir_elem = ET.SubElement(desc, _IPTC_IMAGE_REGION_TAG)
+    bag = ir_elem.find(_RDF_BAG)
+    if bag is None:
+        bag = ET.SubElement(ir_elem, _RDF_BAG)
+
+    for n, region in enumerate(valid, 1):
+        name = str(region.get("name") or "").strip()
+        rx = float(region.get("rx") or 0)
+        ry = float(region.get("ry") or 0)
+        rw = float(region.get("rw") or 0)
+        rh = float(region.get("rh") or 0)
+        li = ET.SubElement(bag, _RDF_LI)
+        li.set(_RDF_PARSE_TYPE, "Resource")
+        boundary = ET.SubElement(li, _IPTC_REGION_BOUNDARY_TAG)
+        boundary.set(_RDF_PARSE_TYPE, "Resource")
+        ET.SubElement(boundary, _IPTC_RB_SHAPE_TAG).text = "rectangle"
+        ET.SubElement(boundary, _IPTC_RB_UNIT_TAG).text = "relative"
+        ET.SubElement(boundary, _IPTC_RB_X_TAG).text = f"{rx:.6f}"
+        ET.SubElement(boundary, _IPTC_RB_Y_TAG).text = f"{ry:.6f}"
+        ET.SubElement(boundary, _IPTC_RB_W_TAG).text = f"{rw:.6f}"
+        ET.SubElement(boundary, _IPTC_RB_H_TAG).text = f"{rh:.6f}"
+        ET.SubElement(li, _IPTC_RCTYPE_TAG).text = "face-identified"
+        ET.SubElement(li, _IPTC_RID_TAG).text = f"face-{n}"
+        _add_region_name_alt(li, name)
+
+
+def merge_face_regions_xmp(
+    sidecar_path: Path,
+    regions: list[dict[str, Any]],
+) -> Path:
+    """Write face bounding box regions to an XMP sidecar (IPTC4xmpExt:ImageRegion).
+
+    Replaces existing face-identified regions; preserves all other XMP fields and
+    non-face region types.  Creates a minimal sidecar if none exists.
+
+    regions: list of {"name": str, "rx": float, "ry": float, "rw": float, "rh": float}
+      where coordinates are relative (0.0–1.0), origin at top-left.
+
+    Returns the path written.
+    """
+    sidecar_path = Path(sidecar_path)
+    tree: ET.ElementTree | None = None  # type: ignore[type-arg]
+
+    if sidecar_path.exists():
+        try:
+            tree = ET.parse(str(sidecar_path))
+        except ET.ParseError:
+            tree = None
+
+    if tree is not None:
+        root = tree.getroot()
+        if root is not None:
+            rdf_rdf = root.find(_RDF_ROOT)
+            if rdf_rdf is None:
+                rdf_rdf = ET.SubElement(root, _RDF_ROOT)
+            desc = rdf_rdf.find(_RDF_DESC)
+            if desc is None:
+                desc = ET.SubElement(rdf_rdf, _RDF_DESC)
+            _set_face_regions_in_desc(desc, regions)
+            tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
+            return sidecar_path
+
+    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    xmpmeta = ET.Element(f"{{{X_NS}}}xmpmeta")
+    rdf_rdf = ET.SubElement(xmpmeta, _RDF_ROOT)
+    rdf_rdf.set("xmlns:rdf", RDF_NS)
+    desc = ET.SubElement(rdf_rdf, _RDF_DESC)
+    desc.set(f"{{{RDF_NS}}}about", "")
+    _set_face_regions_in_desc(desc, regions)
+    ET.ElementTree(xmpmeta).write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
+    return sidecar_path

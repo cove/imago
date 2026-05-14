@@ -57,6 +57,12 @@ cast-init:
 cast-web:
   {{python}} -m cast web
 
+# Pull named face bounding boxes from Immich and write them into local XMP sidecars.
+# Requires IMMICH_URL and IMMICH_API_KEY env vars (or pass --immich-url / --api-key).
+# Pass --dry-run to preview changes without writing.  Pass -v for verbose output.
+cast-immich-sync *args:
+  {{python}} -m cast immich-sync --photos-root "{{photoalbums_root}}" {{args}}
+
 vhs-tuner:
   {{python}} vhs/vhs.py tuner
 
