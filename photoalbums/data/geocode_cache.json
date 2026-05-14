@@ -2736,6 +2736,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "assiniboine park, winnipeg, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Assiniboine Park, Winnipeg, Manitoba, Canada",
+    "latitude": "49.8707587",
+    "longitude": "-97.2347215",
+    "query": "Assiniboine Park, Winnipeg, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "city": "Winnipeg",
+        "country": "Canada",
+        "country_code": "ca",
+        "park": "Assiniboine Park",
+        "state": "Manitoba",
+        "suburb": "Assiniboine Park"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "49.8669086",
+        "49.8752790",
+        "-97.2496419",
+        "-97.2197341"
+      ],
+      "category": "leisure",
+      "display_name": "Assiniboine Park, Winnipeg, Manitoba, Canada",
+      "importance": 0.3583819294050449,
+      "lat": "49.8707587",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.2347215",
+      "name": "Assiniboine Park",
+      "osm_id": 14869261,
+      "osm_type": "way",
+      "place_id": 348170659,
+      "place_rank": 24,
+      "type": "park"
+    },
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
   "astana, kazakhstan": {
     "city": "",
     "country": "Kazakhstan",
@@ -12276,6 +12318,48 @@
     "query": "Danube River fort",
     "status": "miss"
   },
+  "darien, connecticut, usa": {
+    "city": "Darien",
+    "country": "United States",
+    "display_name": "Darien, Western Connecticut Planning Region, Connecticut, 06820, United States",
+    "latitude": "41.0787079",
+    "longitude": "-73.4692873",
+    "query": "Darien, Connecticut, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CT",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Western Connecticut Planning Region",
+        "postcode": "06820",
+        "state": "Connecticut",
+        "town": "Darien"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "40.9753166",
+        "41.1147043",
+        "-73.5181520",
+        "-73.4440460"
+      ],
+      "category": "boundary",
+      "display_name": "Darien, Western Connecticut Planning Region, Connecticut, 06820, United States",
+      "importance": 0.48783349435729384,
+      "lat": "41.0787079",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.4692873",
+      "name": "Darien",
+      "osm_id": 3307253,
+      "osm_type": "relation",
+      "place_id": 355660782,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
+  },
   "david,sherry, darlene, audrey beth, nina": {
     "query": "DAVID,SHERRY, DARLENE, AUDREY BETH, NINA",
     "status": "miss"
@@ -15627,6 +15711,10 @@
     "query": "Franciscan Monastery, Dubrovnik, Yugoslavia",
     "status": "miss"
   },
+  "fraser collection, new york, usa": {
+    "query": "Fraser Collection, New York, USA",
+    "status": "miss"
+  },
   "galata bridge & new mosque": {
     "query": "Galata Bridge & New Mosque",
     "status": "miss"
@@ -16711,6 +16799,49 @@
     "state": "Community of Madrid",
     "status": "ok"
   },
+  "granada hills, california, usa": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Granada Hills, Granada Hills South Neighborhood Council District, Los Angeles, Los Angeles County, California, 91344, United States",
+    "latitude": "34.2661558",
+    "longitude": "-118.5174342",
+    "query": "Granada Hills, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "91344",
+        "state": "California",
+        "suburb": "Granada Hills"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "34.2461558",
+        "34.2861558",
+        "-118.5374342",
+        "-118.4974342"
+      ],
+      "category": "place",
+      "display_name": "Granada Hills, Granada Hills South Neighborhood Council District, Los Angeles, Los Angeles County, California, 91344, United States",
+      "importance": 0.3949527989551982,
+      "lat": "34.2661558",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.5174342",
+      "name": "Granada Hills",
+      "osm_id": 150941903,
+      "osm_type": "node",
+      "place_id": 322873253,
+      "place_rank": 19,
+      "type": "suburb"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "grand bazaar, istanbul": {
     "city": "Istanbul",
     "country": "Turkey",
@@ -17019,6 +17150,47 @@
     "state": "",
     "status": "ok",
     "sublocation": "Na Phra Lan Tunnel"
+  },
+  "grants pass, oregon, usa": {
+    "city": "Grants Pass",
+    "country": "United States",
+    "display_name": "Grants Pass, Josephine County, Oregon, United States",
+    "latitude": "42.4393707",
+    "longitude": "-123.3272489",
+    "query": "Grants Pass, Oregon, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OR",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Josephine County",
+        "state": "Oregon",
+        "town": "Grants Pass"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "42.3897047",
+        "42.4730075",
+        "-123.3912853",
+        "-123.2825593"
+      ],
+      "category": "boundary",
+      "display_name": "Grants Pass, Josephine County, Oregon, United States",
+      "importance": 0.5012003947230182,
+      "lat": "42.4393707",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.3272489",
+      "name": "Grants Pass",
+      "osm_id": 15478376,
+      "osm_type": "relation",
+      "place_id": 417218213,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Oregon",
+    "status": "ok",
+    "sublocation": ""
   },
   "granville road, hong kong": {
     "display_name": "加連威老道 Granville Road, 尖沙咀 Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
@@ -19792,6 +19964,49 @@
     "state": "Casablanca-Settat",
     "status": "ok"
   },
+  "hyde park, new york, usa": {
+    "city": "Town of Hyde Park",
+    "country": "United States",
+    "display_name": "Hyde Park, Haviland, Town of Hyde Park, Dutchess County, New York, United States",
+    "latitude": "41.7841956",
+    "longitude": "-73.9373912",
+    "query": "Hyde Park, New York, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "census": "Hyde Park",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Dutchess County",
+        "state": "New York",
+        "town": "Town of Hyde Park",
+        "village": "Haviland"
+      },
+      "addresstype": "census",
+      "boundingbox": [
+        "41.7719515",
+        "41.7969486",
+        "-73.9480547",
+        "-73.9219767"
+      ],
+      "category": "boundary",
+      "display_name": "Hyde Park, Haviland, Town of Hyde Park, Dutchess County, New York, United States",
+      "importance": 0.3799838315762615,
+      "lat": "41.7841956",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9373912",
+      "name": "Hyde Park",
+      "osm_id": 14077327,
+      "osm_type": "relation",
+      "place_id": 355567328,
+      "place_rank": 25,
+      "type": "census"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hydra, greece": {
     "city": "Vlychos",
     "country": "Greece",
@@ -20768,6 +20983,46 @@
     },
     "source": "nominatim",
     "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "jasper national park, alberta, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Jasper National Park, Alberta, Canada",
+    "latitude": "52.8041035",
+    "longitude": "-117.8048267",
+    "query": "Jasper National Park, Alberta, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-AB",
+        "country": "Canada",
+        "country_code": "ca",
+        "national_park": "Jasper National Park",
+        "state": "Alberta"
+      },
+      "addresstype": "national_park",
+      "boundingbox": [
+        "52.1269966",
+        "53.4811800",
+        "-119.5448361",
+        "-116.7956604"
+      ],
+      "category": "boundary",
+      "display_name": "Jasper National Park, Alberta, Canada",
+      "importance": 0.5282191048820416,
+      "lat": "52.8041035",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.8048267",
+      "name": "Jasper National Park",
+      "osm_id": 6395738,
+      "osm_type": "relation",
+      "place_id": 375774510,
+      "place_rank": 25,
+      "type": "national_park"
+    },
+    "source": "nominatim",
+    "state": "Alberta",
     "status": "ok",
     "sublocation": ""
   },
@@ -27736,6 +27991,48 @@
     "state": "Ile-de-France",
     "status": "ok"
   },
+  "montreal, canada": {
+    "city": "Montreal",
+    "country": "Canada",
+    "display_name": "Montreal, Urban agglomeration of Montreal, Montreal (administrative region), Quebec, Canada",
+    "latitude": "45.5031824",
+    "longitude": "-73.5698065",
+    "query": "Montreal, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "city": "Montreal",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Urban agglomeration of Montreal",
+        "state": "Quebec",
+        "state_district": "Montreal (administrative region)"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "45.4100756",
+        "45.7047897",
+        "-73.9741567",
+        "-73.4742952"
+      ],
+      "category": "boundary",
+      "display_name": "Montreal, Urban agglomeration of Montreal, Montreal (administrative region), Quebec, Canada",
+      "importance": 0.7683399932257889,
+      "lat": "45.5031824",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.5698065",
+      "name": "Montreal",
+      "osm_id": 1634158,
+      "osm_type": "relation",
+      "place_id": 366946223,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": ""
+  },
   "montreux switzerland, switzerland": {
     "query": "Montreux Switzerland, Switzerland",
     "status": "miss"
@@ -28465,6 +28762,52 @@
     "state": "",
     "status": "ok",
     "sublocation": "Masarykovo nábřeží"
+  },
+  "national war memorial, ottawa, canada": {
+    "city": "Ottawa",
+    "country": "Canada",
+    "display_name": "National War Memorial, Wellington Street, Centretown, Somerset, Ottawa, Eastern Ontario, Ontario, K1P 1C7, Canada",
+    "latitude": "45.4240313",
+    "longitude": "-75.6955098",
+    "query": "National War Memorial, Ottawa, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-ON",
+        "city": "Ottawa",
+        "city_district": "Somerset",
+        "country": "Canada",
+        "country_code": "ca",
+        "postcode": "K1P 1C7",
+        "road": "Wellington Street",
+        "state": "Ontario",
+        "state_district": "Eastern Ontario",
+        "suburb": "Centretown",
+        "tourism": "National War Memorial"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "45.4239670",
+        "45.4241279",
+        "-75.6956187",
+        "-75.6954236"
+      ],
+      "category": "tourism",
+      "display_name": "National War Memorial, Wellington Street, Centretown, Somerset, Ottawa, Eastern Ontario, Ontario, K1P 1C7, Canada",
+      "importance": 0.3701845356649174,
+      "lat": "45.4240313",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-75.6955098",
+      "name": "National War Memorial",
+      "osm_id": 948187547,
+      "osm_type": "way",
+      "place_id": 366753769,
+      "place_rank": 30,
+      "type": "attraction"
+    },
+    "source": "nominatim",
+    "state": "Ontario",
+    "status": "ok",
+    "sublocation": "Wellington Street"
   },
   "netherlands": {
     "city": "",
@@ -30935,6 +31278,51 @@
     "query": "Parliament Buildings, Vienna, Austria; Schönbrunn-Gloriette, Vienna, Austria",
     "status": "miss"
   },
+  "parliament hill, ottawa, canada": {
+    "city": "Ottawa",
+    "country": "Canada",
+    "display_name": "Parliament Hill, Centretown, Somerset, Ottawa, Eastern Ontario, Ontario, K1A 0A6, Canada",
+    "latitude": "45.4228390",
+    "longitude": "-75.7030627",
+    "query": "Parliament Hill, Ottawa, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-ON",
+        "city": "Ottawa",
+        "city_district": "Somerset",
+        "country": "Canada",
+        "country_code": "ca",
+        "park": "Parliament Hill",
+        "postcode": "K1A 0A6",
+        "state": "Ontario",
+        "state_district": "Eastern Ontario",
+        "suburb": "Centretown"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "45.4189378",
+        "45.4267253",
+        "-75.7120399",
+        "-75.6955486"
+      ],
+      "category": "leisure",
+      "display_name": "Parliament Hill, Centretown, Somerset, Ottawa, Eastern Ontario, Ontario, K1A 0A6, Canada",
+      "importance": 0.4744750917192849,
+      "lat": "45.4228390",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-75.7030627",
+      "name": "Parliament Hill",
+      "osm_id": 39635224,
+      "osm_type": "way",
+      "place_id": 364128677,
+      "place_rank": 24,
+      "type": "park"
+    },
+    "source": "nominatim",
+    "state": "Ontario",
+    "status": "ok",
+    "sublocation": ""
+  },
   "parliament, bucharest, romania": {
     "city": "Bucharest",
     "country": "Romania",
@@ -31099,6 +31487,47 @@
       "osm_id": 3529725,
       "osm_type": "relation",
       "place_id": 296866082,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "paso robles, california, usa": {
+    "city": "Paso Robles",
+    "country": "United States",
+    "display_name": "Paso Robles, San Luis Obispo County, California, United States",
+    "latitude": "35.6262618",
+    "longitude": "-120.6901319",
+    "query": "Paso Robles, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Luis Obispo County",
+        "state": "California",
+        "town": "Paso Robles"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "35.5767154",
+        "35.6922701",
+        "-120.7076039",
+        "-120.5294537"
+      ],
+      "category": "boundary",
+      "display_name": "Paso Robles, San Luis Obispo County, California, United States",
+      "importance": 0.5090968538944352,
+      "lat": "35.6262618",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.6901319",
+      "name": "Paso Robles",
+      "osm_id": 112147,
+      "osm_type": "relation",
+      "place_id": 316183661,
       "place_rank": 16,
       "type": "administrative"
     },
@@ -32932,6 +33361,47 @@
     "latitude": "45.5202471",
     "longitude": "-122.6741940",
     "query": "Portland, Oregon, United States",
+    "source": "nominatim",
+    "state": "Oregon",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "portland, oregon, usa": {
+    "city": "Portland",
+    "country": "United States",
+    "display_name": "Portland, Multnomah County, Oregon, United States",
+    "latitude": "45.5202471",
+    "longitude": "-122.6741940",
+    "query": "Portland, Oregon, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OR",
+        "city": "Portland",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Multnomah County",
+        "state": "Oregon"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "45.4325360",
+        "45.6528812",
+        "-122.8367489",
+        "-122.4720252"
+      ],
+      "category": "boundary",
+      "display_name": "Portland, Multnomah County, Oregon, United States",
+      "importance": 0.7099002160354798,
+      "lat": "45.5202471",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.6741940",
+      "name": "Portland",
+      "osm_id": 186579,
+      "osm_type": "relation",
+      "place_id": 304557507,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Oregon",
     "status": "ok",
@@ -37613,6 +38083,88 @@
     "query": "Scottish National Monument (Scottish National War Memorial), Edinburgh, United Kingdom",
     "status": "miss"
   },
+  "seattle, usa": {
+    "city": "Seattle",
+    "country": "United States",
+    "display_name": "Seattle, King County, Washington, United States",
+    "latitude": "47.6038321",
+    "longitude": "-122.3300620",
+    "query": "Seattle, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WA",
+        "city": "Seattle",
+        "country": "United States",
+        "country_code": "us",
+        "county": "King County",
+        "state": "Washington"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "47.4810022",
+        "47.7341503",
+        "-122.4596960",
+        "-122.2244330"
+      ],
+      "category": "boundary",
+      "display_name": "Seattle, King County, Washington, United States",
+      "importance": 0.7344378062407435,
+      "lat": "47.6038321",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.3300620",
+      "name": "Seattle",
+      "osm_id": 237385,
+      "osm_type": "relation",
+      "place_id": 324456970,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "seattle, washington, usa": {
+    "city": "Seattle",
+    "country": "United States",
+    "display_name": "Seattle, King County, Washington, United States",
+    "latitude": "47.6038321",
+    "longitude": "-122.3300620",
+    "query": "Seattle, Washington, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WA",
+        "city": "Seattle",
+        "country": "United States",
+        "country_code": "us",
+        "county": "King County",
+        "state": "Washington"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "47.4810022",
+        "47.7341503",
+        "-122.4596960",
+        "-122.2244330"
+      ],
+      "category": "boundary",
+      "display_name": "Seattle, King County, Washington, United States",
+      "importance": 0.7344378062407435,
+      "lat": "47.6038321",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.3300620",
+      "name": "Seattle",
+      "osm_id": 237385,
+      "osm_type": "relation",
+      "place_id": 324456970,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
   "seine river, paris, france": {
     "city": "Paris",
     "country": "France",
@@ -39531,6 +40083,52 @@
     "state": "Moscow",
     "status": "ok",
     "sublocation": "2 Red Square"
+  },
+  "st. charles, manitoba, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "St Charles Country Club, 100, Country Club Boulevard, Kirkfield, Charleswood, St. James-Assiniboia, Winnipeg, Manitoba, R3K 1Z3, Canada",
+    "latitude": "49.8674257",
+    "longitude": "-97.2854693",
+    "query": "St. Charles, Manitoba, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "city": "Winnipeg",
+        "country": "Canada",
+        "country_code": "ca",
+        "house_number": "100",
+        "leisure": "St Charles Country Club",
+        "neighbourhood": "Kirkfield",
+        "postcode": "R3K 1Z3",
+        "road": "Country Club Boulevard",
+        "state": "Manitoba",
+        "suburb": "Charleswood"
+      },
+      "addresstype": "leisure",
+      "boundingbox": [
+        "49.8594321",
+        "49.8758258",
+        "-97.2903003",
+        "-97.2776513"
+      ],
+      "category": "leisure",
+      "display_name": "St Charles Country Club, 100, Country Club Boulevard, Kirkfield, Charleswood, St. James-Assiniboia, Winnipeg, Manitoba, R3K 1Z3, Canada",
+      "importance": 0.22697289548003588,
+      "lat": "49.8674257",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.2854693",
+      "name": "St Charles Country Club",
+      "osm_id": 282121288,
+      "osm_type": "way",
+      "place_id": 375017251,
+      "place_rank": 30,
+      "type": "golf_course"
+    },
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": "100 Country Club Boulevard"
   },
   "st. cross hospital, winchester": {
     "city": "Winchester",
