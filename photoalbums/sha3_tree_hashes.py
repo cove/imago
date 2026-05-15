@@ -1,11 +1,14 @@
 import argparse
 import hashlib
 import os
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
 MANIFEST_NAME = "SHA256SUMS"
 TOP_MANIFEST_NAME = "SHA256SUMS"
+
+_ALBUM_DIR_RE = re.compile(r"^[A-Za-z0-9]+_\d{4}(-\d{4})?_B\d{2}_(Archive|Pages|Photos)$")
 
 
 def iter_files(base_dir: Path) -> Iterable[Path]:
@@ -48,7 +51,7 @@ def parse_manifest(manifest_path: Path) -> list[tuple[str, Path]]:
 
 
 def album_dirs(base_dir: Path) -> list[Path]:
-    return sorted([p for p in base_dir.iterdir() if p.is_dir()])
+    return sorted([p for p in base_dir.iterdir() if p.is_dir() and _ALBUM_DIR_RE.match(p.name)])
 
 
 def should_skip_file(file_path: Path) -> bool:
