@@ -32,3 +32,9 @@ scan-pipeline album="":
 
 bennett-scan-pipeline:
   {{python}} -m photoalbums.bennett watch
+
+checksums:
+  {{python}} -m photoalbums.sha3_tree_hashes "{{photoalbums_root}}"
+
+verify-checksums:
+  {{python}} -m photoalbums.sha3_tree_hashes "{{photoalbums_root}}" --verify
