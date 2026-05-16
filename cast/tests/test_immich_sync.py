@@ -1,13 +1,21 @@
 """Tests for cast.immich_sync."""
 from __future__ import annotations
 
+import io
+import urllib.error
 from pathlib import Path
+from unittest import mock
 from unittest.mock import patch
+
+import pytest
 
 from cast.immich_sync import (
     _dedupe_names,
     _faces_to_regions,
+    _http_get,
     build_local_index,
+    fetch_assets_by_original_filename,
+    fetch_person_assets,
     sync_immich_faces,
 )
 from cast.storage import TextFaceStore
@@ -141,6 +149,45 @@ def test_dedupe_names_case_insensitive() -> None:
     assert result == ["Alice", "Bob"]
 
 
+def test_http_get_prints_immich_error_and_retries_until_recovery(capsys) -> None:
+    response = mock.MagicMock()
+    response.__enter__.return_value.read.return_value = b'{"people":[]}'
+    error = urllib.error.HTTPError(
+        _BASE,
+        500,
+        "server error",
+        {},
+        io.BytesIO(b'{"error":"database unavailable"}'),
+    )
+    with (
+        patch("cast.immich_sync.urllib.request.urlopen", side_effect=[error, response]),
+        patch("cast.immich_sync.time.sleep") as sleep_mock,
+    ):
+        payload = _http_get(_BASE, _KEY)
+
+    assert payload == {"people": []}
+    assert 'Immich request failed: {"error":"database unavailable"}' in capsys.readouterr().out
+    sleep_mock.assert_called_once()
+
+
+def test_http_get_raises_on_client_error_without_retry() -> None:
+    error = urllib.error.HTTPError(
+        _BASE,
+        404,
+        "not found",
+        {},
+        io.BytesIO(b'{"error":"not found"}'),
+    )
+    with (
+        patch("cast.immich_sync.urllib.request.urlopen", side_effect=error),
+        patch("cast.immich_sync.time.sleep") as sleep_mock,
+        pytest.raises(urllib.error.HTTPError),
+    ):
+        _http_get(_BASE, _KEY)
+
+    sleep_mock.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Integration-style tests for sync_immich_faces (HTTP calls mocked)
 # ---------------------------------------------------------------------------
@@ -161,19 +208,23 @@ _FACE_ALICE = {
 }
 
 
-def _make_http_mock(people, person_assets, asset_faces):
-    """Return a side_effect function for patching _http_get."""
+def _make_http_mocks(people, person_assets, asset_faces):
+    """Return side_effect functions for patching Immich GET and POST helpers."""
     def _get(url, api_key, params=None):
-        if "/api/people" in url and not any(pid in url for pid in ["alice", "bob"]):
+        if url.endswith("/api/people"):
             return {"people": people, "hasNextPage": False}
-        for pid, assets in person_assets.items():
-            if f"/api/people/{pid}" in url:
-                return assets
         if "/api/faces" in url:
             asset_id = (params or {}).get("id", "")
             return asset_faces.get(asset_id, [])
         return {}
-    return _get
+
+    def _post(url, api_key, payload):
+        if url.endswith("/api/search/metadata"):
+            person_id = payload["personIds"][0]
+            return {"assets": {"items": person_assets.get(person_id, [])}}
+        return {}
+
+    return _get, _post
 
 
 def test_sync_writes_xmp_and_updates_castdb(tmp_path: Path) -> None:
@@ -182,12 +233,15 @@ def test_sync_writes_xmp_and_updates_castdb(tmp_path: Path) -> None:
     photo = tmp_path / "IMG_001.jpg"
     photo.write_bytes(b"")
 
-    http_mock = _make_http_mock(
+    get_mock, post_mock = _make_http_mocks(
         people=[_PERSON_ALICE],
         person_assets={"person-alice": [_ASSET_1]},
         asset_faces={"asset-001": [_FACE_ALICE]},
     )
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert stats["people_synced"] == 1
@@ -208,12 +262,15 @@ def test_sync_dry_run_does_not_write(tmp_path: Path) -> None:
     store.ensure_files()
     (tmp_path / "IMG_001.jpg").write_bytes(b"")
 
-    http_mock = _make_http_mock(
+    get_mock, post_mock = _make_http_mocks(
         people=[_PERSON_ALICE],
         person_assets={"person-alice": [_ASSET_1]},
         asset_faces={"asset-001": [_FACE_ALICE]},
     )
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store, dry_run=True)
 
     assert stats["xmp_updated"] == 1
@@ -226,12 +283,15 @@ def test_sync_skip_castdb_does_not_add_person(tmp_path: Path) -> None:
     store.ensure_files()
     (tmp_path / "IMG_001.jpg").write_bytes(b"")
 
-    http_mock = _make_http_mock(
+    get_mock, post_mock = _make_http_mocks(
         people=[_PERSON_ALICE],
         person_assets={"person-alice": [_ASSET_1]},
         asset_faces={"asset-001": [_FACE_ALICE]},
     )
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         sync_immich_faces(_BASE, _KEY, tmp_path, store, update_castdb=False)
 
     assert store.list_people() == []
@@ -241,8 +301,11 @@ def test_sync_no_named_people_returns_early(tmp_path: Path) -> None:
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()
 
-    http_mock = _make_http_mock(people=[], person_assets={}, asset_faces={})
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    get_mock, post_mock = _make_http_mocks(people=[], person_assets={}, asset_faces={})
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert stats == {"people_synced": 0, "assets_matched": 0, "xmp_updated": 0, "xmp_skipped": 0}
@@ -253,12 +316,15 @@ def test_sync_no_local_file_match(tmp_path: Path) -> None:
     store.ensure_files()
     # No local photo file present — nothing to match
 
-    http_mock = _make_http_mock(
+    get_mock, post_mock = _make_http_mocks(
         people=[_PERSON_ALICE],
         person_assets={"person-alice": [_ASSET_1]},
         asset_faces={"asset-001": [_FACE_ALICE]},
     )
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert stats["assets_matched"] == 0
@@ -271,12 +337,15 @@ def test_sync_asset_with_no_named_faces_skipped(tmp_path: Path) -> None:
     (tmp_path / "IMG_001.jpg").write_bytes(b"")
 
     unnamed_face = {**_FACE_ALICE, "person": None}
-    http_mock = _make_http_mock(
+    get_mock, post_mock = _make_http_mocks(
         people=[_PERSON_ALICE],
         person_assets={"person-alice": [_ASSET_1]},
         asset_faces={"asset-001": [unnamed_face]},
     )
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert stats["xmp_skipped"] == 1
@@ -290,16 +359,61 @@ def test_sync_existing_person_not_duplicated(tmp_path: Path) -> None:
     store.add_person("Alice")
     (tmp_path / "IMG_001.jpg").write_bytes(b"")
 
-    http_mock = _make_http_mock(
+    get_mock, post_mock = _make_http_mocks(
         people=[_PERSON_ALICE],
         person_assets={"person-alice": [_ASSET_1]},
         asset_faces={"asset-001": [_FACE_ALICE]},
     )
-    with patch("cast.immich_sync._http_get", side_effect=http_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert stats["people_synced"] == 0
     assert len([p for p in store.list_people() if p["display_name"] == "Alice"]) == 1
+
+
+def test_sync_reports_asset_query_progress_while_people_are_processed(tmp_path: Path, capsys) -> None:
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    people = [_PERSON_ALICE, {"id": "person-bob", "name": "Bob"}]
+    get_mock, post_mock = _make_http_mocks(people=people, person_assets={}, asset_faces={})
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+        patch("cast.immich_sync.time.monotonic", side_effect=[10.0, 11.0, 12.0]),
+    ):
+        sync_immich_faces(_BASE, _KEY, tmp_path, store)
+
+    output = capsys.readouterr().out
+    assert "Immich asset queries: 50.00% (1/2) 1.00 queries/s\r" in output
+    assert "Immich asset queries: 100.00% (2/2) 1.00 queries/s\n" in output
+
+
+def test_sync_reports_face_query_progress_while_matched_assets_are_processed(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    (tmp_path / "IMG_001.jpg").write_bytes(b"")
+
+    get_mock, post_mock = _make_http_mocks(
+        people=[_PERSON_ALICE],
+        person_assets={"person-alice": [_ASSET_1]},
+        asset_faces={"asset-001": [_FACE_ALICE]},
+    )
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+        patch("cast.immich_sync.time.monotonic", side_effect=[10.0, 11.0, 20.0, 21.0]),
+    ):
+        sync_immich_faces(_BASE, _KEY, tmp_path, store)
+
+    output = capsys.readouterr().out
+    assert "Immich face queries: 100.00% (1/1) 1.00 queries/s\n" in output
 
 
 def test_fetch_all_named_people_paginates(tmp_path: Path) -> None:
@@ -318,16 +432,44 @@ def test_fetch_all_named_people_paginates(tmp_path: Path) -> None:
                 return {"people": [{"id": "p1", "name": "Alice"}], "hasNextPage": True}
             if page == 2:
                 return {"people": [{"id": "p2", "name": "Bob"}], "hasNextPage": False}
-        if "/api/people/p1/assets" in url or "/api/people/p2/assets" in url:
-            return []
         return {}
 
-    with patch("cast.immich_sync._http_get", side_effect=paging_mock):
+    with (
+        patch("cast.immich_sync._http_get", side_effect=paging_mock),
+        patch("cast.immich_sync._http_post", return_value={"assets": {"items": []}}),
+    ):
         sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert call_count == 2
     names = {p["display_name"] for p in store.list_people()}
     assert names == {"Alice", "Bob"}
+
+
+def test_fetch_person_assets_follows_search_metadata_pages() -> None:
+    def paging_mock(url, api_key, payload):
+        assert url.endswith("/api/search/metadata")
+        if payload["page"] == 1:
+            return {"assets": {"items": [_ASSET_1], "nextPage": "2"}}
+        return {"assets": {"items": [{"id": "asset-002", "originalFileName": "IMG_002.jpg"}]}}
+
+    with patch("cast.immich_sync._http_post", side_effect=paging_mock):
+        assets = fetch_person_assets(_BASE, _KEY, "person-alice")
+
+    assert [asset["id"] for asset in assets] == ["asset-001", "asset-002"]
+
+
+def test_fetch_assets_by_original_filename_follows_search_metadata_pages() -> None:
+    def paging_mock(url, api_key, payload):
+        assert url.endswith("/api/search/metadata")
+        assert payload["originalFileName"] == "IMG_001.jpg"
+        if payload["page"] == 1:
+            return {"assets": {"items": [_ASSET_1], "nextPage": "2"}}
+        return {"assets": {"items": [{"id": "asset-002", "originalFileName": "IMG_001.jpg"}]}}
+
+    with patch("cast.immich_sync._http_post", side_effect=paging_mock):
+        assets = fetch_assets_by_original_filename(_BASE, _KEY, "IMG_001.jpg")
+
+    assert [asset["id"] for asset in assets] == ["asset-001", "asset-002"]
 
 
 def test_sync_multiple_people_in_same_photo(tmp_path: Path) -> None:
@@ -343,18 +485,22 @@ def test_sync_multiple_people_in_same_photo(tmp_path: Path) -> None:
         "person": {"id": "person-bob", "name": "Bob"},
     }
 
-    def multi_mock(url, api_key, params=None):
-        if "/api/people" in url and "person-" not in url:
+    def get_mock(url, api_key, params=None):
+        if url.endswith("/api/people"):
             return {"people": [_PERSON_ALICE, person_bob], "hasNextPage": False}
-        if "/api/people/person-alice/assets" in url:
-            return [_ASSET_1]
-        if "/api/people/person-bob/assets" in url:
-            return [_ASSET_1]
         if "/api/faces" in url:
             return [_FACE_ALICE, face_bob]
         return {}
 
-    with patch("cast.immich_sync._http_get", side_effect=multi_mock):
+    def post_mock(url, api_key, payload):
+        if url.endswith("/api/search/metadata"):
+            return {"assets": {"items": [_ASSET_1]}}
+        return {}
+
+    with (
+        patch("cast.immich_sync._http_get", side_effect=get_mock),
+        patch("cast.immich_sync._http_post", side_effect=post_mock),
+    ):
         stats = sync_immich_faces(_BASE, _KEY, tmp_path, store)
 
     assert stats["assets_matched"] == 1

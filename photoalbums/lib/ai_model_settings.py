@@ -8,7 +8,7 @@ from typing import Any
 DEFAULT_OCR_MODEL = ""
 DEFAULT_CAPTION_MODEL = ""
 DEFAULT_VIEW_REGION_MODEL = "granite-docling-258m"
-DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
+DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:8080/v1"
 DEFAULT_DOCLING_PRESET = "granite_docling"
 DEFAULT_DOCLING_BACKEND = "auto_inline"
 DEFAULT_DOCLING_DEVICE = "auto"

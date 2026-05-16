@@ -2,12 +2,12 @@ selected_ocr_model = "pc"
 selected_caption_model = "pc"
 view_region_model = "docling"
 caption_matching_model = "primary"
-lmstudio_base_url = "http://192.168.4.72:1234/v1"
+lmstudio_base_url = "http://127.0.0.1:8080/v1"
 
 [models]
-pc = [ "google/gemma-4-31b"]
-primary = [ "google/gemma-4-31b"]
-fallback = [ "google/gemma-4-31b"]
+pc = [ "mlx-community/gemma-4-e2b-it-4bit"]
+primary = [ "mlx-community/gemma-4-e2b-it-4bit"]
+fallback = [ "mlx-community/gemma-4-e2b-it-4bit"]
 docling = "granite-docling-258m"
 [docling_pipeline]
 preset = "granite_docling"

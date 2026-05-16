@@ -763,20 +763,47 @@ def _metadata_cached_state(
     state["author_text"] = str((existing_sidecar_state or {}).get("author_text") or "")
     state["scene_text"] = str((existing_sidecar_state or {}).get("scene_text") or "")
     state["ocr_text"] = str(_effective_sidecar_ocr_text(image_path, existing_sidecar_state) or "").strip()
-    state["location_payload"] = dict(state["metadata_output"].get("location") or {})
-    state["locations_shown"] = list(state["metadata_output"].get("locations_shown") or [])
+    state["location_payload"] = _metadata_known_location_payload(state["metadata_output"].get("location"))
+    state["locations_shown"] = _metadata_known_locations_shown(state["metadata_output"].get("locations_shown"))
     state["locations_shown_ran"] = bool(state["metadata_output"].get("location_shown_ran", False))
 
 
 def _metadata_primary_location(result: Any) -> str:
     return next(
         (
-            photo.location or photo.location_name or photo.corrected_caption
+            candidate
             for photo in result.photos
-            if photo.location or photo.location_name or photo.corrected_caption
+            for candidate in (photo.location, photo.location_name)
+            if _metadata_location_is_known(candidate)
         ),
         "",
     )
+
+
+def _metadata_location_is_known(value: object) -> bool:
+    tokens = re.findall(r"[a-z0-9]+", str(value or "").casefold())
+    return bool(tokens) and any(token not in {"unknown", "country", "location"} for token in tokens)
+
+
+def _metadata_known_location_payload(value: object) -> dict[str, Any]:
+    payload = dict(value or {}) if isinstance(value, dict) else {}
+    known_text = next(
+        (
+            str(payload.get(key) or "").strip()
+            for key in ("address", "city", "state", "country", "sublocation", "display_name", "query")
+            if _metadata_location_is_known(payload.get(key))
+        ),
+        "",
+    )
+    return payload if known_text else {}
+
+
+def _metadata_known_locations_shown(value: object) -> list[dict[str, Any]]:
+    return [
+        dict(location)
+        for location in list(value or [])
+        if isinstance(location, dict) and _metadata_location_is_known(location.get("name"))
+    ]
 
 
 def _metadata_step_location_payload(
@@ -808,7 +835,9 @@ def _metadata_step_update_state(
     _extract_metadata_text_fields(result, state)
     primary_location = _metadata_primary_location(result)
     state["location_payload"] = _metadata_step_location_payload(primary_location, geocoder, geocode_recorder)
-    state["locations_shown"] = [{"name": photo.location_name} for photo in result.photos if photo.location_name]
+    state["locations_shown"] = _metadata_known_locations_shown(
+        [{"name": photo.location_name} for photo in result.photos]
+    )
     state["locations_shown_ran"] = True
     _update_region_captions_from_metadata(
         Path(caption_source_path) if caption_source_path else image_path,

@@ -1,4 +1,5 @@
 import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -370,6 +371,34 @@ class TestAIOcr(unittest.TestCase):
         self.assertEqual(text, "BOOK 11")
         self.assertEqual(attempted_models, ["bad-model", "good-model"])
         self.assertEqual(ocr.effective_model_name, "good-model")
+
+    def test_lmstudio_ocr_post_prints_error_and_retries_until_recovery(self):
+        error = ai_ocr.urllib.error.HTTPError(
+            "http://localhost:8080/v1/chat/completions",
+            500,
+            "server error",
+            {},
+            io.BytesIO(b'{"error":"missing mmproj"}'),
+        )
+        success = FakeLMStudioResponse(b'{"choices":[]}')
+
+        with (
+            mock.patch.object(
+                ai_ocr.urllib.request,
+                "urlopen",
+                side_effect=[error, success],
+            ),
+            mock.patch.object(ai_ocr.time, "sleep") as sleep_mock,
+            mock.patch("builtins.print") as print_mock,
+        ):
+            payload = ai_ocr._lmstudio_ocr_post("http://localhost:8080/v1", {}, 30)
+
+        self.assertEqual(payload, {"choices": []})
+        print_mock.assert_called_once_with(
+            'LM Studio OCR request failed: {"error":"missing mmproj"}',
+            flush=True,
+        )
+        sleep_mock.assert_called_once()
 
 
 if __name__ == "__main__":

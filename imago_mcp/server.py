@@ -31,10 +31,7 @@ VHS_DIR = str(REPO_ROOT / "vhs")
 VHS_SCRIPT = str(REPO_ROOT / "vhs" / "vhs.py")
 CAST_COMMAND = [PYTHON, "-m", "cast"]
 PHOTOALBUMS_COMMAND = [PYTHON, "-m", "photoalbums"]
-PHOTOALBUMS_LMSTUDIO_BASE_URLS = (
-    "http://192.168.4.72:1234",
-    "http://192.168.4.21:1234",
-)
+PHOTOALBUMS_LMSTUDIO_BASE_URLS = ("http://127.0.0.1:8080/v1",)
 PHOTOALBUMS_MULTI_WORKER_DEPRECATION = "workers > 1 is deprecated; prefer workers=1."
 
 CONSOLE_PORT = 8091

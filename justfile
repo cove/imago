@@ -51,6 +51,9 @@ verification:
 security:
   uv run dryrun
 
+llama-gemma4:
+  llama-server -m "$HOME/.lmstudio/models/lmstudio-community/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf" --mmproj "$HOME/.lmstudio/models/lmstudio-community/gemma-4-31B-it-GGUF/mmproj-gemma-4-31B-it-BF16.gguf" --alias mlx-community/gemma-4-e2b-it-4bit --host 0.0.0.0 --port 8080 --parallel 1 --ctx-size 8192 --cache-ram 0
+
 cast-init:
   {{python}} -m cast init
 

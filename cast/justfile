@@ -19,3 +19,6 @@ init:
 
 web:
   {{python}} -m cast web
+
+immich-sync *args:
+  just --justfile ../justfile cast-immich-sync {{args}}
