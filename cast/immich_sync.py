@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,6 +40,8 @@ IMMICH_API_KEY_ENV = "IMMICH_API_KEY"
 
 _DEFAULT_EXTENSIONS = (".jpg", ".jpeg", ".tif", ".tiff", ".png")
 _PEOPLE_PAGE_SIZE = 500
+_ASSET_PAGE_SIZE = 1000
+_IMMICH_RETRY_DELAY_SECONDS = 5
 
 
 # ---------------------------------------------------------------------------
@@ -46,19 +49,50 @@ _PEOPLE_PAGE_SIZE = 500
 # ---------------------------------------------------------------------------
 
 
-def _http_get(url: str, api_key: str, params: dict[str, str] | None = None) -> Any:
+def _http_request(
+    method: str,
+    url: str,
+    api_key: str,
+    *,
+    params: dict[str, str] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> Any:
     if params:
         url = f"{url}?{urllib.parse.urlencode(params)}"
-    req = urllib.request.Request(
-        url,
-        headers={"x-api-key": api_key, "Accept": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as exc:
-        log.exception("Immich HTTP %d %s: %s", exc.code, url, exc.reason)
-        raise
+    body = json.dumps(payload).encode() if payload is not None else None
+    while True:
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "x-api-key": api_key,
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            method=method,
+        )
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace").strip()
+            message = details or f"HTTP {exc.code}: {exc.reason}"
+            log.exception("Immich HTTP %d %s: %s", exc.code, url, exc.reason)
+            if 400 <= exc.code < 500:
+                raise
+            print(f"Immich request failed: {message}", flush=True)
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            reason = getattr(exc, "reason", str(exc))
+            print(f"Immich request failed: {reason}", flush=True)
+        time.sleep(_IMMICH_RETRY_DELAY_SECONDS)
+
+
+def _http_get(url: str, api_key: str, params: dict[str, str] | None = None) -> Any:
+    return _http_request("GET", url, api_key, params=params)
+
+
+def _http_post(url: str, api_key: str, payload: dict[str, Any]) -> Any:
+    return _http_request("POST", url, api_key, payload=payload)
 
 
 def fetch_all_named_people(base_url: str, api_key: str) -> list[dict[str, Any]]:
@@ -84,11 +118,50 @@ def fetch_all_named_people(base_url: str, api_key: str) -> list[dict[str, Any]]:
 
 def fetch_person_assets(base_url: str, api_key: str, person_id: str) -> list[dict[str, Any]]:
     """Return all assets that contain a given person."""
-    data = _http_get(
-        f"{base_url}/api/people/{urllib.parse.quote(person_id)}/assets",
-        api_key,
-    )
-    return list(data) if isinstance(data, list) else []
+    assets: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        data = _http_post(
+            f"{base_url}/api/search/metadata",
+            api_key,
+            {
+                "personIds": [person_id],
+                "page": page,
+                "size": _ASSET_PAGE_SIZE,
+            },
+        )
+        asset_page = data.get("assets", {}) if isinstance(data, dict) else {}
+        batch = asset_page.get("items", []) if isinstance(asset_page, dict) else []
+        assets.extend(asset for asset in batch if isinstance(asset, dict))
+        next_page = asset_page.get("nextPage") if isinstance(asset_page, dict) else None
+        if not next_page:
+            break
+        page = int(next_page)
+    return assets
+
+
+def fetch_assets_by_original_filename(base_url: str, api_key: str, original_filename: str) -> list[dict[str, Any]]:
+    """Return all assets whose original filename matches exactly."""
+    assets: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        data = _http_post(
+            f"{base_url}/api/search/metadata",
+            api_key,
+            {
+                "originalFileName": original_filename,
+                "page": page,
+                "size": _ASSET_PAGE_SIZE,
+            },
+        )
+        asset_page = data.get("assets", {}) if isinstance(data, dict) else {}
+        batch = asset_page.get("items", []) if isinstance(asset_page, dict) else []
+        assets.extend(asset for asset in batch if isinstance(asset, dict))
+        next_page = asset_page.get("nextPage") if isinstance(asset_page, dict) else None
+        if not next_page:
+            break
+        page = int(next_page)
+    return assets
 
 
 def fetch_asset_faces(base_url: str, api_key: str, asset_id: str) -> list[dict[str, Any]]:
@@ -249,19 +322,38 @@ def sync_immich_faces(
         stats["people_synced"] = _upsert_people_to_store(people, store)
 
     asset_to_local: dict[str, Path] = {}
-    for person in people:
+    query_started_at = time.monotonic()
+    total_queries = len(people)
+    for query_count, person in enumerate(people, start=1):
         for asset in fetch_person_assets(base_url, api_key, str(person.get("id") or "")):
             asset_id = str(asset.get("id") or "").strip()
             stem = Path(str(asset.get("originalFileName") or "")).stem.lower()
             if asset_id and stem in local_index and asset_id not in asset_to_local:
                 asset_to_local[asset_id] = local_index[stem]
+        elapsed = max(time.monotonic() - query_started_at, 1e-9)
+        print(
+            f"Immich asset queries: {query_count / total_queries:.2%} "
+            f"({query_count}/{total_queries}) {query_count / elapsed:.2f} queries/s",
+            end="\r" if query_count < total_queries else "\n",
+            flush=True,
+        )
 
     stats["assets_matched"] = len(asset_to_local)
     log.info("Matched %d Immich assets to local files", len(asset_to_local))
 
-    for asset_id, local_path in asset_to_local.items():
-        updated, skipped = _write_asset_xmp(asset_id, local_path, base_url, api_key, dry_run)
-        stats["xmp_updated"] += updated
-        stats["xmp_skipped"] += skipped
+    total_face_queries = len(asset_to_local)
+    if total_face_queries:
+        face_query_started_at = time.monotonic()
+        for face_query_count, (asset_id, local_path) in enumerate(asset_to_local.items(), start=1):
+            updated, skipped = _write_asset_xmp(asset_id, local_path, base_url, api_key, dry_run)
+            stats["xmp_updated"] += updated
+            stats["xmp_skipped"] += skipped
+            elapsed = max(time.monotonic() - face_query_started_at, 1e-9)
+            print(
+                f"Immich face queries: {face_query_count / total_face_queries:.2%} "
+                f"({face_query_count}/{total_face_queries}) {face_query_count / elapsed:.2f} queries/s",
+                end="\r" if face_query_count < total_face_queries else "\n",
+                flush=True,
+            )
 
     return stats

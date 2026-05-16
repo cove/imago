@@ -228,8 +228,8 @@ class TestPhotoalbumsAiIndexPhotoResolution(AlbumSetConfigMixin, unittest.TestCa
         self.assertEqual(self.runner.start.call_count, 2)
         first_args = self.runner.start.call_args_list[0].args[1]
         second_args = self.runner.start.call_args_list[1].args[1]
-        self.assertEqual(first_args[first_args.index("--lmstudio-base-url") + 1], "http://192.168.4.72:1234")
-        self.assertEqual(second_args[second_args.index("--lmstudio-base-url") + 1], "http://192.168.4.21:1234")
+        self.assertEqual(first_args[first_args.index("--lmstudio-base-url") + 1], "http://127.0.0.1:8080/v1")
+        self.assertEqual(second_args[second_args.index("--lmstudio-base-url") + 1], "http://127.0.0.1:8080/v1")
         self.assertEqual(result["child_job_ids"], ["job_a", "job_b"])
 
     def test_photoalbums_ai_index_rejects_worker_photo_mode(self):

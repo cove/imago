@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -1129,6 +1130,17 @@ def _dispatch_pipeline_step(
                 stale_dep=stale_dep,
                 deps=deps,
             )
+        case "immich-face-refresh":
+            _run_pipeline_immich_face_refresh_step(
+                view_dir=view_dir,
+                photos_dir=photos_dir,
+                current_page=current_page,
+                xmp_path=xmp_path,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
+            )
         case "ai-index":
             ai_page_idx = _run_pipeline_ai_index_step(
                 ai_runner=ai_runner,
@@ -1363,6 +1375,55 @@ def _run_pipeline_face_refresh_step(
     _print_outcome("skipped (already complete)", "")
 
 
+def _run_pipeline_immich_face_refresh_step(
+    *,
+    view_dir: Path,
+    photos_dir: Path,
+    current_page: str,
+    xmp_path: Path,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
+) -> None:
+    base_url = str(os.environ.get(deps["IMMICH_URL_ENV"]) or "").rstrip("/")
+    api_key = str(os.environ.get(deps["IMMICH_API_KEY_ENV"]) or "")
+    if not base_url or not api_key:
+        raise RuntimeError("IMMICH_URL and IMMICH_API_KEY are required for immich-face-refresh")
+
+    refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
+    updated = 0
+    unmatched = 0
+    for img_path in refresh_targets:
+        assets = deps["fetch_assets_by_original_filename"](base_url, api_key, img_path.name)
+        if not assets:
+            unmatched += 1
+            continue
+        if len(assets) > 1:
+            raise RuntimeError(f"Immich returned multiple assets for {img_path.name}")
+        asset_id = str(assets[0].get("id") or "").strip()
+        if not asset_id:
+            raise RuntimeError(f"Immich asset for {img_path.name} did not include an id")
+        faces = deps["fetch_asset_faces"](base_url, api_key, asset_id)
+        named_faces = [
+            face
+            for face in faces
+            if isinstance(face.get("person"), dict) and str(face["person"].get("name") or "").strip()
+        ]
+        names = deps["_dedupe_names"]([str(face["person"]["name"]).strip() for face in named_faces])
+        regions = deps["_faces_to_regions"](named_faces)
+        sidecar_path = img_path.with_suffix(".xmp")
+        deps["merge_persons_xmp"](sidecar_path, names)
+        deps["merge_face_regions_xmp"](sidecar_path, regions)
+        updated += 1
+
+    counters["immich-face-refresh"]["run"] += 1
+    counters["immich-face-refresh"]["detail"].append(f"{updated} updated, {unmatched} unmatched")
+    step_just_ran.add("immich-face-refresh")
+    deps["write_pipeline_step"](xmp_path, "immich-face-refresh")
+    _print_outcome("done", stale_dep)
+
+
 def _run_pipeline_ai_index_step(
     *,
     ai_runner,
@@ -1501,6 +1562,16 @@ def run_process_pipeline(
     counters: dict[str, dict] = {s.id: {"run": 0, "skipped": 0, "failed": 0, "detail": []} for s in PIPELINE_STEPS}
 
     # Track which steps have run this pass per page (for staleness cascade)
+    from cast.immich_sync import (
+        IMMICH_API_KEY_ENV,
+        IMMICH_URL_ENV,
+        _dedupe_names,
+        _faces_to_regions,
+        fetch_asset_faces,
+        fetch_assets_by_original_filename,
+    )
+    from cast.xmp_writer import merge_face_regions_xmp, merge_persons_xmp
+
     from .lib.ai_model_settings import default_view_region_model
     from .lib.ai_photo_crops import CropPageStats, crop_page_regions
     from .lib.ai_render_face_refresh import FaceRefreshSkipped, RenderFaceRefreshSession
@@ -1527,7 +1598,11 @@ def run_process_pipeline(
     deps = {
         "CropPageStats": CropPageStats,
         "FaceRefreshSkipped": FaceRefreshSkipped,
+        "IMMICH_API_KEY_ENV": IMMICH_API_KEY_ENV,
+        "IMMICH_URL_ENV": IMMICH_URL_ENV,
         "PromptDebugSession": PromptDebugSession,
+        "_dedupe_names": _dedupe_names,
+        "_faces_to_regions": _faces_to_regions,
         "_has_xmp_regions": _has_xmp_regions,
         "_image_dimensions": _image_dimensions,
         "_read_regions_from_xmp": _read_regions_from_xmp,
@@ -1536,7 +1611,11 @@ def run_process_pipeline(
         "crop_page_regions": crop_page_regions,
         "derived_to_jpg": derived_to_jpg,
         "detect_regions": detect_regions,
+        "fetch_asset_faces": fetch_asset_faces,
+        "fetch_assets_by_original_filename": fetch_assets_by_original_filename,
         "list_derived_images": list_derived_images,
+        "merge_face_regions_xmp": merge_face_regions_xmp,
+        "merge_persons_xmp": merge_persons_xmp,
         "persist_verify_crops_state": persist_verify_crops_state,
         "propagate_archive_copy_safe_fields": propagate_archive_copy_safe_fields,
         "read_pipeline_state": read_pipeline_state,
@@ -1586,6 +1665,10 @@ def _effective_pipeline_step_ids(
 ) -> tuple[set[str], set[str]]:
     effective_skip_ids = set(sid for sid in valid_step_ids if sid != step_id) if step_id else set(skip_ids)
     effective_redo_ids = set(valid_step_ids) if force else set(redo_ids)
+    if step_id != "face-refresh" and "face-refresh" not in redo_ids:
+        effective_skip_ids.add("face-refresh")
+    if step_id != "verify-crops" and "verify-crops" not in redo_ids:
+        effective_skip_ids.add("verify-crops")
     if refresh_gps:
         effective_redo_ids.add("ai-index")
     return effective_skip_ids, effective_redo_ids

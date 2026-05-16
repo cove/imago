@@ -1,3 +1,4 @@
+import io
 import json
 import sys
 import tempfile
@@ -21,6 +22,10 @@ class TestAICaption(unittest.TestCase):
         self.assertIn("Count clearly visible real people only.", ai_caption.people_count_system_prompt())
         self.assertIn("leave GPS fields empty", ai_caption.location_system_prompt())
         self.assertIn("include a country name in the query", ai_caption.location_system_prompt())
+        self.assertIn(
+            "bare `San Marino` means `San Marino, California, United States`",
+            ai_caption.location_system_prompt(),
+        )
 
     def test_caption_engine_none_returns_empty_text(self):
         engine = ai_caption.CaptionEngine(engine="none")
@@ -343,6 +348,55 @@ class TestAICaption(unittest.TestCase):
             "LM Studio request failed: request (4196 tokens) exceeds the available context size "
             "(4096 tokens), try increasing it",
         )
+
+    def test_lmstudio_request_prints_error_and_retries_until_recovery(self):
+        error = _caption_lmstudio.urllib.error.HTTPError(
+            "http://127.0.0.1:1234/v1/chat/completions",
+            500,
+            "server error",
+            {},
+            io.BytesIO(b'{"error":{"message":"missing mmproj"}}'),
+        )
+        success = FakeLMStudioResponse(b'{"choices":[]}')
+
+        with (
+            mock.patch.object(
+                _caption_lmstudio.urllib.request,
+                "urlopen",
+                side_effect=[error, success],
+            ),
+            mock.patch.object(_caption_lmstudio.time, "sleep") as sleep_mock,
+            mock.patch("builtins.print") as print_mock,
+        ):
+            payload = _caption_lmstudio._lmstudio_request_json(
+                "http://127.0.0.1:1234/v1/chat/completions",
+                payload={},
+                timeout=30,
+            )
+
+        self.assertEqual(payload, {"choices": []})
+        print_mock.assert_called_once_with(
+            'LM Studio request failed: {"error":{"message":"missing mmproj"}}',
+            flush=True,
+        )
+        sleep_mock.assert_called_once()
+
+    def test_lmstudio_streaming_prints_error_and_retries_until_recovery(self):
+        captioner = ai_caption.LMStudioCaptioner()
+        with (
+            mock.patch.object(
+                _caption_lmstudio,
+                "_lmstudio_stream_tokens",
+                side_effect=[RuntimeError("LM Studio request failed: missing mmproj"), iter(["ready"])],
+            ),
+            mock.patch.object(_caption_lmstudio.time, "sleep") as sleep_mock,
+            mock.patch("builtins.print") as print_mock,
+        ):
+            tokens = captioner._stream_tokens_with_retry("http://localhost", {})
+
+        self.assertEqual(tokens, ["ready"])
+        print_mock.assert_called_once_with("LM Studio request failed: missing mmproj", flush=True)
+        sleep_mock.assert_called_once()
 
     def test_lmstudio_captioner_posts_location_request(self):
         response_payload = {

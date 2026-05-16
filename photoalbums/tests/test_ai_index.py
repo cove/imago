@@ -112,6 +112,38 @@ class TestAIIndex(unittest.TestCase):
             "China_1986_B02_P03_D01-01.tif",
         )
 
+    def test_metadata_primary_location_ignores_unknown_placeholders_and_caption_fallback(self):
+        result = SimpleNamespace(
+            photos=[
+                SimpleNamespace(
+                    location="Unknown, Country Unknown",
+                    location_name="Unknown Location",
+                    corrected_caption="Birthday party",
+                ),
+                SimpleNamespace(
+                    location="",
+                    location_name="Athens, Alabama",
+                    corrected_caption="",
+                ),
+            ]
+        )
+
+        self.assertEqual(ai_index_analysis._metadata_primary_location(result), "Athens, Alabama")
+
+    def test_metadata_cached_state_drops_unknown_locations_and_gps_only_payload(self):
+        state = {
+            "metadata_output": {
+                "location": {"gps_latitude": "39.78373", "gps_longitude": "-100.445882"},
+                "locations_shown": [{"name": "Unknown"}, {"name": "Unknown Location"}],
+                "location_shown_ran": True,
+            }
+        }
+
+        ai_index_analysis._metadata_cached_state(state, Path("Family_Pages/Family_P01_V.jpg"), None)
+
+        self.assertEqual(state["location_payload"], {})
+        self.assertEqual(state["locations_shown"], [])
+
     def test_append_xmp_job_artifact_records_page_sidecar_paths_for_scan_pages(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "China_1986_B02_Archive"
