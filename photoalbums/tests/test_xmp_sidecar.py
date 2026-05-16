@@ -229,8 +229,8 @@ class TestXMPSidecar(unittest.TestCase):
                 "<Iptc4xmpExt:LocationCreated>1 Rathausplatz, Vienna, Austria</Iptc4xmpExt:LocationCreated>",
                 xml,
             )
-            self.assertIn("<photoshop:City>Vienna</photoshop:City>", xml)
-            self.assertIn("<photoshop:Country>Austria</photoshop:Country>", xml)
+            self.assertNotIn("photoshop:City", xml)
+            self.assertNotIn("photoshop:Country", xml)
             self.assertIn("<Iptc4xmpExt:Sublocation>1 Rathausplatz</Iptc4xmpExt:Sublocation>", xml)
 
             state = xmp_sidecar.read_ai_sidecar_state(out)
@@ -1041,8 +1041,7 @@ class TestXMPSidecar(unittest.TestCase):
                 ocr_text="",
             )
             xml = out.read_text(encoding="utf-8")
-            self.assertIn("PageNumber", xml)
-            self.assertIn(">17<", xml)
+            self.assertNotIn("PageNumber", xml)
             self.assertNotIn("ScanNumber", xml)
 
     def test_write_xmp_sidecar_omits_page_and_scan_for_unknown_filename(self):
