@@ -21,7 +21,6 @@ EXIF_NS = "http://ns.adobe.com/exif/1.0/"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 IMAGO_NS = "https://imago.local/ns/1.0/"
 ST_EVT_NS = "http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
-PHOTOSHOP_NS = "http://ns.adobe.com/photoshop/1.0/"
 XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
 CRS_NS = "http://ns.adobe.com/camera-raw-settings/1.0/"
 MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
@@ -36,7 +35,6 @@ ET.register_namespace("exif", EXIF_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("imago", IMAGO_NS)
 ET.register_namespace("stEvt", ST_EVT_NS)
-ET.register_namespace("photoshop", PHOTOSHOP_NS)
 ET.register_namespace("xmpDM", XMPDM_NS)
 ET.register_namespace("crs", CRS_NS)
 ET.register_namespace("mwg-rs", MWGRS_NS)
@@ -756,21 +754,6 @@ def _add_gps_coordinate_fields(desc: ET.Element, gps_latitude: str, gps_longitud
         _add_simple_text(desc, f"{{{EXIF_NS}}}GPSVersionID", "2.3.0.0")
 
 
-def _add_photoshop_location_fields(
-    desc: ET.Element,
-    *,
-    location_city: str,
-    location_state: str,
-    location_country: str,
-) -> None:
-    if str(location_city or "").strip():
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
-    if str(location_state or "").strip():
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
-    if str(location_country or "").strip():
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
-
-
 def _add_xmp_location_fields(
     desc: ET.Element,
     *,
@@ -784,15 +767,14 @@ def _add_xmp_location_fields(
     location_sublocation: str,
 ) -> None:
     _add_gps_coordinate_fields(desc, gps_latitude, gps_longitude)
-    if description_role != DESCRIPTION_ROLE_CROP:
-        _add_photoshop_location_fields(
-            desc,
-            location_city=location_city,
-            location_state=location_state,
-            location_country=location_country,
-        )
     if str(location_sublocation or "").strip():
         _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}Sublocation", str(location_sublocation or "").strip())
+    if str(location_city or "").strip():
+        _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}City", str(location_city or "").strip())
+    if str(location_state or "").strip():
+        _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}ProvinceState", str(location_state or "").strip())
+    if str(location_country or "").strip():
+        _add_simple_text(desc, f"{{{IPTC_EXT_NS}}}CountryName", str(location_country or "").strip())
     _add_simple_text(
         desc,
         f"{{{IPTC_EXT_NS}}}LocationCreated",
@@ -822,7 +804,7 @@ def _add_xmp_text_fields(
     text_fields = (
         (write_ocr_text_fields, f"{{{IMAGO_NS}}}OCRText", _normalize_xmp_text(ocr_text, multiline=True)),
         (
-            write_ocr_text_fields,
+            True,
             f"{{{IMAGO_NS}}}ParentOCRText",
             _normalize_xmp_text(parent_ocr_text, multiline=True),
         ),
@@ -954,8 +936,6 @@ def build_xmp_tree(
         location_country=location_country,
         location_sublocation=location_sublocation,
     )
-    if page_number > 0:
-        _add_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number))
     _add_simple_text(desc, f"{{{DC_NS}}}source", _normalize_xmp_text(source_text))
 
     _add_xmp_text_fields(
@@ -1566,9 +1546,9 @@ def _read_sidecar_location_state(
     location_state = {
         "gps_latitude": gps_latitude,
         "gps_longitude": gps_longitude,
-        "location_city": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "").strip(),
-        "location_state": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "").strip(),
-        "location_country": str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or "").strip(),
+        "location_city": str(desc.findtext(f"{{{IPTC_EXT_NS}}}City", default="") or "").strip(),
+        "location_state": str(desc.findtext(f"{{{IPTC_EXT_NS}}}ProvinceState", default="") or "").strip(),
+        "location_country": str(desc.findtext(f"{{{IPTC_EXT_NS}}}CountryName", default="") or "").strip(),
         "location_sublocation": str(desc.findtext(f"{{{IPTC_EXT_NS}}}Sublocation", default="") or "").strip(),
         "location_created": str(desc.findtext(f"{{{IPTC_EXT_NS}}}LocationCreated", default="") or "").strip(),
     }
@@ -1719,11 +1699,7 @@ def _sidecar_text_desc_fields(
         ).strip(),
         "source_text": str(desc.findtext(f"{{{DC_NS}}}source", default="") or "").strip(),
         "ocr_text": _sidecar_role_text(desc, description_role=description_role, tag=f"{{{IMAGO_NS}}}OCRText"),
-        "parent_ocr_text": _sidecar_role_text(
-            desc,
-            description_role=description_role,
-            tag=f"{{{IMAGO_NS}}}ParentOCRText",
-        ),
+        "parent_ocr_text": str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or "").strip(),
         "ocr_lang": str(desc.findtext(f"{{{IMAGO_NS}}}OCRLang", default="") or "").strip(),
         "author_text": str(desc.findtext(f"{{{IMAGO_NS}}}AuthorText", default="") or "").strip(),
         "scene_text": str(desc.findtext(f"{{{IMAGO_NS}}}SceneText", default="") or "").strip(),
@@ -2103,17 +2079,20 @@ def _merged_role_xmp_values(
             "location_country": str(location_country or "").strip(),
             "location_sublocation": str(location_sublocation or "").strip(),
             "ocr_text": "",
-            "parent_ocr_text": "",
+            "parent_ocr_text": _coalesce_text(
+                parent_ocr_text,
+                str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or ""),
+            ),
         }
     return {
         "location_address": str(location_address or "").strip(),
-        "location_city": _coalesce_text(location_city, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}City", default="") or "")),
+        "location_city": _coalesce_text(location_city, str(desc.findtext(f"{{{IPTC_EXT_NS}}}City", default="") or "")),
         "location_state": _coalesce_text(
-            location_state, str(desc.findtext(f"{{{PHOTOSHOP_NS}}}State", default="") or "")
+            location_state, str(desc.findtext(f"{{{IPTC_EXT_NS}}}ProvinceState", default="") or "")
         ),
         "location_country": _coalesce_text(
             location_country,
-            str(desc.findtext(f"{{{PHOTOSHOP_NS}}}Country", default="") or ""),
+            str(desc.findtext(f"{{{IPTC_EXT_NS}}}CountryName", default="") or ""),
         ),
         "location_sublocation": _coalesce_text(
             location_sublocation,
@@ -2295,7 +2274,7 @@ def _merge_xmp_tree(
         f"{{{IPTC_EXT_NS}}}LocationCreated",
         location_created,
     )
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}PageNumber", str(page_number) if page_number > 0 else "")
+    _remove_field(desc, "{http://ns.adobe.com/photoshop/1.0/}PageNumber")
     _remove_field(desc, f"{{{IMAGO_NS}}}ScanNumber")
     _set_simple_text(desc, f"{{{DC_NS}}}source", str(source_text or "").strip())
     _set_role_ocr_fields(
@@ -2338,13 +2317,15 @@ def _set_role_location_fields(
     location_state: str,
     location_country: str,
 ) -> None:
-    if description_role == DESCRIPTION_ROLE_CROP:
-        for tag in (f"{{{PHOTOSHOP_NS}}}City", f"{{{PHOTOSHOP_NS}}}State", f"{{{PHOTOSHOP_NS}}}Country"):
-            _remove_field(desc, tag)
-        return
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}City", str(location_city or "").strip())
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}State", str(location_state or "").strip())
-    _set_simple_text(desc, f"{{{PHOTOSHOP_NS}}}Country", str(location_country or "").strip())
+    for _ps_tag in (
+        "{http://ns.adobe.com/photoshop/1.0/}City",
+        "{http://ns.adobe.com/photoshop/1.0/}State",
+        "{http://ns.adobe.com/photoshop/1.0/}Country",
+    ):
+        _remove_field(desc, _ps_tag)
+    _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}City", str(location_city or "").strip())
+    _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}ProvinceState", str(location_state or "").strip())
+    _set_simple_text(desc, f"{{{IPTC_EXT_NS}}}CountryName", str(location_country or "").strip())
 
 
 def _set_role_ocr_fields(
@@ -2356,7 +2337,7 @@ def _set_role_ocr_fields(
 ) -> None:
     if description_role == DESCRIPTION_ROLE_CROP:
         _remove_field(desc, f"{{{IMAGO_NS}}}OCRText")
-        _remove_field(desc, f"{{{IMAGO_NS}}}ParentOCRText")
+        _set_simple_text(desc, f"{{{IMAGO_NS}}}ParentOCRText", str(parent_ocr_text or "").strip())
         return
     _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", str(ocr_text or "").strip())
     _set_simple_text(desc, f"{{{IMAGO_NS}}}ParentOCRText", str(parent_ocr_text or "").strip())
@@ -2812,6 +2793,14 @@ def _set_region_optional_attrs(li: ET.Element, region, *, photo_number: int) -> 
         li.set(f"{{{IMAGO_NS}}}CaptionHint", caption_hint)
     if photo_number > 0:
         li.set(f"{{{IMAGO_NS}}}PhotoNumber", str(photo_number))
+    for attr, xml_name in (
+        ("photo_location", "PhotoLocation"),
+        ("photo_location_name", "PhotoLocationName"),
+        ("photo_est_date", "PhotoEstDate"),
+    ):
+        value = getattr(region, attr, None)
+        if value is not None:
+            li.set(f"{{{IMAGO_NS}}}{xml_name}", str(value).strip())
 
 
 def _add_region_person_names(parent: ET.Element, names) -> None:
@@ -2894,6 +2883,10 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
         photo_number = int(li.get(f"{{{IMAGO_NS}}}PhotoNumber") or 0)
         person_names = _read_region_person_names(li)
 
+        def _read_optional_attr(xml_name: str, _li: ET.Element = li) -> str | None:
+            raw = _li.get(f"{{{IMAGO_NS}}}{xml_name}")
+            return str(raw).strip() if raw is not None else None
+
         results.append(
             {
                 "index": idx,
@@ -2913,6 +2906,9 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
                 "location_override": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride"),
                 "person_names": person_names,
                 "type": rtype,
+                "photo_location": _read_optional_attr("PhotoLocation"),
+                "photo_location_name": _read_optional_attr("PhotoLocationName"),
+                "photo_est_date": _read_optional_attr("PhotoEstDate"),
             }
         )
         idx += 1

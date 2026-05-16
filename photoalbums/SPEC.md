@@ -639,7 +639,6 @@ The sidecar declares the following prefixes. Standard interop prefixes (dc, exif
 | `xmpDM` | `http://ns.adobe.com/xmp/1.0/DynamicMedia/` | Dynamic media (rarely written) |
 | `exif` | `http://ns.adobe.com/exif/1.0/` | EXIF (dates, GPS, dimensions) |
 | `Iptc4xmpExt` | `http://iptc.org/std/Iptc4xmpExt/2008-02-29/` | IPTC extension (people, location) |
-| `photoshop` | `http://ns.adobe.com/photoshop/1.0/` | Photoshop city/state/country/page |
 | `crs` | `http://ns.adobe.com/camera-raw-settings/1.0/` | Camera Raw (rarely written) |
 | `mwg-rs` | `http://www.metadataworkinggroup.com/schemas/regions/` | MWG region list |
 | `stArea` | `http://ns.adobe.com/xap/1.0/sType/Area#` | Region coordinate attributes |
@@ -658,7 +657,6 @@ The sidecar declares the following prefixes. Standard interop prefixes (dc, exif
       xmlns:xmpDM="http://ns.adobe.com/xmp/1.0/DynamicMedia/"
       xmlns:exif="http://ns.adobe.com/exif/1.0/"
       xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
-      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
       xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
       xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"
       xmlns:stArea="http://ns.adobe.com/xap/1.0/sType/Area#"
@@ -742,8 +740,6 @@ Note: `dc:creator` is **not** written. People are recorded under `Iptc4xmpExt:Pe
 <Iptc4xmpExt:Sublocation>{sublocation}</Iptc4xmpExt:Sublocation>
 <Iptc4xmpExt:LocationCreated>{formatted location string}</Iptc4xmpExt:LocationCreated>
 ```
-
-`photoshop:City`, `photoshop:State`, `photoshop:Country`, and `photoshop:PageNumber` are mirrored alongside the IPTC fields for tools that read the Photoshop namespace.
 
 ### 6.6 Imago Custom Schema (imago:)
 **Namespace:** `https://imago.local/ns/1.0/`
@@ -948,7 +944,6 @@ Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` struc
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:exif="http://ns.adobe.com/exif/1.0/"
       xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
-      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
       xmlns:imago="https://imago.local/ns/1.0/">
 
       <dc:title>
@@ -983,9 +978,6 @@ Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` struc
           <rdf:li>John Doe</rdf:li>
         </rdf:Bag>
       </Iptc4xmpExt:PersonInImage>
-
-      <photoshop:City>Cairo</photoshop:City>
-      <photoshop:Country>Egypt</photoshop:Country>
 
       <imago:OCRText>Cairo temple 1975</imago:OCRText>
       <imago:AuthorText>Cairo temple 1975</imago:AuthorText>
