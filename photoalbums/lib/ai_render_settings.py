@@ -122,7 +122,7 @@ def _normalize_settings_block(raw: dict[str, Any], defaults: dict[str, Any]) -> 
         ),
         "lmstudio_base_url": _normalize_text(
             block.get("lmstudio_base_url"),
-            str(defaults.get("lmstudio_base_url", "http://localhost:1234/v1")),
+            str(defaults.get("lmstudio_base_url", "http://localhost:8080/v1")),
         ),
         "caption_max_tokens": _normalize_int(
             block.get("caption_max_tokens"),

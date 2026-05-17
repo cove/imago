@@ -51,9 +51,11 @@ _IGNORED_RULE_IDS: frozenset[str] = frozenset({
 })
 
 # Specific files excluded from scanning.
-# cast/data/faces_manifest.json: face-ID → label mapping; high-entropy keys are UUIDs / perceptual
-# hashes, not credentials. S101 secret-detection findings here are false positives.
-_IGNORED_FILE_NAMES: frozenset[str] = frozenset({"faces_manifest.json"})
+# Data and vendored-reference files below contain scanner false positives but are not executable code:
+# - faces_manifest.json / people.json: UUIDs and hashes, not credentials
+# - geocode_cache.json: upstream place labels can contain legitimate mixed-script text
+# - History.txt: vendored MediaInfo changelog includes a BOM
+_IGNORED_FILE_NAMES: frozenset[str] = frozenset({"faces_manifest.json", "people.json", "geocode_cache.json", "History.txt"})
 
 # Findings in test directories are suppressed: test classes inherently violate cohesion and
 # size rules (setUp/tearDown create disconnected groups; tests grow one method per test case).

@@ -183,7 +183,7 @@ class TestScanWatch(unittest.TestCase):
                 path.touch()
 
             process_mock = mock.Mock(return_value=True)
-            needs_mock = mock.Mock(side_effect=lambda path: path == needed)
+            needs_mock = mock.Mock(side_effect=lambda path: path == needed.resolve(strict=False))
             service = scanwatch.ScanWatchService(
                 process_tiff_fn=process_mock,
                 tiff_needs_conversion_fn=needs_mock,

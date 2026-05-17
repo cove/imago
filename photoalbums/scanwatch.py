@@ -317,15 +317,16 @@ class ScanWatchService:
             if path.is_file() and path.suffix.lower() in {".tif", ".tiff"} and not self._is_incoming_name(path.name)
         ]
         for tiff_path in sorted(tiff_paths, key=lambda path: path.name.casefold()):
+            resolved_tiff_path = tiff_path.resolve(strict=False)
             if not self.tiff_needs_conversion_fn(tiff_path):
-                results.append({"path": str(tiff_path), "status": "skipped"})
+                results.append({"path": str(resolved_tiff_path), "status": "skipped"})
                 continue
-            self.log_info_fn(f"  [startup-compress] {tiff_path.name}")
-            if self.process_tiff_fn(tiff_path, log_error=self.log_error_fn):
-                results.append({"path": str(tiff_path), "status": "processed"})
+            self.log_info_fn(f"  [startup-compress] {resolved_tiff_path.name}")
+            if self.process_tiff_fn(resolved_tiff_path, log_error=self.log_error_fn):
+                results.append({"path": str(resolved_tiff_path), "status": "processed"})
                 continue
-            self.log_error_fn(f"Startup TIFF compression failed: {tiff_path}")
-            results.append({"path": str(tiff_path), "status": "failed"})
+            self.log_error_fn(f"Startup TIFF compression failed: {resolved_tiff_path}")
+            results.append({"path": str(resolved_tiff_path), "status": "failed"})
         return results
 
     def stop(self, *, timeout: float | None = 5.0) -> dict[str, object]:

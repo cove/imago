@@ -60,12 +60,25 @@ class TestPhotoalbumsCLI(unittest.TestCase):
             step_id=None,
             force=False,
             debug=False,
+            log_lmstudio_tokens=False,
             no_validation=False,
             skip_restoration=False,
             force_restoration=False,
             gps_only=False,
             refresh_gps=True,
         )
+
+    def test_process_forwards_lmstudio_token_logging(self):
+        fake = mock.Mock()
+        fake.run_process_pipeline.return_value = 0
+
+        from photoalbums import cli as pkg_cli
+
+        with mock.patch("photoalbums.cli._import_commands", return_value=fake):
+            rc = pkg_cli.main(["process", "--photos-root", "Photo Albums", "--log-lmstudio-tokens"])
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(fake.run_process_pipeline.call_args.kwargs["log_lmstudio_tokens"])
 
     def test_ai_help_forwards_to_ai_index(self):
         fake = mock.Mock()
