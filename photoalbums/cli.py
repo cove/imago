@@ -310,6 +310,7 @@ def build_parser() -> argparse.ArgumentParser:
     process_parser.add_argument(
         "--debug", action="store_true", help="Write debug artifacts for detect-regions and ai-index"
     )
+    process_parser.add_argument("--log-lmstudio-tokens", action="store_true", help="Print LM Studio token ids/pieces.")
     process_parser.add_argument("--no-validation", action="store_true", help="Skip strict region validations")
     process_parser.add_argument(
         "--skip-restoration", action="store_true", help="Skip AI photo restoration in crop-regions"
@@ -355,6 +356,7 @@ def _run_process_group(parser: argparse.ArgumentParser, args, commands) -> int:
         step_id=args.step_id,
         force=bool(getattr(args, "force", False)),
         debug=bool(getattr(args, "debug", False)),
+        log_lmstudio_tokens=bool(getattr(args, "log_lmstudio_tokens", False)),
         no_validation=bool(getattr(args, "no_validation", False)),
         skip_restoration=bool(getattr(args, "skip_restoration", False)),
         force_restoration=bool(getattr(args, "force_restoration", False)),

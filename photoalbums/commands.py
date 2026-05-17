@@ -1499,9 +1499,11 @@ def run_process_pipeline(
     no_validation: bool,
     skip_restoration: bool,
     force_restoration: bool,
+    log_lmstudio_tokens: bool = False,
     gps_only: bool = False,
     refresh_gps: bool = False,
 ) -> int:
+    from .lib._caption_lmstudio import lmstudio_token_logging
     from .lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS
     from .lib.xmp_sidecar import (
         clear_pipeline_steps,
@@ -1628,25 +1630,26 @@ def run_process_pipeline(
         "write_region_list": write_region_list,
     }
 
-    _process_pipeline_pages(
-        all_pages,
-        active_steps=active_steps,
-        total_steps=total_steps,
-        effective_redo_ids=effective_redo_ids,
-        counters=counters,
-        ai_runner=ai_runner,
-        face_session=face_session,
-        root=root,
-        model_name=model_name,
-        force=force,
-        debug=debug,
-        no_validation=no_validation,
-        skip_restoration=skip_restoration,
-        force_restoration=force_restoration,
-        _require_primary_scan=_require_primary_scan,
-        _view_page_output_path=_view_page_output_path,
-        deps=deps,
-    )
+    with lmstudio_token_logging(log_lmstudio_tokens):
+        _process_pipeline_pages(
+            all_pages,
+            active_steps=active_steps,
+            total_steps=total_steps,
+            effective_redo_ids=effective_redo_ids,
+            counters=counters,
+            ai_runner=ai_runner,
+            face_session=face_session,
+            root=root,
+            model_name=model_name,
+            force=force,
+            debug=debug,
+            no_validation=no_validation,
+            skip_restoration=skip_restoration,
+            force_restoration=force_restoration,
+            _require_primary_scan=_require_primary_scan,
+            _view_page_output_path=_view_page_output_path,
+            deps=deps,
+        )
 
     _print_process_pipeline_summary(active_steps, counters)
 

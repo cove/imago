@@ -1783,6 +1783,19 @@ class TestAIIndex(unittest.TestCase):
             records, [{"step": "location", "service": "nominatim", "query": "Unknown Place", "status": "miss"}]
         )
 
+    def test_resolve_location_payload_ignores_unknown_placeholder(self):
+        geocoder = mock.Mock()
+
+        payload = ai_index._resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Unknown Location",
+        )
+
+        self.assertEqual(payload, {})
+        geocoder.geocode.assert_not_called()
+
     def test_resolve_locations_shown_leaves_gps_empty_when_geocode_misses(self):
         caption_engine = mock.Mock()
         caption_engine.estimate_locations_shown.return_value = SimpleNamespace(

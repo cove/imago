@@ -260,7 +260,7 @@ def _resolve_location_payload(
     query = str(location_name or "").strip()
     # Reject generic place-type descriptions (e.g. "a beach", "a park") — they
     # are not named places and produce spurious Nominatim results.
-    if re.match(r"^(?:a|an)\s+\S", query, re.IGNORECASE):
+    if re.match(r"^(?:a|an)\s+\S", query, re.IGNORECASE) or not _location_text_is_known(query):
         query = ""
     if lat_text and lon_text:
         return _caption_location_payload(lat_text=lat_text, lon_text=lon_text, query=query)
@@ -384,9 +384,14 @@ def _normalize_location_token(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
 
 
+def _location_text_is_known(value: object) -> bool:
+    tokens = re.findall(r"[a-z0-9]+", str(value or "").casefold())
+    return bool(tokens) and any(token not in {"unknown", "country", "location"} for token in tokens)
+
+
 def _build_locations_shown_query(location: dict[str, Any]) -> str:
     name = str(location.get("name") or "").strip()
-    if not name:
+    if not _location_text_is_known(name):
         return ""
     parts = [name]
     seen = {name.casefold()}

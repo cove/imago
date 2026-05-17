@@ -9,6 +9,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -920,20 +921,91 @@ def _parse_lmstudio_page_caption(
 
 
 _LMSTUDIO_RETRY_DELAY_SECONDS = 5
+_LOG_LMSTUDIO_TOKENS = False
+
+
+@contextmanager
+def lmstudio_token_logging(enabled: bool):
+    global _LOG_LMSTUDIO_TOKENS
+    previous = _LOG_LMSTUDIO_TOKENS
+    _LOG_LMSTUDIO_TOKENS = bool(enabled)
+    try:
+        yield
+    finally:
+        _LOG_LMSTUDIO_TOKENS = previous
+
+
+def _request_json_once(url: str, *, payload: dict | None = None, timeout: float) -> dict:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        method="POST" if payload is not None else "GET",
+        headers={"Content-Type": "application/json"} if payload is not None else {},
+    )
+    with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _chat_completion_server_root(url: str) -> str:
+    suffix = "/v1/chat/completions"
+    return url[: -len(suffix)] if str(url).endswith(suffix) else ""
+
+
+def _extract_chat_completion_text(payload: dict) -> str:
+    choices = list(payload.get("choices") or [])
+    if not choices:
+        return ""
+    message = dict(choices[0].get("message") or {})
+    text = _format_lmstudio_debug_response(message.get("content"))
+    return text or _format_lmstudio_debug_response(message)
+
+
+def _tokenize_lmstudio_text(base_url: str, text: str, *, timeout: float) -> list[dict]:
+    payload = {
+        "content": str(text or ""),
+        "with_pieces": True,
+        "add_special": False,
+        "parse_special": True,
+    }
+    response = _request_json_once(f"{base_url}/tokenize", payload=payload, timeout=timeout)
+    return list(response.get("tokens") or [])
+
+
+def _print_lmstudio_token_block(label: str, tokens: list[dict]) -> None:
+    print(f"LM Studio {label} tokens ({len(tokens)}):", flush=True)
+    for token in tokens:
+        print(f"  {token.get('id')} {token.get('piece')!r}", flush=True)
+
+
+def _log_lmstudio_chat_tokens(url: str, *, payload: dict, response_payload: dict, timeout: float) -> None:
+    base_url = _chat_completion_server_root(url)
+    if not base_url:
+        return
+    template_payload = {"messages": list(payload.get("messages") or [])}
+    if "chat_template_kwargs" in payload:
+        template_payload["chat_template_kwargs"] = payload["chat_template_kwargs"]
+    rendered_prompt = str(
+        _request_json_once(f"{base_url}/apply-template", payload=template_payload, timeout=timeout).get("prompt") or ""
+    )
+    input_tokens = _tokenize_lmstudio_text(base_url, rendered_prompt, timeout=timeout)
+    output_tokens = _tokenize_lmstudio_text(
+        base_url,
+        _extract_chat_completion_text(response_payload),
+        timeout=timeout,
+    )
+    print(f"LM Studio token log ({payload.get('model') or 'unknown model'}):", flush=True)
+    _print_lmstudio_token_block("input", input_tokens)
+    _print_lmstudio_token_block("output", output_tokens)
 
 
 def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
-    body = None if payload is None else json.dumps(payload).encode("utf-8")
     while True:
-        request = urllib.request.Request(
-            url,
-            data=body,
-            method="POST" if payload is not None else "GET",
-            headers={"Content-Type": "application/json"} if payload is not None else {},
-        )
         try:
-            with urllib.request.urlopen(request, timeout=float(timeout)) as response:
-                return json.loads(response.read().decode("utf-8"))
+            response_payload = _request_json_once(url, payload=payload, timeout=timeout)
+            if _LOG_LMSTUDIO_TOKENS and payload is not None:
+                _log_lmstudio_chat_tokens(url, payload=payload, response_payload=response_payload, timeout=timeout)
+            return response_payload
         except urllib.error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace").strip()
             message = details or f"HTTP {exc.code}"

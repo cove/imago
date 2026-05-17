@@ -1922,8 +1922,14 @@ def _merged_xmp_values(
         )
     )
     values["location_created"] = _merged_location_created(desc, values=values, description_role=description_role)
+    merged_detections_payload = detections_payload if detections_payload is not None else (existing_detections_payload or None)
+    if replace_location and detections_payload is None and merged_detections_payload:
+        merged_detections_payload = dict(merged_detections_payload)
+        merged_detections_payload.pop("location", None)
+        merged_detections_payload.pop("locations_shown", None)
+        merged_detections_payload.pop("location_shown_ran", None)
     values["merged_detections_payload"] = _merged_detections_with_processing(
-        detections_payload if detections_payload is not None else (existing_detections_payload or None),
+        merged_detections_payload,
         values=values,
         people_detected=people_detected,
         people_identified=people_identified,

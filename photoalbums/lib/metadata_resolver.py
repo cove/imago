@@ -111,6 +111,8 @@ def location_payload_from_caption(caption: str) -> dict[str, str]:
     text = " ".join(str(caption or "").replace("\n", " ").split()).strip(" ,.;")
     if not text or "," not in text:
         return {}
+    if text.count(",") > 2:
+        return {}
     words = [word for word in _normalize_location_text(text).split() if word]
     if len(words) > _LOCATION_CAPTION_MAX_WORDS:
         return {}
