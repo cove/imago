@@ -66,6 +66,9 @@ cast-web:
 cast-immich-sync *args:
   {{python}} -m cast immich-sync --photos-root "{{photoalbums_root}}" {{args}}
 
+cast-immich-cast-import *args:
+  {{python}} -m cast immich-cast-import --photos-root "{{photoalbums_root}}" {{args}}
+
 vhs-tuner:
   {{python}} vhs/vhs.py tuner
 

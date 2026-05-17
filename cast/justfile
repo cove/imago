@@ -22,3 +22,6 @@ web:
 
 immich-sync *args:
   just --justfile ../justfile cast-immich-sync {{args}}
+
+immich-cast-import *args:
+  just --justfile ../justfile cast-immich-cast-import {{args}}

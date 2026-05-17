@@ -13,9 +13,11 @@ from cast.immich_sync import (
     _dedupe_names,
     _faces_to_regions,
     _http_get,
+    build_exact_local_index,
     build_local_index,
     fetch_assets_by_original_filename,
     fetch_person_assets,
+    import_immich_cast_faces,
     sync_immich_faces,
 )
 from cast.storage import TextFaceStore
@@ -63,6 +65,16 @@ def test_build_local_index_first_match_wins(tmp_path: Path) -> None:
     index = build_local_index(tmp_path)
 
     assert index["img_001"] in (a / "IMG_001.jpg", b / "IMG_001.jpg")
+
+
+def test_build_exact_local_index_fails_on_duplicate_filenames(tmp_path: Path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    (tmp_path / "a" / "IMG_001.jpg").write_bytes(b"")
+    (tmp_path / "b" / "IMG_001.jpg").write_bytes(b"")
+
+    with pytest.raises(RuntimeError, match="Duplicate local filename"):
+        build_exact_local_index(tmp_path)
 
 
 def test_faces_to_regions_converts_pixel_coords() -> None:
@@ -510,3 +522,99 @@ def test_sync_multiple_people_in_same_photo(tmp_path: Path) -> None:
     names = read_person_in_image(xmp)
     assert "Alice" in names
     assert "Bob" in names
+
+
+def test_immich_cast_import_uses_review_seed_for_uncertain_region(tmp_path: Path, monkeypatch) -> None:
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    image_path = tmp_path / "IMG_001.jpg"
+    import cv2
+    import numpy as np
+
+    cv2.imwrite(str(image_path), np.zeros((120, 120, 3), dtype=np.uint8))
+
+    class _FakeIngestor:
+        def __init__(self, _store, *, require_primary_model):
+            assert require_primary_model is True
+
+        @staticmethod
+        def _ensure_primary_model_ready():
+            return None
+
+        @staticmethod
+        def _detect(_image, *, min_size):
+            assert min_size == 24
+            return []
+
+        @staticmethod
+        def is_valid_face_crop(_crop):
+            return True
+
+    monkeypatch.setattr("cast.immich_sync.FaceIngestor", _FakeIngestor)
+    monkeypatch.setattr(
+        "cast.immich_sync.fetch_assets_by_original_filename",
+        lambda *_args, **_kwargs: [_ASSET_1],
+    )
+    monkeypatch.setattr("cast.immich_sync.fetch_asset_faces", lambda *_args, **_kwargs: [_FACE_ALICE])
+
+    stats = import_immich_cast_faces(_BASE, _KEY, tmp_path, store)
+
+    assert stats == {"assets_matched": 1, "faces_imported": 0, "review_seeds": 1}
+    assert store.list_faces() == []
+    assert store.list_face_review_seeds()[0]["reason"] == "presence_only_no_visible_face"
+
+
+def test_immich_cast_import_saves_only_clear_visible_arcface_crop(tmp_path: Path, monkeypatch) -> None:
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    image_path = tmp_path / "IMG_001.jpg"
+    import cv2
+    import numpy as np
+
+    image = np.full((120, 120, 3), 180, dtype=np.uint8)
+    cv2.imwrite(str(image_path), image)
+
+    class _FakeIngestor:
+        def __init__(self, face_store, *, require_primary_model):
+            assert require_primary_model is True
+            self.store = face_store
+
+        @staticmethod
+        def _ensure_primary_model_ready():
+            return None
+
+        @staticmethod
+        def _detect(_image, *, min_size):
+            assert min_size == 24
+            return [(10, 10, 40, 40)]
+
+        @staticmethod
+        def is_valid_face_crop(_crop):
+            return True
+
+        def save_arcface_face_from_crop(self, **kwargs):
+            return self.store.add_face(
+                embedding=[1.0, 0.0, 0.0],
+                person_id=kwargs["person_id"],
+                source_type=kwargs["source_type"],
+                source_path=kwargs["source_path"],
+                bbox=kwargs["bbox"],
+                quality=0.9,
+                metadata=kwargs["metadata"],
+            )
+
+    monkeypatch.setattr("cast.immich_sync.FaceIngestor", _FakeIngestor)
+    monkeypatch.setattr("cast.immich_sync.compute_arcface_embedding", lambda _crop: [1.0, 0.0, 0.0])
+    monkeypatch.setattr("cast.immich_sync.estimate_face_quality", lambda _crop: 0.9)
+    monkeypatch.setattr(
+        "cast.immich_sync.fetch_assets_by_original_filename",
+        lambda *_args, **_kwargs: [_ASSET_1],
+    )
+    monkeypatch.setattr("cast.immich_sync.fetch_asset_faces", lambda *_args, **_kwargs: [_FACE_ALICE])
+
+    stats = import_immich_cast_faces(_BASE, _KEY, tmp_path, store)
+
+    assert stats == {"assets_matched": 1, "faces_imported": 1, "review_seeds": 0}
+    faces = store.list_faces()
+    assert len(faces) == 1
+    assert faces[0]["metadata"]["supervision"] == "visible_face_from_presence_region"

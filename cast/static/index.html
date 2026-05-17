@@ -623,6 +623,7 @@
           <span class="pill">Faces: <strong id="count-faces">0</strong></span>
           <span class="pill">Unknown: <strong id="count-unknown">0</strong></span>
           <span class="pill">Pending: <strong id="count-pending">0</strong></span>
+          <span class="pill">Seeds: <strong id="count-seeds">0</strong></span>
           <span class="pill">Clustered: <strong id="count-clustered">0</strong></span>
           <span class="pill">Legacy: <strong id="count-legacy">0</strong></span>
           <span class="pill">Detector: <strong id="runtime-detector">-</strong></span>
@@ -709,6 +710,22 @@
       </section>
 
       <section class="panel" style="margin-top: 12px">
+        <h2>Presence-Only Seeds</h2>
+        <div class="small">Immich/manual presence evidence that is not yet safe recognition evidence.</div>
+        <table id="seed-table">
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>Source</th>
+              <th>Why It Stopped</th>
+              <th>Review</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel" style="margin-top: 12px">
         <h2>Pending Queue</h2>
         <div class="queue-toolbar sticky-actions">
           <div class="bulk-assign-controls">
@@ -769,13 +786,14 @@
         face_by_id: {},
         review_clusters: [],
         pending_reviews: [],
+        review_seeds: [],
         selected_review_ids: new Set(),
         last_selected_review_id: "",
         skipped_review_ids: new Set(),
         busy_review_ids: new Set(),
         busy_review_spinner_ids: new Set(),
         cluster_counts: { clusters: 0, clustered_reviews: 0 },
-        counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, legacy_faces: 0 },
+        counts: { people: 0, faces: 0, unknown_faces: 0, pending_reviews: 0, pending_seeds: 0, legacy_faces: 0 },
         runtime: {},
         cluster_render_limit: 80,
         pending_render_limit: 120,
@@ -919,6 +937,9 @@
         document.getElementById("count-unknown").textContent = String(counts.unknown_faces || 0);
         document.getElementById("count-pending").textContent = String(
           counts.pending_reviews ?? appState.pending_reviews.length ?? 0
+        );
+        document.getElementById("count-seeds").textContent = String(
+          counts.pending_seeds ?? appState.review_seeds.length ?? 0
         );
         document.getElementById("count-clustered").textContent = String(
           (appState.cluster_counts || {}).clustered_reviews || 0
@@ -1223,8 +1244,16 @@
         renderClusterQueue();
       }
 
+      async function loadReviewSeeds() {
+        const data = await api("/api/review/seeds?status=pending");
+        appState.review_seeds = data.seeds || [];
+        appState.counts.pending_seeds = appState.review_seeds.length;
+        updateDisplayedCounts();
+        renderReviewSeeds();
+      }
+
       async function loadAll() {
-        await Promise.all([loadState(), loadClusters()]);
+        await Promise.all([loadState(), loadClusters(), loadReviewSeeds()]);
       }
 
       function faceCell(face) {
@@ -1342,6 +1371,54 @@
         }
       }
 
+      function seedPreviewCell(seed) {
+        const seedId = String(seed.seed_id || "");
+        const sourceUrl = String(seed.source_url || "");
+        if (!sourceUrl) {
+          return '<div class="crop"></div>';
+        }
+        return [
+          `<button class="face-source-btn" onclick="openSeedSourceModal('${esc(seedId)}')">`,
+          `<img class="crop" src="${esc(sourceUrl)}?max_dim=200" alt="${esc(seedId)}" loading="lazy" decoding="async" />`,
+          "</button>",
+        ].join("");
+      }
+
+      function renderReviewSeeds() {
+        const tbody = document.querySelector("#seed-table tbody");
+        if (!appState.review_seeds.length) {
+          tbody.innerHTML = '<tr><td colspan="4">No pending presence-only seeds.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = appState.review_seeds
+          .map((seed) => {
+            const seedId = String(seed.seed_id || "");
+            const metadata = seed.metadata || {};
+            const personName = String(seed.person_name || "");
+            const reason = String(seed.reason || "");
+            return [
+              `<tr data-seed-id="${esc(seedId)}">`,
+              `<td>${seedPreviewCell(seed)}</td>`,
+              `<td>${esc(String(seed.source_path || ""))}</td>`,
+              `<td>`,
+              `<div>${esc(reason)}</div>`,
+              personName ? `<div class="small">presence tag: ${esc(personName)}</div>` : "",
+              metadata.candidate_count !== undefined
+                ? `<div class="small">candidate faces: ${esc(metadata.candidate_count)}</div>`
+                : "",
+              `</td>`,
+              `<td>`,
+              `<div class="actions">`,
+              `<button class="secondary" type="button" onclick="resolveSeed('${esc(seedId)}', 'kept_presence_only')">Keep Presence Only</button>`,
+              `<button class="bad" type="button" onclick="resolveSeed('${esc(seedId)}', 'dismissed')">Dismiss Seed</button>`,
+              `</div>`,
+              `</td>`,
+              `</tr>`,
+            ].join("");
+          })
+          .join("");
+      }
+
       async function showMoreClusters() {
         appState.cluster_render_limit += 50;
         await loadClusters();
@@ -1351,6 +1428,37 @@
         const src = String(face.source_path || "");
         const ts = String(face.timestamp || "");
         return `${src}${ts ? ` @ ${ts}` : ""}`;
+      }
+
+      function findReviewSeed(seedId) {
+        const key = String(seedId || "");
+        return appState.review_seeds.find((seed) => String(seed.seed_id || "") === key) || null;
+      }
+
+      function openSeedSourceModal(seedId) {
+        const seed = findReviewSeed(seedId);
+        if (!seed || !seed.source_url) {
+          return;
+        }
+        const modal = document.getElementById("source-modal");
+        const image = document.getElementById("source-modal-image");
+        const title = document.getElementById("source-modal-title");
+        title.textContent = String(seed.source_path || "");
+        image.src = `${String(seed.source_url)}?max_dim=1800`;
+        modal.classList.add("open");
+      }
+
+      async function resolveSeed(seedId, status) {
+        try {
+          await api("/api/review/seeds/resolve", "POST", { seed_id: seedId, status });
+          appState.review_seeds = appState.review_seeds.filter((seed) => String(seed.seed_id || "") !== String(seedId || ""));
+          appState.counts.pending_seeds = appState.review_seeds.length;
+          updateDisplayedCounts();
+          renderReviewSeeds();
+          setStatus("Presence-only seed updated.", "success");
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
       }
 
       function reviewBusyButtonLabel(label, showSpinner) {

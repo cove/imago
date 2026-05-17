@@ -344,6 +344,7 @@ class CastPeopleMatcher:
 
         self._store_signature = ""
         self.last_faces_detected: int = 0
+        self.last_detection_provenance: dict[str, Any] = {}
         self._person_name_by_id: dict[str, str] = {}
         self._person_variants_by_id: dict[str, tuple[str, ...]] = {}
         self._faces_by_source: dict[str, list[dict[str, Any]]] = {}
@@ -373,7 +374,7 @@ class CastPeopleMatcher:
         arcface_embedding: Any,
         analysis_variant: str,
     ) -> dict[str, Any]:
-        metadata = {
+        metadata: dict[str, Any] = {
             "ingest": "photoalbums_ai",
             "detector_model": self._last_detector_model,
             "embedding_model": (
@@ -383,6 +384,8 @@ class CastPeopleMatcher:
         }
         if str(analysis_image_path).strip() and str(analysis_image_path).strip() != str(source_path).strip():
             metadata["analysis_image_path"] = str(analysis_image_path)
+        if self.last_detection_provenance:
+            metadata["face_detection"] = dict(self.last_detection_provenance)
         return metadata
 
     def _reload_state(self) -> None:
@@ -455,6 +458,110 @@ class CastPeopleMatcher:
         if self.max_faces > 0:
             return detected[: self.max_faces]
         return detected
+
+    @staticmethod
+    def _dedupe_detected_boxes(boxes: list[tuple[int, int, int, int]]) -> list[tuple[int, int, int, int]]:
+        kept: list[tuple[int, int, int, int]] = []
+        for box in boxes:
+            if any(_box_iou(box, existing) >= 0.55 for existing in kept):
+                continue
+            kept.append(box)
+        return kept
+
+    def _tile_detection_boxes(self, image_bgr) -> list[tuple[int, int, int, int]]:
+        height, width = image_bgr.shape[:2]
+        if width < self.min_face_size * 3 or height < self.min_face_size * 3:
+            return []
+        overlap_x = max(self.min_face_size, width // 10)
+        overlap_y = max(self.min_face_size, height // 10)
+        x_mid = width // 2
+        y_mid = height // 2
+        tiles = [
+            (0, 0, min(width, x_mid + overlap_x), min(height, y_mid + overlap_y)),
+            (max(0, x_mid - overlap_x), 0, width, min(height, y_mid + overlap_y)),
+            (0, max(0, y_mid - overlap_y), min(width, x_mid + overlap_x), height),
+            (max(0, x_mid - overlap_x), max(0, y_mid - overlap_y), width, height),
+        ]
+        boxes: list[tuple[int, int, int, int]] = []
+        for x0, y0, x1, y1 in tiles:
+            tile = image_bgr[y0:y1, x0:x1]
+            for x, y, w, h in self._detect_faces(tile):
+                boxes.append((x0 + x, y0 + y, w, h))
+        return boxes
+
+    def _targeted_detection_boxes(
+        self,
+        image_bgr,
+        *,
+        source_key: str,
+    ) -> list[tuple[int, int, int, int]]:
+        height, width = image_bgr.shape[:2]
+        boxes: list[tuple[int, int, int, int]] = []
+        for face in self._faces_by_source.get(str(source_key or "").strip(), []):
+            raw_bbox = list(face.get("bbox") or [])
+            if len(raw_bbox) < 4:
+                continue
+            x, y, w, h = [int(v) for v in raw_bbox[:4]]
+            x0, y0, x1, y1 = self._expand_box(x, y, w, h, width=width, height=height, margin=0.40)
+            crop = image_bgr[y0:y1, x0:x1]
+            for dx, dy, dw, dh in self._detect_faces(crop):
+                boxes.append((x0 + dx, y0 + dy, dw, dh))
+        return boxes
+
+    def _detect_faces_escalated(
+        self,
+        image_bgr,
+        *,
+        source_key: str,
+        person_hint_count: int,
+    ) -> list[tuple[int, int, int, int]]:
+        direct = self._dedupe_detected_boxes(self._detect_faces(image_bgr))
+        stages: list[dict[str, Any]] = [{"stage": "full_frame_high_res", "faces": len(direct)}]
+        hint_count = max(0, int(person_hint_count))
+        boxes = list(direct)
+
+        needs_more = self._needs_more_detection(image_bgr, boxes, hint_count=hint_count)
+        if needs_more:
+            tiled = self._tile_detection_boxes(image_bgr)
+            boxes = self._dedupe_detected_boxes(boxes + tiled)
+            stages.append({"stage": "tiled", "faces": len(tiled)})
+
+        needs_more = self._needs_more_detection(image_bgr, boxes, hint_count=hint_count)
+        if needs_more:
+            targeted = self._targeted_detection_boxes(image_bgr, source_key=source_key)
+            boxes = self._dedupe_detected_boxes(boxes + targeted)
+            stages.append({"stage": "targeted_redetect", "faces": len(targeted)})
+
+        self.last_detection_provenance = {
+            "detector_model": self._last_detector_model,
+            "person_hint_count": hint_count,
+            "person_hint_source": "PersonInImage",
+            "person_hint_is_ground_truth": False,
+            "stages": stages,
+            "faces_after_dedupe": len(boxes),
+        }
+        if self.max_faces > 0:
+            return boxes[: self.max_faces]
+        return boxes
+
+    @staticmethod
+    def _needs_more_detection(
+        image_bgr,
+        boxes: list[tuple[int, int, int, int]],
+        *,
+        hint_count: int,
+    ) -> bool:
+        if not boxes or (hint_count > 0 and len(boxes) < hint_count):
+            return True
+        if len(boxes) != 1:
+            return False
+        height, width = image_bgr.shape[:2]
+        if min(height, width) < 600:
+            return False
+        _x, _y, face_w, face_h = boxes[0]
+        face_area = max(0, int(face_w)) * max(0, int(face_h))
+        image_area = max(1, int(width) * int(height))
+        return float(face_area) / float(image_area) < 0.04
 
     def _is_valid_face_crop(self, crop_bgr) -> bool:
         return bool(self._get_ingestor().is_valid_face_crop(crop_bgr))
@@ -754,7 +861,9 @@ class CastPeopleMatcher:
         if not face_id:
             return
         quality = face.get("quality")
-        if quality is not None and float(quality) < self.min_face_quality:
+        bbox = list(face.get("bbox") or [])
+        bbox_min_side = min((int(v) for v in bbox[2:4]), default=0) if len(bbox) >= 4 else 0
+        if quality is not None and float(quality) < self.min_face_quality and bbox_min_side < max(160, self.min_face_size * 4):
             return
         for review in self._store.list_review_items():
             if str(review.get("face_id") or "").strip() != face_id:
@@ -779,9 +888,16 @@ class CastPeopleMatcher:
             return build_rembg_bgr(image_bgr)
         raise ValueError(f"Unsupported analysis variant: {analysis_variant}")
 
-    def _valid_detected_faces(self, image, width: int, height: int) -> list[tuple[int, int, int, int]]:
+    def _valid_detected_faces(
+        self,
+        image,
+        width: int,
+        height: int,
+        boxes: list[tuple[int, int, int, int]] | None = None,
+    ) -> list[tuple[int, int, int, int]]:
         valid_faces: list[tuple[int, int, int, int]] = []
-        for x, y, ww, hh in sorted(self._detect_faces(image), key=lambda f: f[0]):
+        detected_boxes = self._detect_faces(image) if boxes is None else boxes
+        for x, y, ww, hh in sorted(detected_boxes, key=lambda f: f[0]):
             x0, y0, x1, y1 = self._expand_box(x, y, ww, hh, width=width, height=height)
             crop = image[y0:y1, x0:x1]
             if crop is None or crop.size == 0:
@@ -972,6 +1088,7 @@ class CastPeopleMatcher:
         analysis_variant: str = "original",
         match_iou: float = 0.55,
         refresh_active_face: bool = False,
+        person_hint_count: int = 0,
     ) -> list[PersonMatch]:
         self._maybe_refresh()
 
@@ -991,7 +1108,12 @@ class CastPeopleMatcher:
         normalized_variant = str(analysis_variant or "original").strip().lower() or "original"
 
         # Collect valid faces sorted left-to-right for positional name hint assignment.
-        valid_faces = self._valid_detected_faces(image, width, height)
+        detected_faces = self._detect_faces_escalated(
+            image,
+            source_key=source_key,
+            person_hint_count=person_hint_count,
+        )
+        valid_faces = self._valid_detected_faces(image, width, height, detected_faces)
         total_valid = len(valid_faces)
         self.last_faces_detected = total_valid
 

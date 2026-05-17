@@ -8,7 +8,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, ClassVar
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 log = logging.getLogger(__name__)
 
@@ -438,6 +438,48 @@ class _CastHandlerFaceMixin:
             return
         self._send_bytes(bytes(encoded), "image/jpeg", status=HTTPStatus.OK)
 
+    def _handle_get_review_seed_source(self, seed_id: str, query: dict[str, list[str]]) -> None:
+        seed = next(
+            (
+                row
+                for row in self.store.list_face_review_seeds()
+                if str(row.get("seed_id") or "").strip() == str(seed_id or "").strip()
+            ),
+            None,
+        )
+        if seed is None:
+            self._not_found()
+            return
+        source_path = Path(str(seed.get("source_path") or "").strip())
+        image = cv2.imread(str(source_path))
+        if image is None:
+            self._error("Unable to read review seed source image.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        highlight = str((query.get("highlight") or ["1"])[0]).strip() not in {"0", "false", "False"}
+        try:
+            max_dim = max(256, min(5000, int(str((query.get("max_dim") or ["1800"])[0]).strip())))
+        except Exception:
+            max_dim = 1800
+
+        if highlight:
+            bbox = list(dict(seed.get("metadata") or {}).get("manual_region_bbox") or [])
+            if len(bbox) >= 4:
+                self._draw_face_bbox(image, {"bbox": bbox})
+
+        h, w = image.shape[:2]
+        if max(w, h) > max_dim:
+            scale = float(max_dim) / float(max(w, h))
+            image = cv2.resize(
+                image, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA
+            )
+
+        ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])  # type: ignore[arg-type]
+        if not ok:
+            self._error("Failed to encode review seed source image.", status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_bytes(bytes(encoded), "image/jpeg", status=HTTPStatus.OK)
+
 
 class _CastHandlerReviewMixin:
     """Review/approval related route handlers for CastHandler."""
@@ -467,6 +509,22 @@ class _CastHandlerReviewMixin:
                 )
             )
         self._send_json({"ok": True, "reviews": rows})
+
+    def _handle_get_review_seeds(self, query: dict[str, list[str]]) -> None:
+        status_filter = str((query.get("status") or ["pending"])[0]).strip().lower()
+        seeds = []
+        for seed in self.store.list_face_review_seeds():
+            status = str(seed.get("status") or "pending").strip().lower()
+            if status_filter and status != status_filter:
+                continue
+            seed_id = str(seed.get("seed_id") or "").strip()
+            seeds.append(
+                {
+                    **seed,
+                    "source_url": f"/api/review/seeds/{quote(seed_id)}/source" if seed_id else "",
+                }
+            )
+        self._send_json({"ok": True, "seeds": seeds})
 
     def _handle_review_enqueue(self, payload: dict[str, Any]) -> None:
         face_id = str(payload.get("face_id") or "").strip()
@@ -513,6 +571,19 @@ class _CastHandlerReviewMixin:
             self._error(str(exc), status=exc.status)
             return
         self._send_json({"ok": True, "review": updated_review, "face": assigned_face})
+
+    def _handle_review_seed_resolve(self, payload: dict[str, Any]) -> None:
+        seed_id = str(payload.get("seed_id") or "").strip()
+        status = str(payload.get("status") or "").strip().lower()
+        if not seed_id:
+            self._error("seed_id is required.")
+            return
+        try:
+            seed = self.store.resolve_face_review_seed(seed_id, status)
+        except Exception as exc:
+            self._error(str(exc))
+            return
+        self._send_json({"ok": True, "seed": seed})
 
     def _handle_bulk_review_resolve(self, payload: dict[str, Any]) -> None:
         raw_review_ids = payload.get("review_ids")
@@ -968,6 +1039,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         people = self.store.list_people()
         faces = self.store.list_faces()
         reviews = self.store.list_review_items()
+        review_seeds = self.store.list_face_review_seeds()
         people_by_id = {str(row.get("person_id")): row for row in people}
         faces_by_id = {str(row.get("face_id")): row for row in faces}
         prototypes = build_person_prototypes(
@@ -987,6 +1059,9 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
                 "faces": len(faces),
                 "unknown_faces": int(total_unknown_faces),
                 "pending_reviews": int(total_pending_reviews),
+                "pending_seeds": len(
+                    [row for row in review_seeds if str(row.get("status") or "pending").strip().lower() == "pending"]
+                ),
                 "legacy_faces": int(legacy_faces),
             },
             "people": people,
@@ -1724,6 +1799,12 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
                 return True
         return False
 
+    def _handle_get_review_seed_path_routes(self, parts: list[str], query: dict[str, list[str]]) -> bool:
+        if len(parts) == 5 and parts[:3] == ["api", "review", "seeds"] and parts[4] == "source":
+            self._handle_get_review_seed_source(parts[3], query)
+            return True
+        return False
+
     def _handle_get_api_route(self, path: str, query: dict[str, list[str]]) -> bool:
         if path == "/api/state":
             self._handle_get_state(query)
@@ -1740,6 +1821,9 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         if path == "/api/review/clusters":
             self._handle_get_review_clusters(query)
             return True
+        if path == "/api/review/seeds":
+            self._handle_get_review_seeds(query)
+            return True
         return False
 
     def do_GET(self) -> None:
@@ -1749,6 +1833,8 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
 
         parts = [item for item in path.split("/") if item]
         if self._handle_get_face_path_routes(parts, query):
+            return
+        if self._handle_get_review_seed_path_routes(parts, query):
             return
 
         if path == "/":
@@ -1769,6 +1855,7 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         "/api/suggest": "_handle_suggest",
         "/api/review/enqueue": "_handle_review_enqueue",
         "/api/review/resolve": "_handle_review_resolve",
+        "/api/review/seeds/resolve": "_handle_review_seed_resolve",
         "/api/review/bulk_resolve": "_handle_bulk_review_resolve",
         "/api/review/bulk_assign": "_handle_bulk_review_assign",
         "/api/review/prune_false_positives": "_handle_prune_false_positives",
