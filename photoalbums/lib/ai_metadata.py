@@ -19,6 +19,7 @@ from .ai_model_settings import default_caption_model, default_caption_models, de
 from .ai_prompt_assets import load_params, load_prompt
 
 _DEFAULT_MAX_IMAGE_EDGE = 1920
+_FAMILY_LOCATION_SIGNATURES_PROMPT = "ai-index/metadata/family-location-signatures.md"
 
 
 def _metadata_response_format() -> dict:
@@ -29,19 +30,35 @@ def _metadata_system_prompt() -> str:
     return load_prompt("ai-index/metadata/system.md").rendered
 
 
-def _metadata_user_prompt(album_title: str = "") -> str:
-    return load_prompt(
-        "ai-index/metadata/user.md",
-        variables={"album_title": str(album_title or "").strip()} if album_title else None,
-    ).rendered
+def _is_family_album_path(path: Path | str | None) -> bool:
+    if path is None:
+        return False
+    return any(part.startswith("Family_") for part in Path(path).parts)
+
+
+def _metadata_user_prompt(album_title: str = "", *, source_path: Path | str | None = None) -> str:
+    parts = [
+        load_prompt(
+            "ai-index/metadata/user.md",
+            variables={"album_title": str(album_title or "").strip()} if album_title else None,
+        ).rendered
+    ]
+    if _is_family_album_path(source_path):
+        parts.append(load_prompt(_FAMILY_LOCATION_SIGNATURES_PROMPT).rendered)
+    return "\n\n".join(part for part in parts if part).strip()
 
 
 def _metadata_params() -> dict:
     return dict(load_params("ai-index/metadata/params.toml").values)
 
 
-def _metadata_prompt_metadata(resolved_params: dict) -> dict:
-    return step_prompt_assets_metadata(step="metadata", resolved_params=resolved_params)
+def _metadata_prompt_metadata(resolved_params: dict, *, include_family_signatures: bool = False) -> dict:
+    metadata = step_prompt_assets_metadata(step="metadata", resolved_params=resolved_params)
+    if include_family_signatures:
+        asset = load_prompt(_FAMILY_LOCATION_SIGNATURES_PROMPT)
+        metadata["prompt_paths"] = [*list(metadata.get("prompt_paths") or []), str(asset.path)]
+        metadata["prompt_hashes"] = [*list(metadata.get("prompt_hashes") or []), asset.hash]
+    return metadata
 
 
 def _is_metadata_payload(payload: object) -> bool:
@@ -175,7 +192,9 @@ class MetadataEngine(LMStudioModelResolverMixin):
         debug_step: str = "metadata",
     ) -> MetadataResult:
         system_prompt = _metadata_system_prompt()
-        user_prompt = _metadata_user_prompt(album_title)
+        prompt_source_path = source_path or image_path
+        include_family_signatures = _is_family_album_path(prompt_source_path)
+        user_prompt = _metadata_user_prompt(album_title, source_path=prompt_source_path)
         response = ""
         finish_reason = ""
         error_text = ""
@@ -193,7 +212,10 @@ class MetadataEngine(LMStudioModelResolverMixin):
                 response="",
                 finish_reason="",
                 metadata={
-                    **_metadata_prompt_metadata({"max_tokens": self.max_tokens, "temperature": self.temperature}),
+                    **_metadata_prompt_metadata(
+                        {"max_tokens": self.max_tokens, "temperature": self.temperature},
+                        include_family_signatures=include_family_signatures,
+                    ),
                     "skipped": True,
                 },
             )
@@ -226,7 +248,8 @@ class MetadataEngine(LMStudioModelResolverMixin):
                         "max_tokens": int(self.max_tokens),
                         "temperature": float(self.temperature),
                         "timeout_seconds": float(self.timeout_seconds),
-                    }
+                    },
+                    include_family_signatures=include_family_signatures,
                 )
             )
             if error_text:

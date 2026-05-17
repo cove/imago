@@ -381,6 +381,47 @@ class TestAICaption(unittest.TestCase):
         )
         sleep_mock.assert_called_once()
 
+    def test_lmstudio_request_logs_input_and_output_tokens_when_enabled(self):
+        responses = [
+            {"choices": [{"message": {"content": '{"caption":"hello"}'}}]},
+            {"prompt": "<|turn>user\nhello<turn|>\n<|turn>model\n"},
+            {"tokens": [{"id": 105, "piece": "<|turn>"}, {"id": 23391, "piece": "hello"}]},
+            {"tokens": [{"id": 123, "piece": "{"}, {"id": 456, "piece": "hello"}]},
+        ]
+
+        with (
+            mock.patch.object(_caption_lmstudio, "_request_json_once", side_effect=responses) as request_mock,
+            mock.patch("builtins.print") as print_mock,
+            _caption_lmstudio.lmstudio_token_logging(True),
+        ):
+            payload = _caption_lmstudio._lmstudio_request_json(
+                "http://127.0.0.1:8080/v1/chat/completions",
+                payload={
+                    "model": "gemma4",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
+                timeout=30,
+            )
+
+        self.assertEqual(payload, {"choices": [{"message": {"content": '{"caption":"hello"}'}}]})
+        self.assertEqual(
+            request_mock.call_args_list[1],
+            mock.call(
+                "http://127.0.0.1:8080/apply-template",
+                payload={
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
+                timeout=30,
+            ),
+        )
+        print_mock.assert_any_call("LM Studio token log (gemma4):", flush=True)
+        print_mock.assert_any_call("LM Studio input tokens (2):", flush=True)
+        print_mock.assert_any_call("  105 '<|turn>'", flush=True)
+        print_mock.assert_any_call("LM Studio output tokens (2):", flush=True)
+        print_mock.assert_any_call("  456 'hello'", flush=True)
+
     def test_lmstudio_streaming_prints_error_and_retries_until_recovery(self):
         captioner = ai_caption.LMStudioCaptioner()
         with (

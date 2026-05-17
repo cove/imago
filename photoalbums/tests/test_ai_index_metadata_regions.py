@@ -596,6 +596,23 @@ class TestMetadataResponseParsing(unittest.TestCase):
         self.assertIn("chat_template_kwargs", captured["payload"])
         self.assertEqual(captured["payload"]["chat_template_kwargs"], {"enable_thinking": False})
 
+    def test_metadata_user_prompt_adds_family_location_signatures_only_for_family_paths(self):
+        from photoalbums.lib.ai_metadata import _metadata_user_prompt
+
+        family_prompt = _metadata_user_prompt(
+            "Family 1985-1989",
+            source_path=Path("Family_1985-1989_B09_Pages/Family_1985-1989_B09_P39_V.jpg"),
+        )
+        travel_prompt = _metadata_user_prompt(
+            "Egypt 1975",
+            source_path=Path("Egypt_1975_B00_Pages/Egypt_1975_B00_P26_V.jpg"),
+        )
+
+        self.assertIn("Location Signatures", family_prompt)
+        self.assertIn("San Marino, California, United States", family_prompt)
+        self.assertIn("classic off-white tapered drum lampshade", family_prompt)
+        self.assertNotIn("Location Signatures", travel_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
