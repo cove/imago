@@ -112,6 +112,38 @@ class TestAIIndex(unittest.TestCase):
             "China_1986_B02_P03_D01-01.tif",
         )
 
+    def test_metadata_primary_location_ignores_unknown_placeholders_and_caption_fallback(self):
+        result = SimpleNamespace(
+            photos=[
+                SimpleNamespace(
+                    location="Unknown, Country Unknown",
+                    location_name="Unknown Location",
+                    corrected_caption="Birthday party",
+                ),
+                SimpleNamespace(
+                    location="",
+                    location_name="Athens, Alabama",
+                    corrected_caption="",
+                ),
+            ]
+        )
+
+        self.assertEqual(ai_index_analysis._metadata_primary_location(result), "Athens, Alabama")
+
+    def test_metadata_cached_state_drops_unknown_locations_and_gps_only_payload(self):
+        state = {
+            "metadata_output": {
+                "location": {"gps_latitude": "39.78373", "gps_longitude": "-100.445882"},
+                "locations_shown": [{"name": "Unknown"}, {"name": "Unknown Location"}],
+                "location_shown_ran": True,
+            }
+        }
+
+        ai_index_analysis._metadata_cached_state(state, Path("Family_Pages/Family_P01_V.jpg"), None)
+
+        self.assertEqual(state["location_payload"], {})
+        self.assertEqual(state["locations_shown"], [])
+
     def test_append_xmp_job_artifact_records_page_sidecar_paths_for_scan_pages(self):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "China_1986_B02_Archive"
@@ -1750,6 +1782,19 @@ class TestAIIndex(unittest.TestCase):
         self.assertEqual(
             records, [{"step": "location", "service": "nominatim", "query": "Unknown Place", "status": "miss"}]
         )
+
+    def test_resolve_location_payload_ignores_unknown_placeholder(self):
+        geocoder = mock.Mock()
+
+        payload = ai_index._resolve_location_payload(
+            geocoder=geocoder,
+            gps_latitude="",
+            gps_longitude="",
+            location_name="Unknown Location",
+        )
+
+        self.assertEqual(payload, {})
+        geocoder.geocode.assert_not_called()
 
     def test_resolve_locations_shown_leaves_gps_empty_when_geocode_misses(self):
         caption_engine = mock.Mock()

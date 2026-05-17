@@ -405,6 +405,8 @@ def _dedupe_locations_shown(locations: list[dict] | None) -> list[dict]:
             continue
         if not any(str(value or "").strip() for value in location.values()):
             continue
+        if " ".join(str(location.get("name") or "").casefold().split()) in {"unknown", "unknown location"}:
+            continue
         identity = _location_shown_identity(location)
         if identity in seen:
             continue
@@ -1875,6 +1877,7 @@ def _merged_xmp_values(
 ) -> dict[str, object]:
     existing_detections_payload = _read_detections_payload(desc)
     normalized_dc_dates = _merged_dc_dates(desc, dc_date=dc_date, replace_dc_date=replace_dc_date)
+    replace_location = locations_shown is not None
     values: dict[str, object] = _merged_base_xmp_values(
         desc,
         person_names=person_names,
@@ -1895,6 +1898,7 @@ def _merged_xmp_values(
         description_role=description_role,
         normalized_dc_dates=normalized_dc_dates,
         locations_shown=locations_shown,
+        replace_location=replace_location,
     )
     values["date_time_original"] = _resolve_date_time_original(
         dc_date=normalized_dc_dates,
@@ -1914,11 +1918,18 @@ def _merged_xmp_values(
             location_sublocation=location_sublocation,
             ocr_text=ocr_text,
             parent_ocr_text=parent_ocr_text,
+            replace_location=replace_location,
         )
     )
     values["location_created"] = _merged_location_created(desc, values=values, description_role=description_role)
+    merged_detections_payload = detections_payload if detections_payload is not None else (existing_detections_payload or None)
+    if replace_location and detections_payload is None and merged_detections_payload:
+        merged_detections_payload = dict(merged_detections_payload)
+        merged_detections_payload.pop("location", None)
+        merged_detections_payload.pop("locations_shown", None)
+        merged_detections_payload.pop("location_shown_ran", None)
     values["merged_detections_payload"] = _merged_detections_with_processing(
-        detections_payload if detections_payload is not None else (existing_detections_payload or None),
+        merged_detections_payload,
         values=values,
         people_detected=people_detected,
         people_identified=people_identified,
@@ -2015,20 +2026,23 @@ def _merged_base_xmp_values(
     description_role: str,
     normalized_dc_dates: list[str],
     locations_shown: list[dict] | None,
+    replace_location: bool,
 ) -> dict[str, object]:
+    existing_gps_latitude = str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or "")
+    existing_gps_longitude = str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or "")
     result: dict[str, object] = {
         "merged_subjects": _dedupe(_get_bag_values(desc, f"{{{DC_NS}}}subject") + list(subjects or [])),
         "person_names": person_names,
         "normalized_dc_dates": normalized_dc_dates,
-        "gps_latitude": _coalesce_gps(
-            gps_latitude,
-            str(desc.findtext(f"{{{EXIF_NS}}}GPSLatitude", default="") or ""),
-            axis="lat",
+        "gps_latitude": (
+            str(gps_latitude or "").strip()
+            if replace_location
+            else _coalesce_gps(gps_latitude, existing_gps_latitude, axis="lat")
         ),
-        "gps_longitude": _coalesce_gps(
-            gps_longitude,
-            str(desc.findtext(f"{{{EXIF_NS}}}GPSLongitude", default="") or ""),
-            axis="lon",
+        "gps_longitude": (
+            str(gps_longitude or "").strip()
+            if replace_location
+            else _coalesce_gps(gps_longitude, existing_gps_longitude, axis="lon")
         ),
         "merged_locations_shown": (
             list(locations_shown) if locations_shown is not None else _read_locations_shown_from_desc(desc)
@@ -2070,6 +2084,7 @@ def _merged_role_xmp_values(
     location_sublocation: str,
     ocr_text: str,
     parent_ocr_text: str,
+    replace_location: bool,
 ) -> dict[str, object]:
     if description_role == DESCRIPTION_ROLE_CROP:
         return {
@@ -2079,6 +2094,19 @@ def _merged_role_xmp_values(
             "location_country": str(location_country or "").strip(),
             "location_sublocation": str(location_sublocation or "").strip(),
             "ocr_text": "",
+            "parent_ocr_text": _coalesce_text(
+                parent_ocr_text,
+                str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or ""),
+            ),
+        }
+    if replace_location:
+        return {
+            "location_address": str(location_address or "").strip(),
+            "location_city": str(location_city or "").strip(),
+            "location_state": str(location_state or "").strip(),
+            "location_country": str(location_country or "").strip(),
+            "location_sublocation": str(location_sublocation or "").strip(),
+            "ocr_text": _coalesce_text(ocr_text, str(desc.findtext(f"{{{IMAGO_NS}}}OCRText", default="") or "")),
             "parent_ocr_text": _coalesce_text(
                 parent_ocr_text,
                 str(desc.findtext(f"{{{IMAGO_NS}}}ParentOCRText", default="") or ""),

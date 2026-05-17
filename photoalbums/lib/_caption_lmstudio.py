@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -22,7 +23,7 @@ from .ai_prompt_assets import load_params, load_prompt
 from .image_limits import allow_large_pillow_images
 
 DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
-DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
+DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:8080/v1"
 DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 300.0
 DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE = 2048
 LMSTUDIO_VISION_MODEL_HINTS = (
@@ -920,8 +921,83 @@ def _parse_lmstudio_page_caption(
     )
 
 
-_LMSTUDIO_RETRY_ATTEMPTS = 10
-_LMSTUDIO_RETRYABLE_HTTP_CODES = (400, 404, 500, 502, 503, 504)
+_LMSTUDIO_RETRY_DELAY_SECONDS = 5
+_LOG_LMSTUDIO_TOKENS = False
+
+
+@contextmanager
+def lmstudio_token_logging(enabled: bool):
+    global _LOG_LMSTUDIO_TOKENS
+    previous = _LOG_LMSTUDIO_TOKENS
+    _LOG_LMSTUDIO_TOKENS = bool(enabled)
+    try:
+        yield
+    finally:
+        _LOG_LMSTUDIO_TOKENS = previous
+
+
+def _request_json_once(url: str, *, payload: dict | None = None, timeout: float) -> dict:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        method="POST" if payload is not None else "GET",
+        headers={"Content-Type": "application/json"} if payload is not None else {},
+    )
+    with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _chat_completion_server_root(url: str) -> str:
+    suffix = "/v1/chat/completions"
+    return url[: -len(suffix)] if str(url).endswith(suffix) else ""
+
+
+def _extract_chat_completion_text(payload: dict) -> str:
+    choices = list(payload.get("choices") or [])
+    if not choices:
+        return ""
+    message = dict(choices[0].get("message") or {})
+    text = _format_lmstudio_debug_response(message.get("content"))
+    return text or _format_lmstudio_debug_response(message)
+
+
+def _tokenize_lmstudio_text(base_url: str, text: str, *, timeout: float) -> list[dict]:
+    payload = {
+        "content": str(text or ""),
+        "with_pieces": True,
+        "add_special": False,
+        "parse_special": True,
+    }
+    response = _request_json_once(f"{base_url}/tokenize", payload=payload, timeout=timeout)
+    return list(response.get("tokens") or [])
+
+
+def _print_lmstudio_token_block(label: str, tokens: list[dict]) -> None:
+    print(f"LM Studio {label} tokens ({len(tokens)}):", flush=True)
+    for token in tokens:
+        print(f"  {token.get('id')} {token.get('piece')!r}", flush=True)
+
+
+def _log_lmstudio_chat_tokens(url: str, *, payload: dict, response_payload: dict, timeout: float) -> None:
+    base_url = _chat_completion_server_root(url)
+    if not base_url:
+        return
+    template_payload = {"messages": list(payload.get("messages") or [])}
+    if "chat_template_kwargs" in payload:
+        template_payload["chat_template_kwargs"] = payload["chat_template_kwargs"]
+    rendered_prompt = str(
+        _request_json_once(f"{base_url}/apply-template", payload=template_payload, timeout=timeout).get("prompt") or ""
+    )
+    input_tokens = _tokenize_lmstudio_text(base_url, rendered_prompt, timeout=timeout)
+    output_tokens = _tokenize_lmstudio_text(
+        base_url,
+        _extract_chat_completion_text(response_payload),
+        timeout=timeout,
+    )
+    print(f"LM Studio token log ({payload.get('model') or 'unknown model'}):", flush=True)
+    _print_lmstudio_token_block("input", input_tokens)
+    _print_lmstudio_token_block("output", output_tokens)
 
 
 def _lmstudio_auth_headers() -> dict[str, str]:
@@ -932,32 +1008,20 @@ def _lmstudio_auth_headers() -> dict[str, str]:
 
 
 def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
-    body = None if payload is None else json.dumps(payload).encode("utf-8")
-    for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
-        headers = _lmstudio_auth_headers()
-        if payload is not None:
-            headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(
-            url,
-            data=body,
-            method="POST" if payload is not None else "GET",
-            headers=headers,
-        )
+    while True:
         try:
-            with urllib.request.urlopen(request, timeout=float(timeout)) as response:
-                return json.loads(response.read().decode("utf-8"))
+            response_payload = _request_json_once(url, payload=payload, timeout=timeout)
+            if _LOG_LMSTUDIO_TOKENS and payload is not None:
+                _log_lmstudio_chat_tokens(url, payload=payload, response_payload=response_payload, timeout=timeout)
+            return response_payload
         except urllib.error.HTTPError as exc:
-            if exc.code not in _LMSTUDIO_RETRYABLE_HTTP_CODES or attempt == _LMSTUDIO_RETRY_ATTEMPTS:
-                details = exc.read().decode("utf-8", errors="replace").strip()
-                message = details or f"HTTP {exc.code}"
-                raise RuntimeError(f"LM Studio request failed: {message}") from exc
-            time.sleep(min(5 * attempt, 15))
+            details = exc.read().decode("utf-8", errors="replace").strip()
+            message = details or f"HTTP {exc.code}"
+            print(f"LM Studio request failed: {message}", flush=True)
         except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
-            if attempt == _LMSTUDIO_RETRY_ATTEMPTS:
-                reason = getattr(exc, "reason", str(exc))
-                raise RuntimeError(f"LM Studio is unreachable at {url}: {reason}") from exc
-            time.sleep(min(5 * attempt, 15))
-    return {}
+            reason = getattr(exc, "reason", str(exc))
+            print(f"LM Studio is unreachable at {url}: {reason}", flush=True)
+        time.sleep(_LMSTUDIO_RETRY_DELAY_SECONDS)
 
 
 def _parse_lmstudio_sse_chunk(data: str, current_event: str) -> str | None:
@@ -1057,7 +1121,8 @@ _LOCATION_SYSTEM_PROMPT = (
     "- Return only valid JSON matching the response_format schema.\n"
     "- When the response schema asks for `location_name`, only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.\n"
     "- If exact coordinates are not explicit, leave GPS fields empty.\n"
-    "- If returning `location_name`, include a country name in the query. Use location evidence visible in the image, its caption, or the album title only if the album title explicitly names a place (country, city, or region). Do not guess a country from a family-name or date-only album title.\n"
+    "- If returning `location_name`, include a country name in the query. If the country is not visible on the page, choose the single best country from the album title.\n"
+    "- When a bare place name could refer to either a familiar local city or a country, use the album/page context instead of defaulting to the globally famous match. In this archive, bare `San Marino` means `San Marino, California, United States` unless visible evidence explicitly indicates the European country.\n"
     "- When the response schema asks for `locations_shown`, only include famous locations that can be confidently identified from visible evidence.\n"
     "- If no famous locations are identifiable, return an empty array.\n"
     "- Do not include reasoning or extra fields."
@@ -1131,17 +1196,12 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         raise RuntimeError(f"LM Studio model fallback failed: {attempted}") from last_error
 
     def _stream_tokens_with_retry(self, url: str, payload: dict) -> list[str]:
-        """Stream tokens from LM Studio with automatic retry on transient errors."""
-        tokens: list[str] = []
-        for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
+        while True:
             try:
-                tokens = list(_lmstudio_stream_tokens(url, payload, self.timeout_seconds))
-                break
-            except (RuntimeError, urllib.error.URLError, ConnectionError, TimeoutError):
-                if attempt == _LMSTUDIO_RETRY_ATTEMPTS:
-                    raise
-                time.sleep(min(5 * attempt, 15))
-        return tokens
+                return list(_lmstudio_stream_tokens(url, payload, self.timeout_seconds))
+            except (RuntimeError, urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+                print(str(exc), flush=True)
+                time.sleep(_LMSTUDIO_RETRY_DELAY_SECONDS)
 
     def _call_chat_completion(
         self,

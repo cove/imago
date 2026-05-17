@@ -163,7 +163,7 @@ class TestAIModelSettings(unittest.TestCase):
                 ai_model_settings.load_ai_model_settings.cache_clear()
                 loaded = ai_model_settings.load_ai_model_settings()
 
-        self.assertEqual(loaded["lmstudio_base_url"], "http://localhost:1234/v1")
+        self.assertEqual(loaded["lmstudio_base_url"], "http://localhost:8080/v1")
 
     def test_load_ai_model_settings_allows_direct_view_region_model_identifier(self):
         with tempfile.TemporaryDirectory() as tmp:

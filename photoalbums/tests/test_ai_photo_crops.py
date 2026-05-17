@@ -147,6 +147,9 @@ class TestMetadataResolverHelpers(unittest.TestCase):
     def test_location_payload_from_caption_accepts_short_location_query(self):
         self.assertEqual(location_payload_from_caption("KARNTEN, AUSTRIA"), {"address": "KARNTEN, AUSTRIA"})
 
+    def test_location_payload_from_caption_rejects_comma_separated_people_list(self):
+        self.assertEqual(location_payload_from_caption("JERRY, DOLORES, DONALD, GLORIA, EUGENE"), {})
+
     def test_resolve_crop_location_uses_queryable_caption_when_shown_location_misses(self):
         location = resolve_crop_location(
             region_location_override={},
@@ -1162,6 +1165,54 @@ class TestWriteCropSidecar(unittest.TestCase):
             self.assertIn("New caption", xml)
             # subjects are preserved via write_xmp_sidecar merge
             self.assertIn("manual-tag", xml)
+
+    def test_rerun_clears_stale_hidden_location_when_crop_now_has_no_location(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            photos_dir.mkdir()
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            _make_minimal_jpeg(view_jpg, 200, 100)
+
+            from photoalbums.lib.ai_photo_crops import _write_crop_sidecar
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
+
+            crop_jpg = photos_dir / "Egypt_1975_B00_P26_D01-00_V.jpg"
+            crop_jpg.write_bytes(b"placeholder")
+            write_xmp_sidecar(
+                crop_jpg.with_suffix(".xmp"),
+                person_names=[],
+                subjects=["manual-tag"],
+                description="",
+                ocr_text="",
+                gps_latitude="31.937025",
+                gps_longitude="-81.1545654",
+                locations_shown=[{"name": "Unknown Location"}],
+                detections_payload={
+                    "location": {"query": "Unknown Location", "gps_latitude": 31.937025, "gps_longitude": -81.1545654},
+                    "locations_shown": [{"name": "shown_location"}],
+                    "location_shown_ran": True,
+                },
+            )
+
+            _write_crop_sidecar(
+                crop_path=crop_jpg,
+                view_path=view_jpg,
+                caption="Birthday party",
+                view_state={},
+                locations_shown=[],
+                person_names=[],
+            )
+
+            state = read_ai_sidecar_state(crop_jpg.with_suffix(".xmp"))
+            assert state is not None
+            detections = state.get("detections") or {}
+            assert isinstance(detections, dict)
+            self.assertNotIn("location", detections)
+            self.assertNotIn("locations_shown", detections)
+            self.assertNotIn("location_shown_ran", detections)
+            self.assertNotIn("GPSLatitude", crop_jpg.with_suffix(".xmp").read_text(encoding="utf-8"))
 
     def test_caption_present_used_as_description_without_crop_ocr_fields(self):
         with tempfile.TemporaryDirectory() as tmp:

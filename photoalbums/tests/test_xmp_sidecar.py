@@ -742,6 +742,42 @@ class TestXMPSidecar(unittest.TestCase):
                 ],
             )
 
+    def test_write_xmp_sidecar_omits_unknown_locations_and_clears_replaced_gps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "image.xmp"
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=[],
+                subjects=[],
+                description="",
+                gps_latitude="48.42831817",
+                gps_longitude="-123.364953",
+                source_text="",
+                ocr_text="",
+                locations_shown=[
+                    {
+                        "name": "Victoria",
+                        "gps_latitude": "48.42831817",
+                        "gps_longitude": "-123.364953",
+                    }
+                ],
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=[],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                locations_shown=[{"name": "Unknown Location"}],
+            )
+
+            xml = out.read_text(encoding="utf-8")
+            self.assertNotIn("LocationShown", xml)
+            self.assertNotIn("GPSLatitude", xml)
+            self.assertNotIn("GPSLongitude", xml)
+
     def test_write_xmp_sidecar_preserves_xmp_create_date_on_merge(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"

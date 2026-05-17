@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -60,8 +61,9 @@ DEFAULT_LOCAL_OCR_MODEL = "qwen/qwen3.5-9b"
 DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS = 8192
 DEFAULT_LOCAL_OCR_MAX_PIXELS = 4_194_304
 DEFAULT_LOCAL_OCR_MAX_IMAGE_EDGE = 2048
-DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://localhost:1234/v1"
+DEFAULT_LMSTUDIO_OCR_BASE_URL = "http://localhost:8080/v1"
 DEFAULT_LMSTUDIO_OCR_TIMEOUT_SECONDS = 300.0
+_LMSTUDIO_OCR_RETRY_DELAY_SECONDS = 5
 try:
     DEFAULT_LOCAL_OCR_PROMPT = load_prompt("ai-index/ocr/user.md").rendered
 except Exception:
@@ -135,29 +137,39 @@ def _ocr_debug_metadata(*, resolved_params: dict[str, object]) -> dict[str, obje
 
 def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
     body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        f"{base_url}/chat/completions",
-        data=body,
-        method="POST",
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=float(timeout)) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="replace").strip()
-        raise RuntimeError(f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
+    while True:
+        request = urllib.request.Request(
+            f"{base_url}/chat/completions",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace").strip()
+            print(f"LM Studio OCR request failed: {details or f'HTTP {exc.code}'}", flush=True)
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            reason = getattr(exc, "reason", str(exc))
+            print(f"LM Studio is unreachable at {base_url}: {reason}", flush=True)
+        time.sleep(_LMSTUDIO_OCR_RETRY_DELAY_SECONDS)
 
 
 def _lmstudio_ocr_select_model(base_url: str, timeout: float, requested_model: str = "") -> str:
-    request = urllib.request.Request(f"{base_url}/models", method="GET")
-    try:
-        with urllib.request.urlopen(request, timeout=float(timeout)) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"LM Studio is unreachable at {base_url}: {exc.reason}") from exc
+    while True:
+        request = urllib.request.Request(f"{base_url}/models", method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=float(timeout)) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace").strip()
+            print(f"LM Studio OCR model lookup failed: {details or f'HTTP {exc.code}'}", flush=True)
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            reason = getattr(exc, "reason", str(exc))
+            print(f"LM Studio is unreachable at {base_url}: {reason}", flush=True)
+        time.sleep(_LMSTUDIO_OCR_RETRY_DELAY_SECONDS)
     model_ids = [
         str(row.get("id") or "").strip() for row in list(data.get("data") or []) if str(row.get("id") or "").strip()
     ]

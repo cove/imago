@@ -706,6 +706,51 @@
     "status": "ok",
     "sublocation": "Nanjing Road Pedestrian Street"
   },
+  "31.937025,-81.15456533": {
+    "city": "Savannah",
+    "country": "United States",
+    "display_name": "Carmelite Monastery, Coffee Bluff Road, Coffee Bluff, Savannah, Chatham County, Georgia, 31419, United States",
+    "latitude": "31.9368046",
+    "longitude": "-81.1548574",
+    "query": "31.937025,-81.15456533",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-GA",
+        "amenity": "Carmelite Monastery",
+        "city": "Savannah",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Chatham County",
+        "hamlet": "Coffee Bluff",
+        "postcode": "31419",
+        "road": "Coffee Bluff Road",
+        "state": "Georgia"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "31.9362755",
+        "31.9377573",
+        "-81.1555676",
+        "-81.1538623"
+      ],
+      "category": "amenity",
+      "display_name": "Carmelite Monastery, Coffee Bluff Road, Coffee Bluff, Savannah, Chatham County, Georgia, 31419, United States",
+      "importance": 3.750133516437045e-05,
+      "lat": "31.9368046",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.1548574",
+      "name": "Carmelite Monastery",
+      "osm_id": 1207572298,
+      "osm_type": "way",
+      "place_id": 300851704,
+      "place_rank": 30,
+      "type": "monastery"
+    },
+    "source": "nominatim",
+    "state": "Georgia",
+    "status": "ok",
+    "sublocation": "Coffee Bluff Road"
+  },
   "32.0438284,118.7788631": {
     "city": "Qinhuai District",
     "country": "China",
@@ -2610,6 +2655,37 @@
     "latitude": "34.1928193",
     "longitude": "-118.1374663",
     "query": "Altadena, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "census": "Altadena",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "91001",
+        "state": "California",
+        "town": "Altadena"
+      },
+      "addresstype": "census",
+      "boundingbox": [
+        "34.1675671",
+        "34.2187524",
+        "-118.1717937",
+        "-118.0949410"
+      ],
+      "category": "boundary",
+      "display_name": "Altadena, Los Angeles County, California, 91001, United States",
+      "importance": 0.518642867011283,
+      "lat": "34.1928193",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.1374663",
+      "name": "Altadena",
+      "osm_id": 15982136,
+      "osm_type": "relation",
+      "place_id": 316744023,
+      "place_rank": 25,
+      "type": "census"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -3356,6 +3432,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "atlantic ocean, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Atlantic Ocean, Cameron County, Texas, 78597, United States",
+    "latitude": "26.0748720",
+    "longitude": "-97.1610327",
+    "query": "Atlantic Ocean, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-TX",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cameron County",
+        "postcode": "78597",
+        "road": "Atlantic Ocean",
+        "state": "Texas"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "26.0744473",
+        "26.0752970",
+        "-97.1611220",
+        "-97.1609610"
+      ],
+      "category": "highway",
+      "display_name": "Atlantic Ocean, Cameron County, Texas, 78597, United States",
+      "importance": 0.040026000610360865,
+      "lat": "26.0748720",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.1610327",
+      "name": "Atlantic Ocean",
+      "osm_id": 20778816,
+      "osm_type": "way",
+      "place_id": 314652981,
+      "place_rank": 27,
+      "type": "service"
+    },
+    "source": "nominatim",
+    "state": "Texas",
+    "status": "ok",
+    "sublocation": "Atlantic Ocean"
+  },
   "auburn cord duesenberg museum, usa": {
     "city": "Auburn",
     "country": "United States",
@@ -3399,6 +3517,48 @@
     "state": "Indiana",
     "status": "ok",
     "sublocation": "Wayne Street"
+  },
+  "auburn, indiana": {
+    "city": "Auburn",
+    "country": "United States",
+    "display_name": "Auburn, DeKalb County, Indiana, 46709, United States",
+    "latitude": "41.3669902",
+    "longitude": "-85.0588632",
+    "query": "Auburn, Indiana",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "DeKalb County",
+        "postcode": "46709",
+        "state": "Indiana",
+        "town": "Auburn"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "41.3426940",
+        "41.3973210",
+        "-85.0978015",
+        "-85.0220500"
+      ],
+      "category": "boundary",
+      "display_name": "Auburn, DeKalb County, Indiana, 46709, United States",
+      "importance": 0.4514692368753542,
+      "lat": "41.3669902",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-85.0588632",
+      "name": "Auburn",
+      "osm_id": 127768,
+      "osm_type": "relation",
+      "place_id": 369922953,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
   },
   "auburn, indiana, usa": {
     "city": "Auburn",
@@ -5875,6 +6035,35 @@
     "latitude": "42.3588336",
     "longitude": "-71.0578303",
     "query": "Boston, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "city": "Boston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Suffolk County",
+        "state": "Massachusetts"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2279149",
+        "42.3969775",
+        "-71.1912442",
+        "-70.8044881"
+      ],
+      "category": "boundary",
+      "display_name": "Boston, Suffolk County, Massachusetts, United States",
+      "importance": 0.7729506072169001,
+      "lat": "42.3588336",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.0578303",
+      "name": "Boston",
+      "osm_id": 2315704,
+      "osm_type": "relation",
+      "place_id": 360373194,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Massachusetts",
     "status": "ok",
@@ -6888,6 +7077,46 @@
     "status": "ok",
     "sublocation": ""
   },
+  "brown county, indiana, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Brown County, Indiana, United States",
+    "latitude": "39.1682855",
+    "longitude": "-86.2297004",
+    "query": "Brown County, Indiana, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Brown County",
+        "state": "Indiana"
+      },
+      "addresstype": "county",
+      "boundingbox": [
+        "39.0483570",
+        "39.3452610",
+        "-86.3813950",
+        "-86.0802720"
+      ],
+      "category": "boundary",
+      "display_name": "Brown County, Indiana, United States",
+      "importance": 0.536535816176731,
+      "lat": "39.1682855",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.2297004",
+      "name": "Brown County",
+      "osm_id": 1325198,
+      "osm_type": "relation",
+      "place_id": 341422800,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bucharest": {
     "city": "Bucharest",
     "country": "Romania",
@@ -7521,6 +7750,33 @@
     "latitude": "36.7014631",
     "longitude": "-118.7559970",
     "query": "California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "state": "California"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "32.5295236",
+        "42.0094990",
+        "-124.4820030",
+        "-114.1307816"
+      ],
+      "category": "boundary",
+      "display_name": "California, United States",
+      "importance": 0.8641679537633348,
+      "lat": "36.7014631",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.7559970",
+      "name": "California",
+      "osm_id": 165475,
+      "osm_type": "relation",
+      "place_id": 320688025,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -8114,6 +8370,89 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cape cod, massachusetts, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Cape Cod, Barnstable County, Massachusetts, United States",
+    "latitude": "41.7987588",
+    "longitude": "-69.9960655",
+    "query": "Cape Cod, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Barnstable County",
+        "peninsula": "Cape Cod",
+        "state": "Massachusetts"
+      },
+      "addresstype": "peninsula",
+      "boundingbox": [
+        "41.5149670",
+        "42.0825300",
+        "-70.6879807",
+        "-69.9289978"
+      ],
+      "category": "natural",
+      "display_name": "Cape Cod, Barnstable County, Massachusetts, United States",
+      "importance": 0.561003298634495,
+      "lat": "41.7987588",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-69.9960655",
+      "name": "Cape Cod",
+      "osm_id": 9241337,
+      "osm_type": "relation",
+      "place_id": 362644695,
+      "place_rank": 22,
+      "type": "peninsula"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "cape elizabeth": {
+    "city": "Cape Elizabeth",
+    "country": "United States",
+    "display_name": "Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+    "latitude": "43.5964405",
+    "longitude": "-70.2284765",
+    "query": "Cape Elizabeth",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cumberland County",
+        "postcode": "04107",
+        "state": "Maine",
+        "village": "Cape Elizabeth"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "43.4985682",
+        "43.6341047",
+        "-70.2810745",
+        "-70.1071936"
+      ],
+      "category": "boundary",
+      "display_name": "Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+      "importance": 0.4475694317102816,
+      "lat": "43.5964405",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.2284765",
+      "name": "Cape Elizabeth",
+      "osm_id": 11155161,
+      "osm_type": "relation",
+      "place_id": 363654034,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cape elizabeth, maine, usa": {
     "city": "Cape Elizabeth",
     "country": "United States",
@@ -8468,6 +8807,10 @@
     "state": "Bolívar",
     "status": "ok",
     "sublocation": ""
+  },
+  "carter's grove plantation, virginia, united states": {
+    "query": "Carter's Grove Plantation, Virginia, United States",
+    "status": "miss"
   },
   "casa grande, arizona": {
     "city": "Casa Grande",
@@ -10318,6 +10661,54 @@
     "state": "Vaud",
     "status": "ok"
   },
+  "château frontenac, quebec": {
+    "city": "Quebec",
+    "country": "Canada",
+    "display_name": "Chateau Frontenac, Quebec, Quebec, Canada",
+    "latitude": "46.8113081",
+    "longitude": "-71.2050539",
+    "query": "Château Frontenac, Quebec",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "amenity": "Château Frontenac",
+        "city": "Quebec",
+        "city_district": "La Cité-Limoilou",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Urban agglomeration of Québec",
+        "postcode": "G1R 4P5",
+        "quarter": "Vieux-Québec",
+        "road": "Rue des Carrières",
+        "state": "Quebec",
+        "state_district": "Capitale-Nationale",
+        "suburb": "Vieux-Québec–Cap-Blanc–Colline-Parlementaire"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "46.8112581",
+        "46.8113581",
+        "-71.2051039",
+        "-71.2050039"
+      ],
+      "category": "amenity",
+      "display_name": "Château Frontenac, Rue des Carrières, Vieux-Québec, Vieux-Québec–Cap-Blanc–Colline-Parlementaire, La Cité-Limoilou, Quebec, Urban agglomeration of Québec, Capitale-Nationale, Quebec, G1R 4P5, Canada",
+      "importance": 7.228732738226928e-05,
+      "lat": "46.8113081",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.2050539",
+      "name": "Château Frontenac",
+      "osm_id": 12646643435,
+      "osm_type": "node",
+      "place_id": 364194629,
+      "place_rank": 30,
+      "type": "bicycle_rental"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": "Rue des Carrières"
+  },
   "cibeles fountain, madrid, spain": {
     "city": "Madrid",
     "country": "Spain",
@@ -11891,6 +12282,10 @@
     "query": "Countryside South of London, England, UK",
     "status": "miss"
   },
+  "cove , dolores , gloria david, sarah": {
+    "query": "COVE , DOLORES , GLORIA DAVID, SARAH",
+    "status": "miss"
+  },
   "cove, dolores, gloria david, sarah": {
     "query": "COVE, DOLORES, GLORIA DAVID, SARAH",
     "status": "miss"
@@ -12671,6 +13066,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "darlene's high school": {
+    "query": "Darlene's High School",
+    "status": "miss"
+  },
   "david,sherry, darlene, audrey beth, nina": {
     "query": "DAVID,SHERRY, DARLENE, AUDREY BETH, NINA",
     "status": "miss"
@@ -12824,6 +13223,47 @@
     "query": "Dennis Hall's Home, Bromley, England",
     "status": "miss"
   },
+  "detroit": {
+    "city": "Detroit",
+    "country": "United States",
+    "display_name": "Detroit, Wayne County, Michigan, United States",
+    "latitude": "42.3315509",
+    "longitude": "-83.0466403",
+    "query": "Detroit",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "city": "Detroit",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Wayne County",
+        "state": "Michigan"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2551920",
+        "42.4503959",
+        "-83.2879590",
+        "-82.9104391"
+      ],
+      "category": "boundary",
+      "display_name": "Detroit, Wayne County, Michigan, United States",
+      "importance": 0.7321719627376911,
+      "lat": "42.3315509",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-83.0466403",
+      "name": "Detroit",
+      "osm_id": 134591,
+      "osm_type": "relation",
+      "place_id": 368698332,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
   "detroit lakes, wisconsin, united states": {
     "query": "Detroit Lakes, Wisconsin, United States",
     "status": "miss"
@@ -12877,6 +13317,47 @@
       "osm_id": 134591,
       "osm_type": "relation",
       "place_id": 342606323,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "detroit, united states": {
+    "city": "Detroit",
+    "country": "United States",
+    "display_name": "Detroit, Wayne County, Michigan, United States",
+    "latitude": "42.3315509",
+    "longitude": "-83.0466403",
+    "query": "Detroit, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "city": "Detroit",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Wayne County",
+        "state": "Michigan"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2551920",
+        "42.4503959",
+        "-83.2879590",
+        "-82.9104391"
+      ],
+      "category": "boundary",
+      "display_name": "Detroit, Wayne County, Michigan, United States",
+      "importance": 0.7321719627376911,
+      "lat": "42.3315509",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-83.0466403",
+      "name": "Detroit",
+      "osm_id": 134591,
+      "osm_type": "relation",
+      "place_id": 368565795,
       "place_rank": 16,
       "type": "administrative"
     },
@@ -13844,6 +14325,10 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "dykes bridge, chappaquiddick island, massachusetts, united states": {
+    "query": "Dykes Bridge, Chappaquiddick Island, Massachusetts, United States",
+    "status": "miss"
+  },
   "eastern europe": {
     "city": "",
     "country": "South Africa",
@@ -13875,6 +14360,52 @@
   "eastern europe, spain, or morocco": {
     "query": "Eastern Europe, Spain, or Morocco",
     "status": "miss"
+  },
+  "edgartown, massachusetts - october 1976": {
+    "query": "Edgartown, Massachusetts - October 1976",
+    "status": "miss"
+  },
+  "edgartown, massachusetts, united states": {
+    "city": "Edgartown",
+    "country": "United States",
+    "display_name": "Edgartown, Dukes County, Massachusetts, 02539, United States",
+    "latitude": "41.3894198",
+    "longitude": "-70.5129682",
+    "query": "Edgartown, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Dukes County",
+        "postcode": "02539",
+        "state": "Massachusetts",
+        "town": "Edgartown"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "41.2634975",
+        "41.4804435",
+        "-70.6151021",
+        "-70.3251696"
+      ],
+      "category": "boundary",
+      "display_name": "Edgartown, Dukes County, Massachusetts, 02539, United States",
+      "importance": 0.419913403193319,
+      "lat": "41.3894198",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.5129682",
+      "name": "Edgartown",
+      "osm_id": 2387201,
+      "osm_type": "relation",
+      "place_id": 358778090,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
   },
   "edinburgh": {
     "city": "City of Edinburgh",
@@ -14816,6 +15347,51 @@
     "state": "Florida",
     "status": "ok"
   },
+  "ernie & dolly": {
+    "city": "Kulpmont",
+    "country": "United States",
+    "display_name": "Dolly & Ernie's Ceramics, 1160, Chestnut Street, Kulpmont, Northumberland County, Pennsylvania, 17834, United States",
+    "latitude": "40.7933585",
+    "longitude": "-76.4781535",
+    "query": "Ernie & Dolly",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-PA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Northumberland County",
+        "craft": "Dolly & Ernie's Ceramics",
+        "house_number": "1160",
+        "postcode": "17834",
+        "road": "Chestnut Street",
+        "state": "Pennsylvania",
+        "village": "Kulpmont"
+      },
+      "addresstype": "craft",
+      "boundingbox": [
+        "40.7933085",
+        "40.7934085",
+        "-76.4782035",
+        "-76.4781035"
+      ],
+      "category": "craft",
+      "display_name": "Dolly & Ernie's Ceramics, 1160, Chestnut Street, Kulpmont, Northumberland County, Pennsylvania, 17834, United States",
+      "importance": 3.9082169832868203e-05,
+      "lat": "40.7933585",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-76.4781535",
+      "name": "Dolly & Ernie's Ceramics",
+      "osm_id": 5766240798,
+      "osm_type": "node",
+      "place_id": 351422127,
+      "place_rank": 30,
+      "type": "pottery"
+    },
+    "source": "nominatim",
+    "state": "Pennsylvania",
+    "status": "ok",
+    "sublocation": "1160 Chestnut Street"
+  },
   "etap hotel, istanbul": {
     "city": "Başakşehir",
     "country": "Turkey",
@@ -15376,6 +15952,53 @@
   "falcon hotel, stratford-upon-avon, england, united kingdom": {
     "query": "Falcon Hotel, Stratford-upon-Avon, England, United Kingdom",
     "status": "miss"
+  },
+  "faneuil hall, boston, united states": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Faneuil Hall, 1, Faneuil Hall Square, Government Center/Faneuil Hall, Downtown, Boston, Suffolk County, Massachusetts, 02109, United States",
+    "latitude": "42.3600335",
+    "longitude": "-71.0562341",
+    "query": "Faneuil Hall, Boston, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "building": "Faneuil Hall",
+        "city": "Boston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Suffolk County",
+        "house_number": "1",
+        "neighbourhood": "Government Center/Faneuil Hall",
+        "postcode": "02109",
+        "road": "Faneuil Hall Square",
+        "state": "Massachusetts",
+        "suburb": "Downtown"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "42.3599050",
+        "42.3601620",
+        "-71.0564417",
+        "-71.0560266"
+      ],
+      "category": "building",
+      "display_name": "Faneuil Hall, 1, Faneuil Hall Square, Government Center/Faneuil Hall, Downtown, Boston, Suffolk County, Massachusetts, 02109, United States",
+      "importance": 0.43745051855579875,
+      "lat": "42.3600335",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.0562341",
+      "name": "Faneuil Hall",
+      "osm_id": 29551702,
+      "osm_type": "way",
+      "place_id": 362236893,
+      "place_rank": 30,
+      "type": "public"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": "1 Faneuil Hall Square"
   },
   "farm house in france": {
     "query": "Farm house in France",
@@ -15946,6 +16569,88 @@
     "status": "ok",
     "sublocation": "km 16.5 Rodovia das Cataratas"
   },
+  "framingham, mass": {
+    "city": "Framingham",
+    "country": "United States",
+    "display_name": "Framingham, Middlesex County, Massachusetts, United States",
+    "latitude": "42.2773177",
+    "longitude": "-71.4165905",
+    "query": "Framingham, Mass",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "city": "Framingham",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Middlesex County",
+        "state": "Massachusetts"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2572816",
+        "42.3531309",
+        "-71.4970461",
+        "-71.3776870"
+      ],
+      "category": "boundary",
+      "display_name": "Framingham, Middlesex County, Massachusetts, United States",
+      "importance": 0.5272866183052735,
+      "lat": "42.2773177",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.4165905",
+      "name": "Framingham",
+      "osm_id": 1863552,
+      "osm_type": "relation",
+      "place_id": 361716866,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "framingham, massachusetts, united states": {
+    "city": "Framingham",
+    "country": "United States",
+    "display_name": "Framingham, Middlesex County, Massachusetts, United States",
+    "latitude": "42.2773177",
+    "longitude": "-71.4165905",
+    "query": "Framingham, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "city": "Framingham",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Middlesex County",
+        "state": "Massachusetts"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2572816",
+        "42.3531309",
+        "-71.4970461",
+        "-71.3776870"
+      ],
+      "category": "boundary",
+      "display_name": "Framingham, Middlesex County, Massachusetts, United States",
+      "importance": 0.5272866183052735,
+      "lat": "42.2773177",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.4165905",
+      "name": "Framingham",
+      "osm_id": 1863552,
+      "osm_type": "relation",
+      "place_id": 361716866,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
+  },
   "france": {
     "city": "",
     "country": "France",
@@ -16345,6 +17050,51 @@
     "query": "Germany, Rhine River",
     "source": "nominatim",
     "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "gettysburg, pennsylvania, september 1976": {
+    "query": "Gettysburg, Pennsylvania, September 1976",
+    "status": "miss"
+  },
+  "gettysburg, pennsylvania, united states": {
+    "city": "Gettysburg",
+    "country": "United States",
+    "display_name": "Gettysburg, Adams County, Pennsylvania, United States",
+    "latitude": "39.8308973",
+    "longitude": "-77.2310120",
+    "query": "Gettysburg, Pennsylvania, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-PA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Adams County",
+        "state": "Pennsylvania",
+        "town": "Gettysburg"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "39.8158078",
+        "39.8438400",
+        "-77.2466417",
+        "-77.2176210"
+      ],
+      "category": "boundary",
+      "display_name": "Gettysburg, Adams County, Pennsylvania, United States",
+      "importance": 0.526277110314517,
+      "lat": "39.8308973",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.2310120",
+      "name": "Gettysburg",
+      "osm_id": 188990,
+      "osm_type": "relation",
+      "place_id": 345913008,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Pennsylvania",
     "status": "ok",
     "sublocation": ""
   },
@@ -17289,6 +18039,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "grand beach, united states": {
+    "city": "Grand Beach",
+    "country": "United States",
+    "display_name": "Grand Beach, Berrien County, Michigan, United States",
+    "latitude": "41.7733739",
+    "longitude": "-86.7975279",
+    "query": "Grand Beach, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Berrien County",
+        "state": "Michigan",
+        "village": "Grand Beach"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "41.7628990",
+        "41.7848184",
+        "-86.8022180",
+        "-86.7751077"
+      ],
+      "category": "boundary",
+      "display_name": "Grand Beach, Berrien County, Michigan, United States",
+      "importance": 0.3583819294050449,
+      "lat": "41.7733739",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.7975279",
+      "name": "Grand Beach",
+      "osm_id": 135072,
+      "osm_type": "relation",
+      "place_id": 366543748,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
   "grand beach, usa": {
     "city": "Grand Beach",
     "country": "United States",
@@ -17329,6 +18120,53 @@
     "state": "Michigan",
     "status": "ok",
     "sublocation": ""
+  },
+  "grand central terminal, new york, new york, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Grand Central Terminal, 89, East 42nd Street, Midtown South, Manhattan Community Board 5, Manhattan, New York County, New York, 10178, United States",
+    "latitude": "40.7526944",
+    "longitude": "-73.9772530",
+    "query": "Grand Central Terminal, New York, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "county": "New York County",
+        "house_number": "89",
+        "neighbourhood": "Midtown South",
+        "postcode": "10178",
+        "road": "East 42nd Street",
+        "state": "New York",
+        "suburb": "Manhattan",
+        "tourism": "Grand Central Terminal"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "40.7519810",
+        "40.7533155",
+        "-73.9781878",
+        "-73.9763618"
+      ],
+      "category": "tourism",
+      "display_name": "Grand Central Terminal, 89, East 42nd Street, Midtown South, Manhattan Community Board 5, Manhattan, New York County, New York, 10178, United States",
+      "importance": 0.5454188880865112,
+      "lat": "40.7526944",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9772530",
+      "name": "Grand Central Terminal",
+      "osm_id": 265947358,
+      "osm_type": "way",
+      "place_id": 359223499,
+      "place_rank": 30,
+      "type": "attraction"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "89 East 42nd Street"
   },
   "grand haven, michigan": {
     "city": "Grand Haven",
@@ -18335,6 +19173,84 @@
     "state": "Rabat-Salé-Kénitra",
     "status": "ok"
   },
+  "hawaii": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Hawaii, United States",
+    "latitude": "19.5938015",
+    "longitude": "-155.4283701",
+    "query": "Hawaii",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Hawaii"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "18.8654600",
+        "28.5172690",
+        "-178.4435930",
+        "-154.7557920"
+      ],
+      "category": "boundary",
+      "display_name": "Hawaii, United States",
+      "importance": 0.7664346524993908,
+      "lat": "19.5938015",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-155.4283701",
+      "name": "Hawaii",
+      "osm_id": 166563,
+      "osm_type": "relation",
+      "place_id": 379481581,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "hawaii, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Hawaii, United States",
+    "latitude": "19.5938015",
+    "longitude": "-155.4283701",
+    "query": "Hawaii, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Hawaii"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "18.8654600",
+        "28.5172690",
+        "-178.4435930",
+        "-154.7557920"
+      ],
+      "category": "boundary",
+      "display_name": "Hawaii, United States",
+      "importance": 0.7664346524993908,
+      "lat": "19.5938015",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-155.4283701",
+      "name": "Hawaii",
+      "osm_id": 166563,
+      "osm_type": "relation",
+      "place_id": 376144405,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
+  },
   "heavenly lake, china": {
     "city": "",
     "country": "China",
@@ -19167,9 +20083,41 @@
     "latitude": "34.0980031",
     "longitude": "-118.3295230",
     "query": "Hollywood, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "90028",
+        "state": "California",
+        "suburb": "Hollywood"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "34.0780031",
+        "34.1180031",
+        "-118.3495230",
+        "-118.3095230"
+      ],
+      "category": "place",
+      "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+      "importance": 0.7360103139294639,
+      "lat": "34.0980031",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.3295230",
+      "name": "Hollywood",
+      "osm_id": 1830231415,
+      "osm_type": "node",
+      "place_id": 317156745,
+      "place_rank": 19,
+      "type": "suburb"
+    },
     "source": "nominatim",
     "state": "California",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "hollywood, california, united states of america": {
     "city": "Los Angeles",
@@ -20454,6 +21402,57 @@
     "query": "Imperial Palace Grounds, Tokyo, Japan",
     "status": "miss"
   },
+  "independence hall - philadelphia, pennsylvania, september 1976": {
+    "query": "Independence Hall - Philadelphia, Pennsylvania, September 1976",
+    "status": "miss"
+  },
+  "independence hall, philadelphia, pennsylvania, united states": {
+    "city": "Philadelphia",
+    "country": "United States",
+    "display_name": "Independence Hall, 520, Chestnut Street, Old City, Center City, Philadelphia, Philadelphia County, Pennsylvania, 19106, United States",
+    "latitude": "39.9488873",
+    "longitude": "-75.1500260",
+    "query": "Independence Hall, Philadelphia, Pennsylvania, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-PA",
+        "city": "Philadelphia",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Philadelphia County",
+        "house_number": "520",
+        "neighbourhood": "Old City",
+        "postcode": "19106",
+        "road": "Chestnut Street",
+        "state": "Pennsylvania",
+        "suburb": "Center City",
+        "tourism": "Independence Hall"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "39.9487583",
+        "39.9490291",
+        "-75.1505092",
+        "-75.1495298"
+      ],
+      "category": "tourism",
+      "display_name": "Independence Hall, 520, Chestnut Street, Old City, Center City, Philadelphia, Philadelphia County, Pennsylvania, 19106, United States",
+      "importance": 0.5167584649102698,
+      "lat": "39.9488873",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-75.1500260",
+      "name": "Independence Hall",
+      "osm_id": 25271595,
+      "osm_type": "way",
+      "place_id": 432993918,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "Pennsylvania",
+    "status": "ok",
+    "sublocation": "520 Chestnut Street"
+  },
   "indian temple, singapore": {
     "query": "Indian Temple, Singapore",
     "status": "miss"
@@ -20666,9 +21665,39 @@
     "latitude": "39.7683331",
     "longitude": "-86.1583502",
     "query": "Indianapolis, Indiana, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "city": "Indianapolis",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Marion County",
+        "state": "Indiana"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.6321626",
+        "39.9275253",
+        "-86.3281207",
+        "-85.9380401"
+      ],
+      "category": "boundary",
+      "display_name": "Indianapolis, Marion County, Indiana, United States",
+      "importance": 0.6963697172533114,
+      "lat": "39.7683331",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.1583502",
+      "name": "Indianapolis",
+      "osm_id": 18438530,
+      "osm_type": "relation",
+      "place_id": 338126091,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Indiana",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "indianapolis, indiana, usa": {
     "city": "Indianapolis",
@@ -20703,6 +21732,47 @@
       "osm_id": 18438530,
       "osm_type": "relation",
       "place_id": 338126091,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "indianapolis, united states": {
+    "city": "Indianapolis",
+    "country": "United States",
+    "display_name": "Indianapolis, Marion County, Indiana, United States",
+    "latitude": "39.7683331",
+    "longitude": "-86.1583502",
+    "query": "Indianapolis, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "city": "Indianapolis",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Marion County",
+        "state": "Indiana"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.6321626",
+        "39.9275253",
+        "-86.3281207",
+        "-85.9380401"
+      ],
+      "category": "boundary",
+      "display_name": "Indianapolis, Marion County, Indiana, United States",
+      "importance": 0.6963697172533114,
+      "lat": "39.7683331",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.1583502",
+      "name": "Indianapolis",
+      "osm_id": 18438530,
+      "osm_type": "relation",
+      "place_id": 335905111,
       "place_rank": 16,
       "type": "administrative"
     },
@@ -21260,6 +22330,10 @@
     "status": "ok",
     "sublocation": "170 Anyuan Road"
   },
+  "jamestown, virginia - sept. 1976": {
+    "query": "Jamestown, Virginia - Sept. 1976",
+    "status": "miss"
+  },
   "japan": {
     "city": "",
     "country": "Japan",
@@ -21339,6 +22413,10 @@
   },
   "jerry , dolores , donald , gloria, eugene": {
     "query": "JERRY , DOLORES , DONALD , GLORIA, EUGENE",
+    "status": "miss"
+  },
+  "jerry, dolores, donald, gloria, eugene": {
+    "query": "JERRY, DOLORES, DONALD, GLORIA, EUGENE",
     "status": "miss"
   },
   "jesuit church (lucerne), switzerland": {
@@ -26085,6 +27163,35 @@
     "latitude": "34.0536909",
     "longitude": "-118.2427660",
     "query": "Los Angeles, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6595410",
+        "34.3373060",
+        "-118.6681798",
+        "-118.1552983"
+      ],
+      "category": "boundary",
+      "display_name": "Los Angeles, Los Angeles County, California, United States",
+      "importance": 0.8410828881088647,
+      "lat": "34.0536909",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.2427660",
+      "name": "Los Angeles",
+      "osm_id": 207359,
+      "osm_type": "relation",
+      "place_id": 316388634,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -26154,6 +27261,48 @@
     "state": "Jiangsu",
     "status": "ok",
     "sublocation": ""
+  },
+  "loveland pass, colorado": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Loveland Pass, US 6, Clear Creek County, Colorado, United States",
+    "latitude": "39.6639360",
+    "longitude": "-105.8789355",
+    "query": "Loveland Pass, Colorado",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CO",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Clear Creek County",
+        "road": "US 6",
+        "state": "Colorado",
+        "tourism": "Loveland Pass"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "39.6638860",
+        "39.6639860",
+        "-105.8789855",
+        "-105.8788855"
+      ],
+      "category": "tourism",
+      "display_name": "Loveland Pass, US 6, Clear Creek County, Colorado, United States",
+      "importance": 0.27438272693865795,
+      "lat": "39.6639360",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-105.8789355",
+      "name": "Loveland Pass",
+      "osm_id": 1867660938,
+      "osm_type": "node",
+      "place_id": 330528937,
+      "place_rank": 30,
+      "type": "viewpoint"
+    },
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": "US 6"
   },
   "loveland pass, colorado, usa": {
     "city": "",
@@ -27254,6 +28403,33 @@
     "latitude": "42.3788774",
     "longitude": "-72.0323660",
     "query": "Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Massachusetts"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "41.1888589",
+        "42.8867783",
+        "-73.5082102",
+        "-69.8601042"
+      ],
+      "category": "boundary",
+      "display_name": "Massachusetts, United States",
+      "importance": 0.7919663384739482,
+      "lat": "42.3788774",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-72.0323660",
+      "name": "Massachusetts",
+      "osm_id": 61315,
+      "osm_type": "relation",
+      "place_id": 362126208,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Massachusetts",
     "status": "ok",
@@ -29120,6 +30296,50 @@
     "status": "ok",
     "sublocation": "Wellington Street"
   },
+  "near a river, canada": {
+    "city": "Calgary",
+    "country": "Canada",
+    "display_name": "Washroom Bow Pathway North near Edworthy Park, Bow River Pathway (North), Montgomery, Calgary, Alberta, T3B 5C3, Canada",
+    "latitude": "51.0640803",
+    "longitude": "-114.1524440",
+    "query": "Near a river, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-AB",
+        "amenity": "Washroom Bow Pathway North near Edworthy Park",
+        "city": "Calgary",
+        "country": "Canada",
+        "country_code": "ca",
+        "postcode": "T3B 5C3",
+        "road": "Bow River Pathway (North)",
+        "state": "Alberta",
+        "suburb": "Montgomery"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "51.0640330",
+        "51.0641296",
+        "-114.1525295",
+        "-114.1523584"
+      ],
+      "category": "amenity",
+      "display_name": "Washroom Bow Pathway North near Edworthy Park, Bow River Pathway (North), Montgomery, Calgary, Alberta, T3B 5C3, Canada",
+      "importance": 7.414892805366625e-05,
+      "lat": "51.0640803",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-114.1524440",
+      "name": "Washroom Bow Pathway North near Edworthy Park",
+      "osm_id": 409873137,
+      "osm_type": "way",
+      "place_id": 375881973,
+      "place_rank": 30,
+      "type": "toilets"
+    },
+    "source": "nominatim",
+    "state": "Alberta",
+    "status": "ok",
+    "sublocation": "Bow River Pathway (North)"
+  },
   "netherlands": {
     "city": "",
     "country": "Netherlands",
@@ -29439,9 +30659,38 @@
     "latitude": "40.7127281",
     "longitude": "-74.0060152",
     "query": "New York City, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "state": "New York"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.4765780",
+        "40.9176300",
+        "-74.2588430",
+        "-73.7002330"
+      ],
+      "category": "boundary",
+      "display_name": "New York, United States",
+      "importance": 0.8817923363604117,
+      "lat": "40.7127281",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0060152",
+      "name": "New York",
+      "osm_id": 175905,
+      "osm_type": "relation",
+      "place_id": 361542306,
+      "place_rank": 10,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New York",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "new york city, usa": {
     "city": "New York",
@@ -29552,9 +30801,38 @@
     "latitude": "40.7127281",
     "longitude": "-74.0060152",
     "query": "New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "state": "New York"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.4765780",
+        "40.9176300",
+        "-74.2588430",
+        "-73.7002330"
+      ],
+      "category": "boundary",
+      "display_name": "New York, United States",
+      "importance": 0.8817923363604117,
+      "lat": "40.7127281",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0060152",
+      "name": "New York",
+      "osm_id": 175905,
+      "osm_type": "relation",
+      "place_id": 359971500,
+      "place_rank": 10,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New York",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "new york, usa": {
     "city": "New York",
@@ -29596,6 +30874,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "newburgh, new york, united states": {
+    "city": "City of Newburgh",
+    "country": "United States",
+    "display_name": "City of Newburgh, Orange County, New York, United States",
+    "latitude": "41.5000767",
+    "longitude": "-74.0098299",
+    "query": "Newburgh, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "City of Newburgh",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "state": "New York"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "41.4875450",
+        "41.5195010",
+        "-74.0486170",
+        "-74.0006460"
+      ],
+      "category": "boundary",
+      "display_name": "City of Newburgh, Orange County, New York, United States",
+      "importance": 0.5331899421368554,
+      "lat": "41.5000767",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0098299",
+      "name": "City of Newburgh",
+      "osm_id": 175469,
+      "osm_type": "relation",
+      "place_id": 357121077,
+      "place_rank": 14,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "newport - wales": {
     "display_name": "Newport, Cymru / Wales, United Kingdom",
     "latitude": "51.5882332",
@@ -29613,6 +30932,48 @@
     "query": "Newport Beach, California, United States",
     "source": "nominatim",
     "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "newport, rhode island, united states": {
+    "city": "Newport",
+    "country": "United States",
+    "display_name": "Newport, Newport County, Rhode Island, 02840, United States",
+    "latitude": "41.4899827",
+    "longitude": "-71.3137707",
+    "query": "Newport, Rhode Island, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-RI",
+        "city": "Newport",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Newport County",
+        "postcode": "02840",
+        "state": "Rhode Island"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "41.4489670",
+        "41.5231410",
+        "-71.3634480",
+        "-71.2850860"
+      ],
+      "category": "boundary",
+      "display_name": "Newport, Newport County, Rhode Island, 02840, United States",
+      "importance": 0.6116907451143354,
+      "lat": "41.4899827",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.3137707",
+      "name": "Newport",
+      "osm_id": 191230,
+      "osm_type": "relation",
+      "place_id": 360487795,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Rhode Island",
     "status": "ok",
     "sublocation": ""
   },
@@ -30028,6 +31389,93 @@
     "status": "ok",
     "sublocation": "6 Notre-Dame Forecourt - John Paul II Square"
   },
+  "notre-dame basilica, montreal, canada": {
+    "city": "Montreal",
+    "country": "Canada",
+    "display_name": "Notre-Dame Basilica, Montreal, Canada, Montreal, Quebec, Canada",
+    "latitude": "45.5044365",
+    "longitude": "-73.5559901",
+    "query": "Notre-Dame Basilica, Montreal, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "amenity": "Notre-Dame Basilica",
+        "city": "Montreal",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Urban agglomeration of Montreal",
+        "house_number": "110",
+        "neighbourhood": "Vieux-Montréal",
+        "postcode": "H2Y 1T1",
+        "road": "Rue Notre-Dame Ouest",
+        "state": "Quebec",
+        "state_district": "Montreal (administrative region)",
+        "suburb": "Ville-Marie"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "45.5040655",
+        "45.5048156",
+        "-73.5567165",
+        "-73.5552939"
+      ],
+      "category": "amenity",
+      "display_name": "Notre-Dame Basilica, 110, Rue Notre-Dame Ouest, Vieux-Montréal, Ville-Marie, Montreal, Urban agglomeration of Montreal, Montreal (administrative region), Quebec, H2Y 1T1, Canada",
+      "importance": 0.429220599380745,
+      "lat": "45.5044365",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.5559901",
+      "name": "Notre-Dame Basilica",
+      "osm_id": 4320792,
+      "osm_type": "way",
+      "place_id": 365143577,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": "110 Rue Notre-Dame Ouest"
+  },
+  "nova scotia, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Nova Scotia, Canada",
+    "latitude": "45.1960403",
+    "longitude": "-63.1653789",
+    "query": "Nova Scotia, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-NS",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Nova Scotia"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "43.1881572",
+        "47.7610742",
+        "-66.6807170",
+        "-59.2887119"
+      ],
+      "category": "boundary",
+      "display_name": "Nova Scotia, Canada",
+      "importance": 0.6955580540513688,
+      "lat": "45.1960403",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-63.1653789",
+      "name": "Nova Scotia",
+      "osm_id": 390558,
+      "osm_type": "relation",
+      "place_id": 288501666,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Nova Scotia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "novgorod kremlin, novgorod, russia": {
     "city": "Veliky Novgorod",
     "country": "Russia",
@@ -30290,6 +31738,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "ogunquit, maine": {
+    "city": "Ogunquit",
+    "country": "United States",
+    "display_name": "Ogunquit, York County, Maine, 03907, United States",
+    "latitude": "43.2489755",
+    "longitude": "-70.5992201",
+    "query": "Ogunquit, Maine",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "York County",
+        "postcode": "03907",
+        "state": "Maine",
+        "village": "Ogunquit"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "43.2081356",
+        "43.2717529",
+        "-70.6511912",
+        "-70.5023012"
+      ],
+      "category": "boundary",
+      "display_name": "Ogunquit, York County, Maine, 03907, United States",
+      "importance": 0.4114290048959136,
+      "lat": "43.2489755",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.5992201",
+      "name": "Ogunquit",
+      "osm_id": 2021457,
+      "osm_type": "relation",
+      "place_id": 362066176,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
+  },
   "ogunquit, maine, united states": {
     "city": "Ogunquit",
     "country": "United States",
@@ -30364,6 +31854,52 @@
   "old imperial palace, kyoto, japan": {
     "query": "Old Imperial Palace, Kyoto, Japan",
     "status": "miss"
+  },
+  "old north church, boston, mass": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Old North Church, 193, Salem Street, North End, Boston, Suffolk County, Massachusetts, 02113, United States",
+    "latitude": "42.3663160",
+    "longitude": "-71.0544478",
+    "query": "Old North Church, Boston, Mass",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "amenity": "Old North Church",
+        "city": "Boston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Suffolk County",
+        "house_number": "193",
+        "postcode": "02113",
+        "road": "Salem Street",
+        "state": "Massachusetts",
+        "suburb": "North End"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "42.3662094",
+        "42.3664226",
+        "-71.0546341",
+        "-71.0542919"
+      ],
+      "category": "amenity",
+      "display_name": "Old North Church, 193, Salem Street, North End, Boston, Suffolk County, Massachusetts, 02113, United States",
+      "importance": 0.3992188066482103,
+      "lat": "42.3663160",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.0544478",
+      "name": "Old North Church",
+      "osm_id": 29650592,
+      "osm_type": "way",
+      "place_id": 361898941,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": "193 Salem Street"
   },
   "old roman city, plovdiv, bulgaria": {
     "query": "Old Roman City, Plovdiv, Bulgaria",
@@ -30806,12 +32342,49 @@
     "status": "ok"
   },
   "oxford street, london, england": {
-    "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
-    "latitude": "51.5134858",
-    "longitude": "-0.1583865",
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1C 2HR, United Kingdom",
+    "latitude": "51.5147885",
+    "longitude": "-0.1457862",
     "query": "Oxford Street, London, England",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "W1C 2HR",
+        "quarter": "East Marylebone",
+        "road": "Oxford Street",
+        "state": "England",
+        "suburb": "Mayfair"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.5146539",
+        "51.5149379",
+        "-0.1469220",
+        "-0.1446519"
+      ],
+      "category": "highway",
+      "display_name": "Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1C 2HR, United Kingdom",
+      "importance": 0.5226832117987572,
+      "lat": "51.5147885",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1457862",
+      "name": "Oxford Street",
+      "osm_id": 46180198,
+      "osm_type": "way",
+      "place_id": 280517176,
+      "place_rank": 26,
+      "type": "primary"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Oxford Street"
   },
   "oxford street, london, england - aug. 1988": {
     "city": "City of Westminster",
@@ -31624,6 +33197,53 @@
     "status": "ok",
     "sublocation": "Park Road"
   },
+  "park street church, boston, united states": {
+    "city": "Boston",
+    "country": "United States",
+    "display_name": "Park Street Church, 119, Tremont Street, Downtown Crossing, Downtown, Boston, Suffolk County, Massachusetts, 02108, United States",
+    "latitude": "42.3568584",
+    "longitude": "-71.0620417",
+    "query": "Park Street Church, Boston, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "amenity": "Park Street Church",
+        "city": "Boston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Suffolk County",
+        "house_number": "119",
+        "neighbourhood": "Downtown Crossing",
+        "postcode": "02108",
+        "road": "Tremont Street",
+        "state": "Massachusetts",
+        "suburb": "Downtown"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "42.3566961",
+        "42.3570151",
+        "-71.0622668",
+        "-71.0618124"
+      ],
+      "category": "amenity",
+      "display_name": "Park Street Church, 119, Tremont Street, Downtown Crossing, Downtown, Boston, Suffolk County, Massachusetts, 02108, United States",
+      "importance": 0.3323758440386415,
+      "lat": "42.3568584",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.0620417",
+      "name": "Park Street Church",
+      "osm_id": 240317867,
+      "osm_type": "way",
+      "place_id": 361904393,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": "Park Street Church"
+  },
   "parliament building & orthodox church": {
     "query": "Parliament Building & Orthodox Church",
     "status": "miss"
@@ -32045,6 +33665,50 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "pennsylvania, september 1976": {
+    "city": "Plum",
+    "country": "United States",
+    "display_name": "September Drive, Renton Junction, Plum, Allegheny County, Pennsylvania, 15239, United States",
+    "latitude": "40.4905727",
+    "longitude": "-79.7377637",
+    "query": "Pennsylvania, September 1976",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-PA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Allegheny County",
+        "hamlet": "Renton Junction",
+        "postcode": "15239",
+        "road": "September Drive",
+        "state": "Pennsylvania",
+        "town": "Plum"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "40.4892307",
+        "40.4922065",
+        "-79.7403826",
+        "-79.7377476"
+      ],
+      "category": "highway",
+      "display_name": "September Drive, Renton Junction, Plum, Allegheny County, Pennsylvania, 15239, United States",
+      "importance": 0.0533864049744411,
+      "lat": "40.4905727",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.7377637",
+      "name": "September Drive",
+      "osm_id": 11751312,
+      "osm_type": "way",
+      "place_id": 325771618,
+      "place_rank": 26,
+      "type": "residential"
+    },
+    "source": "nominatim",
+    "state": "Pennsylvania",
+    "status": "ok",
+    "sublocation": "September Drive"
+  },
   "pensacola, florida, usa": {
     "city": "Pensacola",
     "country": "United States",
@@ -32441,6 +34105,10 @@
     "state": "Pennsylvania",
     "status": "ok"
   },
+  "philadelphia, pennsylvania, september 1976": {
+    "query": "Philadelphia, Pennsylvania, September 1976",
+    "status": "miss"
+  },
   "philadelphia, pennsylvania, united states": {
     "city": "Philadelphia",
     "country": "United States",
@@ -32448,6 +34116,35 @@
     "latitude": "39.9527237",
     "longitude": "-75.1635262",
     "query": "Philadelphia, Pennsylvania, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-PA",
+        "city": "Philadelphia",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Philadelphia County",
+        "state": "Pennsylvania"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.8670050",
+        "40.1379593",
+        "-75.2802660",
+        "-74.9558314"
+      ],
+      "category": "boundary",
+      "display_name": "Philadelphia, Philadelphia County, Pennsylvania, United States",
+      "importance": 0.7720581621573966,
+      "lat": "39.9527237",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-75.1635262",
+      "name": "Philadelphia",
+      "osm_id": 188022,
+      "osm_type": "relation",
+      "place_id": 357819242,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Pennsylvania",
     "status": "ok",
@@ -33093,6 +34790,53 @@
     "status": "ok",
     "sublocation": ""
   },
+  "plymouth rock, plymouth, massachusetts, united states": {
+    "city": "Plymouth",
+    "country": "United States",
+    "display_name": "Plymouth Rock, 57, Water Street, Plymouth Village Historic District, North Plymouth, Plymouth, Plymouth County, Massachusetts, 02360, United States",
+    "latitude": "41.9580867",
+    "longitude": "-70.6621119",
+    "query": "Plymouth Rock, Plymouth, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "city": "Plymouth",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Plymouth County",
+        "historic": "Plymouth Rock",
+        "house_number": "57",
+        "neighbourhood": "Plymouth Village Historic District",
+        "postcode": "02360",
+        "road": "Water Street",
+        "state": "Massachusetts",
+        "village": "North Plymouth"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "41.9580367",
+        "41.9581367",
+        "-70.6621619",
+        "-70.6620619"
+      ],
+      "category": "historic",
+      "display_name": "Plymouth Rock, 57, Water Street, Plymouth Village Historic District, North Plymouth, Plymouth, Plymouth County, Massachusetts, 02360, United States",
+      "importance": 5.5398641947005685e-05,
+      "lat": "41.9580867",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.6621119",
+      "name": "Plymouth Rock",
+      "osm_id": 4723616343,
+      "osm_type": "node",
+      "place_id": 362612449,
+      "place_rank": 30,
+      "type": "memorial"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": "57 Water Street"
+  },
   "plymouth, massachusetts": {
     "city": "",
     "country": "United States",
@@ -33112,6 +34856,34 @@
     "latitude": "41.9426657",
     "longitude": "-70.7618592",
     "query": "Plymouth, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Plymouth County",
+        "state": "Massachusetts"
+      },
+      "addresstype": "county",
+      "boundingbox": [
+        "41.5665119",
+        "42.3536042",
+        "-71.0804832",
+        "-70.4560544"
+      ],
+      "category": "boundary",
+      "display_name": "Plymouth County, Massachusetts, United States",
+      "importance": 0.5392512984303766,
+      "lat": "41.9426657",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.7618592",
+      "name": "Plymouth County",
+      "osm_id": 1840540,
+      "osm_type": "relation",
+      "place_id": 362074015,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Massachusetts",
     "status": "ok",
@@ -34657,6 +36429,45 @@
     "query": "Qinling Mountains, Shaanxi, China",
     "status": "miss"
   },
+  "quebec": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Quebec, Canada",
+    "latitude": "52.4760892",
+    "longitude": "-71.8258668",
+    "query": "Quebec",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Quebec"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "44.9913861",
+        "62.5824657",
+        "-79.7628726",
+        "-57.1074889"
+      ],
+      "category": "boundary",
+      "display_name": "Quebec, Canada",
+      "importance": 0.7761481656290996,
+      "lat": "52.4760892",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.8258668",
+      "name": "Quebec",
+      "osm_id": 61549,
+      "osm_type": "relation",
+      "place_id": 374094839,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": ""
+  },
   "quebec city, canada": {
     "city": "Quebec",
     "country": "Canada",
@@ -34692,6 +36503,45 @@
       "osm_type": "relation",
       "place_id": 336423003,
       "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "quebec, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Quebec, Canada",
+    "latitude": "52.4760892",
+    "longitude": "-71.8258668",
+    "query": "Quebec, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Quebec"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "44.9913861",
+        "62.5824657",
+        "-79.7628726",
+        "-57.1074889"
+      ],
+      "category": "boundary",
+      "display_name": "Quebec, Canada",
+      "importance": 0.7761481656290996,
+      "lat": "52.4760892",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.8258668",
+      "name": "Quebec",
+      "osm_id": 61549,
+      "osm_type": "relation",
+      "place_id": 374094839,
+      "place_rank": 8,
       "type": "administrative"
     },
     "source": "nominatim",
@@ -34921,6 +36771,10 @@
     "query": "Ran Marino, USA",
     "status": "miss"
   },
+  "ran marino, usa tawnya randy donna": {
+    "query": "Ran Marino, USA TAWNYA RANDY DONNA",
+    "status": "miss"
+  },
   "rathaus, austria": {
     "city": "Vienna",
     "country": "Austria",
@@ -35042,12 +36896,50 @@
     "status": "ok"
   },
   "regent street, london, england": {
-    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5SD, United Kingdom",
-    "latitude": "51.5109622",
-    "longitude": "-0.1386840",
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5TQ, United Kingdom",
+    "latitude": "51.5118508",
+    "longitude": "-0.1395931",
     "query": "Regent Street, London, England",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "neighbourhood": "St. James's",
+        "postcode": "W1B 5TQ",
+        "quarter": "East Marylebone",
+        "road": "Regent Street",
+        "state": "England",
+        "suburb": "Mayfair"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.5117663",
+        "51.5119353",
+        "-0.1396672",
+        "-0.1395191"
+      ],
+      "category": "highway",
+      "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5TQ, United Kingdom",
+      "importance": 0.5027667142776121,
+      "lat": "51.5118508",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1395931",
+      "name": "Regent Street",
+      "osm_id": 1018951418,
+      "osm_type": "way",
+      "place_id": 279935630,
+      "place_rank": 26,
+      "type": "primary"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Regent Street"
   },
   "regent street, london, england; zagreb, yugoslavia": {
     "query": "Regent Street, London, England; Zagreb, Yugoslavia",
@@ -35715,6 +37607,54 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "rockefeller center, new york, usa": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Rockefeller Center, 45, Rockefeller Plaza, Midtown, Manhattan Community Board 5, Manhattan, New York County, New York, 10111, United States",
+    "latitude": "40.7592576",
+    "longitude": "-73.9799569",
+    "query": "Rockefeller Center, New York, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "county": "New York County",
+        "house_number": "45",
+        "neighbourhood": "Manhattan Community Board 5",
+        "postcode": "10111",
+        "quarter": "Midtown",
+        "road": "Rockefeller Plaza",
+        "state": "New York",
+        "suburb": "Manhattan",
+        "tourism": "Rockefeller Center"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "40.7573666",
+        "40.7611130",
+        "-73.9833055",
+        "-73.9768824"
+      ],
+      "category": "tourism",
+      "display_name": "Rockefeller Center, 45, Rockefeller Plaza, Midtown, Manhattan Community Board 5, Manhattan, New York County, New York, 10111, United States",
+      "importance": 0.5479789530215503,
+      "lat": "40.7592576",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9799569",
+      "name": "Rockefeller Center",
+      "osm_id": 18351439,
+      "osm_type": "relation",
+      "place_id": 358955088,
+      "place_rank": 30,
+      "type": "attraction"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "45 Rockefeller Plaza"
   },
   "roman amphitheatre in plovdiv, bulgaria": {
     "query": "Roman Amphitheatre in Plovdiv, Bulgaria",
@@ -37392,6 +39332,34 @@
     "latitude": "37.7879363",
     "longitude": "-122.4075201",
     "query": "San Francisco, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Francisco",
+        "country": "United States",
+        "country_code": "us",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "37.6403143",
+        "37.9296678",
+        "-123.1738250",
+        "-122.2814578"
+      ],
+      "category": "boundary",
+      "display_name": "San Francisco, California, United States",
+      "importance": 0.780971280931417,
+      "lat": "37.7879363",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.4075201",
+      "name": "San Francisco",
+      "osm_id": 111968,
+      "osm_type": "relation",
+      "place_id": 323637204,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -37456,6 +39424,34 @@
     "latitude": "37.7879363",
     "longitude": "-122.4075201",
     "query": "San Francisco, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Francisco",
+        "country": "United States",
+        "country_code": "us",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "37.6403143",
+        "37.9296678",
+        "-123.1738250",
+        "-122.2814578"
+      ],
+      "category": "boundary",
+      "display_name": "San Francisco, California, United States",
+      "importance": 0.780971280931417,
+      "lat": "37.7879363",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.4075201",
+      "name": "San Francisco",
+      "osm_id": 111968,
+      "osm_type": "relation",
+      "place_id": 323430119,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -37548,9 +39544,35 @@
     "latitude": "43.9458623",
     "longitude": "12.4583060",
     "query": "San Marino",
+    "raw": {
+      "address": {
+        "country": "San Marino",
+        "country_code": "sm"
+      },
+      "addresstype": "country",
+      "boundingbox": [
+        "43.8936320",
+        "43.9920420",
+        "12.4024330",
+        "12.5169591"
+      ],
+      "category": "boundary",
+      "display_name": "San Marino",
+      "importance": 0.7142320757141661,
+      "lat": "43.9458623",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "12.4583060",
+      "name": "San Marino",
+      "osm_id": 54624,
+      "osm_type": "relation",
+      "place_id": 79877949,
+      "place_rank": 4,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "san marino - march 1994": {
     "query": "San Marino - March 1994",
@@ -37611,6 +39633,36 @@
     "latitude": "34.1215947",
     "longitude": "-118.1057390",
     "query": "San Marino, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "91108",
+        "state": "California",
+        "town": "San Marino"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.1049923",
+        "34.1373070",
+        "-118.1421630",
+        "-118.0879460"
+      ],
+      "category": "boundary",
+      "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+      "importance": 0.5363543515714496,
+      "lat": "34.1215947",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.1057390",
+      "name": "San Marino",
+      "osm_id": 12315850,
+      "osm_type": "relation",
+      "place_id": 320092399,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -37709,6 +39761,36 @@
     "latitude": "34.1215947",
     "longitude": "-118.1057390",
     "query": "San Marino, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "91108",
+        "state": "California",
+        "town": "San Marino"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.1049923",
+        "34.1373070",
+        "-118.1421630",
+        "-118.0879460"
+      ],
+      "category": "boundary",
+      "display_name": "San Marino, Los Angeles County, California, 91108, United States",
+      "importance": 0.5363543515714496,
+      "lat": "34.1215947",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.1057390",
+      "name": "San Marino",
+      "osm_id": 12315850,
+      "osm_type": "relation",
+      "place_id": 318030413,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -38192,6 +40274,14 @@
     "state": "New Mexico",
     "status": "ok",
     "sublocation": ""
+  },
+  "sarah-audrey-sherry-darlene- john leslie-marguarite-audrey": {
+    "query": "SARAH-AUDREY-SHERRY-DARLENE- JOHN LESLIE-MARGUARITE-AUDREY",
+    "status": "miss"
+  },
+  "sarah-audrey-sherry-darlene- john leslie-marguarite-audrey, unknown, usa": {
+    "query": "SARAH-AUDREY-SHERRY-DARLENE- JOHN LESLIE-MARGUARITE-AUDREY, Unknown, USA",
+    "status": "miss"
   },
   "sarajevo": {
     "city": "Sarajevo",
@@ -40936,6 +43026,53 @@
     "query": "St. Nickolas Church, Sofia, Bulgaria",
     "status": "miss"
   },
+  "st. patrick's cathedral, new york, usa": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "St. Patrick's Cathedral, New York, USA, New York, United States",
+    "latitude": "40.7585578",
+    "longitude": "-73.9763641",
+    "query": "St. Patrick's Cathedral, New York, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "amenity": "Saint Patrick’s Cathedral",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "county": "New York County",
+        "house_number": "625",
+        "neighbourhood": "Midtown East",
+        "postcode": "10022",
+        "road": "5th Avenue",
+        "state": "New York",
+        "suburb": "Manhattan"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "40.7582808",
+        "40.7588982",
+        "-73.9768425",
+        "-73.9757489"
+      ],
+      "category": "amenity",
+      "display_name": "Saint Patrick’s Cathedral, 625, 5th Avenue, Midtown East, Manhattan Community Board 5, Manhattan, New York County, New York, 10022, United States",
+      "importance": 0.501726674596231,
+      "lat": "40.7585578",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9763641",
+      "name": "Saint Patrick’s Cathedral",
+      "osm_id": 266010379,
+      "osm_type": "way",
+      "place_id": 356904843,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "625 5th Avenue"
+  },
   "st. paul's cathedral": {
     "city": "City of London",
     "country": "United Kingdom",
@@ -41678,6 +43815,90 @@
     "state": "",
     "status": "ok",
     "sublocation": ""
+  },
+  "stockton county": {
+    "city": "Stockton",
+    "country": "United States",
+    "display_name": "Stockton, San Joaquin County, California, United States",
+    "latitude": "37.9577016",
+    "longitude": "-121.2907790",
+    "query": "Stockton County",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Stockton",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Joaquin County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "37.8877470",
+        "38.0583000",
+        "-121.4197360",
+        "-121.1840372"
+      ],
+      "category": "boundary",
+      "display_name": "Stockton, San Joaquin County, California, United States",
+      "importance": 0.6078898663141631,
+      "lat": "37.9577016",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-121.2907790",
+      "name": "Stockton",
+      "osm_id": 112382,
+      "osm_type": "relation",
+      "place_id": 301947979,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "stockton county, united states": {
+    "city": "Town of Amherst",
+    "country": "United States",
+    "display_name": "US Highway 10, Town of Amherst, Portage County, Wisconsin, 54458, United States",
+    "latitude": "44.4835810",
+    "longitude": "-89.3456423",
+    "query": "Stockton County, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WI",
+        "city": "Town of Amherst",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Portage County",
+        "postcode": "54458",
+        "road": "US Highway 10",
+        "state": "Wisconsin"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "44.4740784",
+        "44.4940106",
+        "-89.3660700",
+        "-89.3248250"
+      ],
+      "category": "highway",
+      "display_name": "US Highway 10, Town of Amherst, Portage County, Wisconsin, 54458, United States",
+      "importance": 0.053383334859235486,
+      "lat": "44.4835810",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-89.3456423",
+      "name": "US Highway 10",
+      "osm_id": 155515437,
+      "osm_type": "way",
+      "place_id": 345383798,
+      "place_rank": 26,
+      "type": "motorway"
+    },
+    "source": "nominatim",
+    "state": "Wisconsin",
+    "status": "ok",
+    "sublocation": "US Highway 10"
   },
   "stone flower fountain, russia": {
     "city": "Moscow",
@@ -43413,6 +45634,51 @@
   "the boudoir in the winter palace, saint petersburg, russia": {
     "query": "The Boudoir in the Winter Palace, Saint Petersburg, Russia",
     "status": "miss"
+  },
+  "the breakers, newport, rhode island, united states": {
+    "city": "Newport",
+    "country": "United States",
+    "display_name": "The Breakers, 44, Ochre Point Avenue, Newport, Newport County, Rhode Island, 02840, United States",
+    "latitude": "41.4697373",
+    "longitude": "-71.2982119",
+    "query": "The Breakers, Newport, Rhode Island, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-RI",
+        "city": "Newport",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Newport County",
+        "house_number": "44",
+        "postcode": "02840",
+        "road": "Ochre Point Avenue",
+        "state": "Rhode Island",
+        "tourism": "The Breakers"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "41.4694778",
+        "41.4700109",
+        "-71.2985675",
+        "-71.2978271"
+      ],
+      "category": "tourism",
+      "display_name": "The Breakers, 44, Ochre Point Avenue, Newport, Newport County, Rhode Island, 02840, United States",
+      "importance": 0.3538242275522032,
+      "lat": "41.4697373",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.2982119",
+      "name": "The Breakers",
+      "osm_id": 227360878,
+      "osm_type": "way",
+      "place_id": 360409475,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "Rhode Island",
+    "status": "ok",
+    "sublocation": "44 Ochre Point Avenue"
   },
   "the bridge and river, stratford-upon-avon, england": {
     "query": "The Bridge and River, Stratford-upon-Avon, England",
@@ -45582,6 +47848,51 @@
     "query": "The White Cliffs of Dover, Dover Castle, Dover, England",
     "status": "miss"
   },
+  "the white house, washington d.c., united states": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "White House, 1600, Pennsylvania Avenue Northwest, Ward 2, Washington, District of Columbia, 20500, United States",
+    "latitude": "38.8976387",
+    "longitude": "-77.0365528",
+    "query": "The White House, Washington D.C., United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "borough": "Ward 2",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "house_number": "1600",
+        "office": "White House",
+        "postcode": "20500",
+        "road": "Pennsylvania Avenue Northwest",
+        "state": "District of Columbia"
+      },
+      "addresstype": "office",
+      "boundingbox": [
+        "38.8974904",
+        "38.8977959",
+        "-77.0368541",
+        "-77.0362517"
+      ],
+      "category": "office",
+      "display_name": "White House, 1600, Pennsylvania Avenue Northwest, Ward 2, Washington, District of Columbia, 20500, United States",
+      "importance": 0.6958339719610435,
+      "lat": "38.8976387",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0365528",
+      "name": "White House",
+      "osm_id": 19761182,
+      "osm_type": "relation",
+      "place_id": 347527726,
+      "place_rank": 30,
+      "type": "government"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": "1600 Pennsylvania Avenue Northwest"
+  },
   "the white house, washington d.c., usa": {
     "city": "Washington",
     "country": "United States",
@@ -46866,6 +49177,51 @@
     "status": "ok",
     "sublocation": ""
   },
+  "trapp family lodge, stowe, vermont, united states": {
+    "city": "Stowe",
+    "country": "United States",
+    "display_name": "Trapp Family Lodge, 700, Trapp Hill Road, Stowe, Lamoille County, Vermont, 05672, United States",
+    "latitude": "44.4654369",
+    "longitude": "-72.7451481",
+    "query": "Trapp Family Lodge, Stowe, Vermont, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-VT",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Lamoille County",
+        "house_number": "700",
+        "postcode": "05672",
+        "road": "Trapp Hill Road",
+        "state": "Vermont",
+        "tourism": "Trapp Family Lodge",
+        "town": "Stowe"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "44.4649959",
+        "44.4658962",
+        "-72.7458516",
+        "-72.7445172"
+      ],
+      "category": "tourism",
+      "display_name": "Trapp Family Lodge, 700, Trapp Hill Road, Stowe, Lamoille County, Vermont, 05672, United States",
+      "importance": 0.25352702198722055,
+      "lat": "44.4654369",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-72.7451481",
+      "name": "Trapp Family Lodge",
+      "osm_id": 510224059,
+      "osm_type": "way",
+      "place_id": 365750213,
+      "place_rank": 30,
+      "type": "hotel"
+    },
+    "source": "nominatim",
+    "state": "Vermont",
+    "status": "ok",
+    "sublocation": "700 Trapp Hill Road"
+  },
   "tredegar house": {
     "city": "Newport",
     "country": "United Kingdom",
@@ -47396,10 +49752,79 @@
     "latitude": "39.7837304",
     "longitude": "-100.4458820",
     "query": "United States",
+    "raw": {
+      "address": {
+        "country": "United States",
+        "country_code": "us"
+      },
+      "addresstype": "country",
+      "boundingbox": [
+        "-14.7608358",
+        "71.5889534",
+        "-180.0000000",
+        "180.0000000"
+      ],
+      "category": "boundary",
+      "display_name": "United States",
+      "importance": 1.0,
+      "lat": "39.7837304",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-100.4458820",
+      "name": "United States",
+      "osm_id": 148838,
+      "osm_type": "relation",
+      "place_id": 52172514,
+      "place_rank": 4,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "",
     "status": "ok",
     "sublocation": ""
+  },
+  "united states capitol, washington, d.c., united states": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "United States Capitol, West Terraces and Steps, Ward 6, Washington, District of Columbia, 20004, United States",
+    "latitude": "38.8898130",
+    "longitude": "-77.0090208",
+    "query": "United States Capitol, Washington, D.C., United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "borough": "Ward 6",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "office": "United States Capitol",
+        "postcode": "20004",
+        "road": "West Terraces and Steps",
+        "state": "District of Columbia"
+      },
+      "addresstype": "office",
+      "boundingbox": [
+        "38.8887824",
+        "38.8908427",
+        "-77.0095740",
+        "-77.0083279"
+      ],
+      "category": "office",
+      "display_name": "United States Capitol, West Terraces and Steps, Ward 6, Washington, District of Columbia, 20004, United States",
+      "importance": 0.5951966866565476,
+      "lat": "38.8898130",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0090208",
+      "name": "United States Capitol",
+      "osm_id": 66418809,
+      "osm_type": "way",
+      "place_id": 347576043,
+      "place_rank": 30,
+      "type": "government"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": "West Terraces and Steps"
   },
   "university of glasgow, glasgow, scotland": {
     "city": "Glasgow",
@@ -47491,6 +49916,57 @@
     "status": "ok",
     "sublocation": ""
   },
+  "unknown location": {
+    "city": "Savannah",
+    "country": "United States",
+    "display_name": "Carmelite Monastery Cemetery (Exact Location Unknown), Coffee Bluff, Savannah, Chatham County, Georgia, United States",
+    "latitude": "31.9370250",
+    "longitude": "-81.1545654",
+    "query": "Unknown Location",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-GA",
+        "cemetery": "Carmelite Monastery Cemetery (Exact Location Unknown)",
+        "city": "Savannah",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Chatham County",
+        "hamlet": "Coffee Bluff",
+        "state": "Georgia"
+      },
+      "addresstype": "cemetery",
+      "boundingbox": [
+        "31.9369014",
+        "31.9371511",
+        "-81.1547151",
+        "-81.1544155"
+      ],
+      "category": "landuse",
+      "display_name": "Carmelite Monastery Cemetery (Exact Location Unknown), Coffee Bluff, Savannah, Chatham County, Georgia, United States",
+      "importance": 0.08003750133516438,
+      "lat": "31.9370250",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.1545654",
+      "name": "Carmelite Monastery Cemetery (Exact Location Unknown)",
+      "osm_id": 1359581803,
+      "osm_type": "way",
+      "place_id": 300817778,
+      "place_rank": 24,
+      "type": "cemetery"
+    },
+    "source": "nominatim",
+    "state": "Georgia",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "unknown location in an unknown country": {
+    "query": "Unknown location in an unknown country",
+    "status": "miss"
+  },
+  "unknown location in the united states": {
+    "query": "Unknown location in the United States",
+    "status": "miss"
+  },
   "unknown, 2018": {
     "city": "New Providence",
     "country": "Bahamas",
@@ -47530,6 +50006,53 @@
     "state": "",
     "status": "ok",
     "sublocation": ""
+  },
+  "unknown, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Unknown, Petitcodiac, Salisbury Parish, Community of Three Rivers, Westmorland County, New Brunswick, Canada",
+    "latitude": "45.9546198",
+    "longitude": "-65.1695027",
+    "query": "Unknown, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-NB",
+        "cemetery": "Unknown",
+        "city_district": "Salisbury Parish",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Community of Three Rivers",
+        "state": "New Brunswick",
+        "suburb": "Petitcodiac"
+      },
+      "addresstype": "cemetery",
+      "boundingbox": [
+        "45.9543893",
+        "45.9548503",
+        "-65.1698351",
+        "-65.1691703"
+      ],
+      "category": "landuse",
+      "display_name": "Unknown, Petitcodiac, Salisbury Parish, Community of Three Rivers, Westmorland County, New Brunswick, Canada",
+      "importance": 0.08004817807278551,
+      "lat": "45.9546198",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-65.1695027",
+      "name": "Unknown",
+      "osm_id": 1155282742,
+      "osm_type": "way",
+      "place_id": 364259716,
+      "place_rank": 24,
+      "type": "cemetery"
+    },
+    "source": "nominatim",
+    "state": "New Brunswick",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "unknown, country unknown": {
+    "query": "Unknown, Country Unknown",
+    "status": "miss"
   },
   "unknown, united kingdom": {
     "city": "Leeds",
@@ -47576,6 +50099,10 @@
     "state": "England",
     "status": "ok",
     "sublocation": "unknown"
+  },
+  "unknown, unknown country": {
+    "query": "Unknown, Unknown Country",
+    "status": "miss"
   },
   "unknown, usa": {
     "city": "",
@@ -48219,6 +50746,45 @@
   "venice, italy; rome, italy": {
     "query": "Venice, Italy; Rome, Italy",
     "status": "miss"
+  },
+  "vermont, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Vermont, United States",
+    "latitude": "44.5990718",
+    "longitude": "-72.5002608",
+    "query": "Vermont, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-VT",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Vermont"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "42.7269600",
+        "45.0166650",
+        "-73.4377400",
+        "-71.4653860"
+      ],
+      "category": "boundary",
+      "display_name": "Vermont, United States",
+      "importance": 0.7353198528738472,
+      "lat": "44.5990718",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-72.5002608",
+      "name": "Vermont",
+      "osm_id": 60759,
+      "osm_type": "relation",
+      "place_id": 355047359,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Vermont",
+    "status": "ok",
+    "sublocation": ""
   },
   "vernadsky building (palace of the soviets), moscow, russia": {
     "query": "Vernadsky Building (Palace of the Soviets), Moscow, Russia",
@@ -48958,6 +51524,45 @@
     "query": "Villa Bosphorus, Turkey",
     "status": "miss"
   },
+  "virginia, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Virginia, United States",
+    "latitude": "37.1232245",
+    "longitude": "-78.4927721",
+    "query": "Virginia, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-VA",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Virginia"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "36.5407896",
+        "39.4660120",
+        "-83.6753671",
+        "-75.1664350"
+      ],
+      "category": "boundary",
+      "display_name": "Virginia, United States",
+      "importance": 0.7803463116184275,
+      "lat": "37.1232245",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-78.4927721",
+      "name": "Virginia",
+      "osm_id": 224042,
+      "osm_type": "relation",
+      "place_id": 346054639,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Virginia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "vittorio emanuele monument (altare della patria), italy": {
     "city": "Rome",
     "country": "Italy",
@@ -49437,6 +52042,46 @@
     "query": "Warship Wasa, Stockholm, Sweden",
     "status": "miss"
   },
+  "washington d.c., united states": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "Washington, District of Columbia, United States",
+    "latitude": "38.8950982",
+    "longitude": "-77.0363849",
+    "query": "Washington D.C., United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "state": "District of Columbia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.7916303",
+        "38.9959680",
+        "-77.1197949",
+        "-76.9093660"
+      ],
+      "category": "place",
+      "display_name": "Washington, District of Columbia, United States",
+      "importance": 0.8147699678478604,
+      "lat": "38.8950982",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0363849",
+      "name": "Washington",
+      "osm_id": 5396194,
+      "osm_type": "relation",
+      "place_id": 347552420,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": ""
+  },
   "washington d.c., usa": {
     "city": "Washington",
     "country": "United States",
@@ -49469,6 +52114,92 @@
       "osm_id": 5396194,
       "osm_type": "relation",
       "place_id": 394370670,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "washington's headquarters, newburgh, new york": {
+    "city": "City of Newburgh",
+    "country": "United States",
+    "display_name": "Washington's Headquarters, 84, Liberty Street, Varick Homes, City of Newburgh, Orange County, New York, 12550, United States",
+    "latitude": "41.4977888",
+    "longitude": "-74.0099521",
+    "query": "Washington's Headquarters, Newburgh, New York",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "building": "Washington's Headquarters",
+        "city": "City of Newburgh",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "hamlet": "Varick Homes",
+        "house_number": "84",
+        "postcode": "12550",
+        "road": "Liberty Street",
+        "state": "New York"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "41.4976682",
+        "41.4978469",
+        "-74.0100777",
+        "-74.0098392"
+      ],
+      "category": "building",
+      "display_name": "Washington's Headquarters, 84, Liberty Street, Varick Homes, City of Newburgh, Orange County, New York, 12550, United States",
+      "importance": 5.7698176546837834e-05,
+      "lat": "41.4977888",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0099521",
+      "name": "Washington's Headquarters",
+      "osm_id": 328227881,
+      "osm_type": "way",
+      "place_id": 356744471,
+      "place_rank": 30,
+      "type": "yes"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "84 Liberty Street"
+  },
+  "washington, d.c., united states": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "Washington, District of Columbia, United States",
+    "latitude": "38.8950982",
+    "longitude": "-77.0363849",
+    "query": "Washington, D.C., United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "state": "District of Columbia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.7916303",
+        "38.9959680",
+        "-77.1197949",
+        "-76.9093660"
+      ],
+      "category": "place",
+      "display_name": "Washington, District of Columbia, United States",
+      "importance": 0.8147699678478604,
+      "lat": "38.8950982",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0363849",
+      "name": "Washington",
+      "osm_id": 5396194,
+      "osm_type": "relation",
+      "place_id": 348045494,
       "place_rank": 16,
       "type": "city"
     },
@@ -49631,6 +52362,51 @@
     "state": "England",
     "status": "ok",
     "sublocation": ""
+  },
+  "west point, new york, united states": {
+    "city": "Town of Highlands",
+    "country": "United States",
+    "display_name": "United States Military Academy, 845, Brewerton Road, Town of Highlands, Orange County, New York, 10996, United States",
+    "latitude": "41.3926455",
+    "longitude": "-73.9599242",
+    "query": "West Point, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "amenity": "United States Military Academy",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "house_number": "845",
+        "municipality": "Town of Highlands",
+        "postcode": "10996",
+        "road": "Brewerton Road",
+        "state": "New York"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "41.3763723",
+        "41.4084856",
+        "-73.9839418",
+        "-73.9507380"
+      ],
+      "category": "amenity",
+      "display_name": "United States Military Academy, 845, Brewerton Road, Town of Highlands, Orange County, New York, 10996, United States",
+      "importance": 0.63706085594744,
+      "lat": "41.3926455",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9599242",
+      "name": "United States Military Academy",
+      "osm_id": 1156984119,
+      "osm_type": "way",
+      "place_id": 356426658,
+      "place_rank": 30,
+      "type": "university"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "845 Brewerton Road"
   },
   "westgate and westgate gardens, canterbury": {
     "query": "Westgate and Westgate Gardens, Canterbury",
@@ -49956,6 +52732,93 @@
     "query": "Wild Goose Pagoda, Xi'an, Shaanxi, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "william & mary college, williamsburg, virginia, united states": {
+    "city": "Williamsburg",
+    "country": "United States",
+    "display_name": "College of William and Mary, Westover Avenue, Williamsburg, Virginia, 23185, United States",
+    "latitude": "37.2690934",
+    "longitude": "-76.7220509",
+    "query": "William & Mary College, Williamsburg, Virginia, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-VA",
+        "amenity": "College of William and Mary",
+        "city": "Williamsburg",
+        "country": "United States",
+        "country_code": "us",
+        "postcode": "23185",
+        "road": "Westover Avenue",
+        "state": "Virginia"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "37.2548203",
+        "37.2911929",
+        "-76.7410352",
+        "-76.7025150"
+      ],
+      "category": "amenity",
+      "display_name": "College of William and Mary, Westover Avenue, Williamsburg, Virginia, 23185, United States",
+      "importance": 0.5623854753978669,
+      "lat": "37.2690934",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-76.7220509",
+      "name": "College of William and Mary",
+      "osm_id": 11594877,
+      "osm_type": "relation",
+      "place_id": 345892438,
+      "place_rank": 30,
+      "type": "university"
+    },
+    "source": "nominatim",
+    "state": "Virginia",
+    "status": "ok",
+    "sublocation": "Westover Avenue"
+  },
+  "williamsburg, virginia - sept. 1976": {
+    "query": "Williamsburg, Virginia - Sept. 1976",
+    "status": "miss"
+  },
+  "williamsburg, virginia, united states": {
+    "city": "Williamsburg",
+    "country": "United States",
+    "display_name": "Williamsburg, Virginia, United States",
+    "latitude": "37.2712497",
+    "longitude": "-76.7000350",
+    "query": "Williamsburg, Virginia, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-VA",
+        "city": "Williamsburg",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Virginia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "37.2474666",
+        "37.3101256",
+        "-76.7429843",
+        "-76.6643134"
+      ],
+      "category": "boundary",
+      "display_name": "Williamsburg, Virginia, United States",
+      "importance": 0.5862430773579294,
+      "lat": "37.2712497",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-76.7000350",
+      "name": "Williamsburg",
+      "osm_id": 206807,
+      "osm_type": "relation",
+      "place_id": 346042548,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Virginia",
+    "status": "ok",
+    "sublocation": ""
   },
   "winchester": {
     "city": "Winchester",
@@ -50503,6 +53366,47 @@
     "query": "Woodhaven, Canada, Ontario",
     "status": "miss"
   },
+  "woodhaven, united states": {
+    "city": "Woodhaven",
+    "country": "United States",
+    "display_name": "Woodhaven, Wayne County, Michigan, United States",
+    "latitude": "42.1370519",
+    "longitude": "-83.2451066",
+    "query": "Woodhaven, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Wayne County",
+        "state": "Michigan",
+        "town": "Woodhaven"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "42.1092200",
+        "42.1552820",
+        "-83.2655070",
+        "-83.2153634"
+      ],
+      "category": "boundary",
+      "display_name": "Woodhaven, Wayne County, Michigan, United States",
+      "importance": 0.425772933155395,
+      "lat": "42.1370519",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-83.2451066",
+      "name": "Woodhaven",
+      "osm_id": 134467,
+      "osm_type": "relation",
+      "place_id": 368599696,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
   "woodhaven, winnipeg,canada": {
     "city": "Winnipeg",
     "country": "Canada",
@@ -50621,6 +53525,10 @@
     "query": "Worcester, Worcestershire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "wright museum - dayton ohio - sept, 1976": {
+    "query": "Wright Museum - Dayton Ohio - Sept, 1976",
+    "status": "miss"
   },
   "xi'an, china": {
     "city": "Xi'an",
