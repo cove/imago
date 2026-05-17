@@ -1050,6 +1050,7 @@ def _dispatch_pipeline_step(
     step_just_ran,
     stale_dep,
     ai_runner,
+    scan_ai_runner,
     ai_page_idx,
     face_session,
     root,
@@ -1063,32 +1064,38 @@ def _dispatch_pipeline_step(
     deps,
 ) -> int:
     match step.id:
-        case "render":
-            outcome = _run_step_render(
-                group=group,
+        case "scan-ai":
+            _run_pipeline_scan_ai_step(
                 primary_scan=primary_scan,
-                view_dir=view_dir,
-                photos_dir=photos_dir,
-                current_page_token=current_page_token,
-                stitch=deps["stitch"],
-                tif_to_jpg=deps["tif_to_jpg"],
-                derived_to_jpg=deps["derived_to_jpg"],
-                list_derived_images=deps["list_derived_images"],
-                archive=archive,
-            )
-            counters["render"]["run"] += 1
-            step_just_ran.add("render")
-            _print_outcome(outcome, stale_dep)
-        case "propagate-metadata":
-            _run_pipeline_propagate_metadata_step(
                 xmp_path=xmp_path,
-                view_path=view_path,
-                archive_sidecar=archive_sidecar,
+                scan_ai_runner=scan_ai_runner,
+                force_this_step=force_this_step,
                 counters=counters,
                 step_just_ran=step_just_ran,
                 stale_dep=stale_dep,
                 deps=deps,
             )
+        case "render":
+            if not force_this_step and view_path.is_file():
+                counters["render"]["skipped"] += 1
+                _print_outcome("skipped (already complete)", stale_dep)
+            else:
+                outcome = _run_step_render(
+                    group=group,
+                    primary_scan=primary_scan,
+                    view_dir=view_dir,
+                    photos_dir=photos_dir,
+                    current_page_token=current_page_token,
+                    stitch=deps["stitch"],
+                    tif_to_jpg=deps["tif_to_jpg"],
+                    derived_to_jpg=deps["derived_to_jpg"],
+                    list_derived_images=deps["list_derived_images"],
+                    archive=archive,
+                )
+                counters["render"]["run"] += 1
+                step_just_ran.add("render")
+                deps["write_pipeline_step"](xmp_path, "render")
+                _print_outcome(outcome, stale_dep)
         case "detect-regions":
             _run_pipeline_detect_regions_step(
                 view_path=view_path,
@@ -1175,6 +1182,7 @@ def _run_process_pipeline_step(
     step_just_ran: set[str],
     counters: dict[str, dict],
     ai_runner,
+    scan_ai_runner,
     ai_page_idx: int,
     face_session,
     root: Path,
@@ -1215,6 +1223,7 @@ def _run_process_pipeline_step(
             step_just_ran=step_just_ran,
             stale_dep=stale_dep,
             ai_runner=ai_runner,
+            scan_ai_runner=scan_ai_runner,
             ai_page_idx=ai_page_idx,
             face_session=face_session,
             root=root,
@@ -1233,17 +1242,33 @@ def _run_process_pipeline_step(
     return ai_page_idx
 
 
-def _run_pipeline_propagate_metadata_step(
-    *, xmp_path, view_path, archive_sidecar, counters, step_just_ran, stale_dep, deps
+def _run_pipeline_scan_ai_step(
+    *,
+    primary_scan: Path,
+    xmp_path: Path,
+    scan_ai_runner,
+    force_this_step: bool,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
 ) -> None:
-    if view_path.is_file() and archive_sidecar.is_file():
-        deps["propagate_archive_copy_safe_fields"](xmp_path, archive_sidecar)
-        counters["propagate-metadata"]["run"] += 1
-        step_just_ran.add("propagate-metadata")
-        _print_outcome("done", stale_dep)
+    if not force_this_step and deps["read_pipeline_step"](xmp_path, "scan-ai") is not None:
+        counters["scan-ai"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+        return
+    scan_ai_runner.force_processing = force_this_step
+    scan_ai_runner.files = [primary_scan]
+    fail_before = scan_ai_runner.failures
+    scan_ai_runner._process_one(1, primary_scan)
+    if scan_ai_runner.failures > fail_before:
+        counters["scan-ai"]["failed"] += 1
+        _print_outcome("ERROR", stale_dep)
     else:
-        counters["propagate-metadata"]["skipped"] += 1
-        _print_outcome("skipped (no sidecar)", stale_dep)
+        counters["scan-ai"]["run"] += 1
+        step_just_ran.add("scan-ai")
+        deps["write_pipeline_step"](xmp_path, "scan-ai")
+        _print_outcome("done", stale_dep)
 
 
 def _run_pipeline_detect_regions_step(
@@ -1309,7 +1334,7 @@ def _run_pipeline_crop_regions_step(
         _print_outcome("skipped (title page)", stale_dep)
         return
     if force_this_step:
-        deps["clear_pipeline_steps"](xmp_path, ["crop_regions"])
+        deps["clear_pipeline_steps"](xmp_path, ["crop-regions"])
     crop_stats = deps["CropPageStats"]()
     n = deps["crop_page_regions"](
         view_path,
@@ -1441,10 +1466,9 @@ def run_process_pipeline(
     gps_only: bool = False,
     refresh_gps: bool = False,
 ) -> int:
-    from .lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS
+    from .lib.pipeline import OPTIONAL_STEP_IDS, PIPELINE_STEPS, VALID_STEP_IDS
     from .lib.xmp_sidecar import (
         clear_pipeline_steps,
-        propagate_archive_copy_safe_fields,
         read_pipeline_state,
         read_pipeline_step,
         write_pipeline_step,
@@ -1466,6 +1490,7 @@ def run_process_pipeline(
     root = Path(photos_root)
     effective_skip_ids, effective_redo_ids = _effective_pipeline_step_ids(
         valid_step_ids=VALID_STEP_IDS,
+        optional_step_ids=OPTIONAL_STEP_IDS,
         skip_ids=skip_ids,
         redo_ids=redo_ids,
         step_id=step_id,
@@ -1518,11 +1543,14 @@ def run_process_pipeline(
     model_name = default_view_region_model()
     face_session = RenderFaceRefreshSession(photos_root=root)
 
-    # Build IndexRunner once so engine caches are shared across pages
+    # Build IndexRunners once so engine caches are shared across pages
     from .lib.ai_index_runner import IndexRunner
 
     ai_runner = IndexRunner(
         _pipeline_ai_runner_argv(root, gps_only=gps_only, refresh_gps=refresh_gps, force=force, debug=debug)
+    )
+    scan_ai_runner = IndexRunner(
+        _pipeline_scan_ai_runner_argv(root, force=force, debug=debug)
     )
     deps = {
         "CropPageStats": CropPageStats,
@@ -1538,7 +1566,6 @@ def run_process_pipeline(
         "detect_regions": detect_regions,
         "list_derived_images": list_derived_images,
         "persist_verify_crops_state": persist_verify_crops_state,
-        "propagate_archive_copy_safe_fields": propagate_archive_copy_safe_fields,
         "read_pipeline_state": read_pipeline_state,
         "read_pipeline_step": read_pipeline_step,
         "run_verify_crops_page": run_verify_crops_page,
@@ -1556,6 +1583,7 @@ def run_process_pipeline(
         effective_redo_ids=effective_redo_ids,
         counters=counters,
         ai_runner=ai_runner,
+        scan_ai_runner=scan_ai_runner,
         face_session=face_session,
         root=root,
         model_name=model_name,
@@ -1578,16 +1606,22 @@ def run_process_pipeline(
 def _effective_pipeline_step_ids(
     *,
     valid_step_ids: set[str],
+    optional_step_ids: set[str],
     skip_ids: list[str],
     redo_ids: list[str],
     step_id: str | None,
     force: bool,
     refresh_gps: bool,
 ) -> tuple[set[str], set[str]]:
-    effective_skip_ids = set(sid for sid in valid_step_ids if sid != step_id) if step_id else set(skip_ids)
     effective_redo_ids = set(valid_step_ids) if force else set(redo_ids)
     if refresh_gps:
         effective_redo_ids.add("ai-index")
+    if step_id:
+        effective_skip_ids = set(sid for sid in valid_step_ids if sid != step_id)
+    else:
+        # Optional steps are skipped by default unless explicitly redo'd or in skip list
+        auto_skipped = optional_step_ids - effective_redo_ids
+        effective_skip_ids = set(skip_ids) | auto_skipped
     return effective_skip_ids, effective_redo_ids
 
 
@@ -1635,6 +1669,15 @@ def _pipeline_ai_runner_argv(root: Path, *, gps_only: bool, refresh_gps: bool, f
     return argv
 
 
+def _pipeline_scan_ai_runner_argv(root: Path, *, force: bool, debug: bool) -> list[str]:
+    argv = ["--photos-root", str(root), "--include-archive"]
+    if force:
+        argv.append("--force")
+    if debug:
+        argv.append("--debug")
+    return argv
+
+
 def _process_pipeline_pages(
     all_pages: list[tuple],
     *,
@@ -1643,6 +1686,7 @@ def _process_pipeline_pages(
     effective_redo_ids: set[str],
     counters: dict[str, dict],
     ai_runner,
+    scan_ai_runner,
     face_session,
     root: Path,
     model_name: str,
@@ -1677,6 +1721,7 @@ def _process_pipeline_pages(
                 step_just_ran=step_just_ran,
                 counters=counters,
                 ai_runner=ai_runner,
+                scan_ai_runner=scan_ai_runner,
                 ai_page_idx=ai_page_idx,
                 face_session=face_session,
                 root=root,

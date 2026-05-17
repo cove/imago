@@ -163,6 +163,10 @@ class RegionResult:
     location_payload: dict[str, object] = field(default_factory=dict)
     person_names: list[str] = field(default_factory=list)
     photo_number: int = 0
+    # Per-photo AI metadata (None = AI not yet run; "" = AI ran, nothing found)
+    photo_location: str | None = None
+    photo_location_name: str | None = None
+    photo_est_date: str | None = None
 
 
 @dataclass

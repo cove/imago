@@ -346,7 +346,12 @@
       "Bash(echo \"PYRIGHT: $?\")",
       "Bash(Get-ChildItem -Path 'C:\\\\Users\\\\covec\\\\Videos\\\\imago' -Force)",
       "Bash(pip install *)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\" -Filter \"SHA256SUMS\" -Recurse)",
+      "Bash(Select-Object FullName, Length, LastWriteTime)",
+      "Bash(Get-Item \"C:\\\\Users\\\\covec\\\\OneDrive\\\\Cordell, Leslie & Audrey\\\\Photo Albums\\\\SHA256SUMS\")",
+      "Bash(Select-Object LastWriteTime, Length)",
+      "Bash(Select-String \"Family_1985\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

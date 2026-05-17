@@ -597,5 +597,75 @@ class TestMetadataResponseParsing(unittest.TestCase):
         self.assertEqual(captured["payload"]["chat_template_kwargs"], {"enable_thinking": False})
 
 
+class TestPerPhotoMetadataOnRegions(unittest.TestCase):
+    """Tests for photo_location, photo_location_name, photo_est_date stored on regions."""
+
+    def test_photo_location_and_est_date_written_to_xmp(self):
+        """Per-photo location and date from AI metadata are stored as region attributes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "page.jpg"
+            _make_minimal_jpeg(image)
+            xmp_path = _seed_regions_xmp(image, count=2)
+
+            photos = [
+                {"photo_number": 1, "caption": "Birthday party", "location": "Toronto, Canada", "est_date": "1989-03"},
+                {"photo_number": 2, "caption": "Victoria trip", "location": "Victoria, B.C., Canada", "est_date": "1989-04"},
+            ]
+            _update_region_captions_from_metadata(image, photos)
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual(regions[0]["photo_location"], "Toronto, Canada")
+            self.assertEqual(regions[0]["photo_est_date"], "1989-03")
+            self.assertEqual(regions[1]["photo_location"], "Victoria, B.C., Canada")
+            self.assertEqual(regions[1]["photo_est_date"], "1989-04")
+
+    def test_photo_location_round_trips_through_xmp(self):
+        """photo_location survives write_region_list → read_region_list."""
+        with tempfile.TemporaryDirectory() as tmp:
+            xmp_path = Path(tmp) / "page.xmp"
+            region = RegionResult(
+                index=0, x=0, y=0, width=100, height=100,
+                photo_location="San Marino, CA, USA",
+                photo_location_name="",
+                photo_est_date="1985-06",
+            )
+            write_region_list(xmp_path, [RegionWithCaption(region=region, caption="")], 800, 600)
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual(regions[0]["photo_location"], "San Marino, CA, USA")
+            self.assertEqual(regions[0]["photo_est_date"], "1985-06")
+
+    def test_photo_location_none_is_not_written(self):
+        """When photo_location is None (AI not run), no PhotoLocation attribute is written."""
+        with tempfile.TemporaryDirectory() as tmp:
+            xmp_path = Path(tmp) / "page.xmp"
+            region = RegionResult(
+                index=0, x=0, y=0, width=100, height=100,
+                photo_location=None,
+                photo_est_date=None,
+            )
+            write_region_list(xmp_path, [RegionWithCaption(region=region, caption="")], 800, 600)
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertIsNone(regions[0]["photo_location"])
+            self.assertIsNone(regions[0]["photo_est_date"])
+            self.assertNotIn("imago:PhotoLocation", xmp_path.read_text())
+
+    def test_empty_string_photo_location_is_written_and_read(self):
+        """photo_location='' (AI ran, found nothing) is written and reads back as ''."""
+        with tempfile.TemporaryDirectory() as tmp:
+            xmp_path = Path(tmp) / "page.xmp"
+            region = RegionResult(
+                index=0, x=0, y=0, width=100, height=100,
+                photo_location="",
+                photo_est_date="",
+            )
+            write_region_list(xmp_path, [RegionWithCaption(region=region, caption="")], 800, 600)
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual(regions[0]["photo_location"], "")
+            self.assertEqual(regions[0]["photo_est_date"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

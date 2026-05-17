@@ -275,14 +275,29 @@ def _get_image_dimensions(image_path: Path) -> tuple[int, int]:
         return 0, 0
 
 
-def _build_region_with_caption(r: dict, photo_captions: dict[int, str], photo_numbers: dict[int, int]) -> tuple[Any, bool]:
+def _build_region_with_caption(
+    r: dict,
+    photo_captions: dict[int, str],
+    photo_numbers: dict[int, int],
+    photo_locations: dict[int, str] | None = None,
+    photo_location_names: dict[int, str] | None = None,
+    photo_est_dates: dict[int, str] | None = None,
+) -> tuple[Any, bool]:
     from .ai_view_regions import RegionResult, RegionWithCaption  # pylint: disable=import-outside-toplevel
 
     i = r["index"]
     existing_hint = str(r.get("caption_hint") or "").strip()
-    new_hint = photo_captions.get(i, "") or existing_hint
+    new_hint = photo_captions.get(i, existing_hint)
     new_pn = photo_numbers.get(i, 0) or int(r.get("photo_number") or 0)
-    changed = new_hint != existing_hint or new_pn != int(r.get("photo_number") or 0)
+    new_photo_location = photo_locations.get(i) if photo_locations is not None and i in photo_locations else None
+    new_photo_location_name = photo_location_names.get(i) if photo_location_names is not None and i in photo_location_names else None
+    new_photo_est_date = photo_est_dates.get(i) if photo_est_dates is not None and i in photo_est_dates else None
+    changed = (
+        new_hint != existing_hint
+        or new_pn != int(r.get("photo_number") or 0)
+        or (new_photo_location is not None and new_photo_location != r.get("photo_location"))
+        or (new_photo_est_date is not None and new_photo_est_date != r.get("photo_est_date"))
+    )
     region_obj = RegionResult(
         index=i,
         x=r["x"],
@@ -293,6 +308,9 @@ def _build_region_with_caption(r: dict, photo_captions: dict[int, str], photo_nu
         location_payload=dict(r.get("location_payload") or {}),
         person_names=list(r.get("person_names") or []),
         photo_number=new_pn,
+        photo_location=new_photo_location,
+        photo_location_name=new_photo_location_name,
+        photo_est_date=new_photo_est_date,
     )
     return RegionWithCaption(region=region_obj, caption=new_hint), changed
 
@@ -319,7 +337,7 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
     if not regions:
         return
 
-    photo_captions, photo_numbers = _metadata_region_caption_maps(photo_captions_list)
+    photo_captions, photo_numbers, photo_locations, photo_location_names, photo_est_dates = _metadata_region_caption_maps(photo_captions_list)
 
     if not photo_captions and not photo_numbers:
         return
@@ -327,7 +345,14 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
     updated = False
     rwcs = []
     for r in regions:
-        rwc, changed = _build_region_with_caption(r, photo_captions, photo_numbers)
+        rwc, changed = _build_region_with_caption(
+            r,
+            photo_captions,
+            photo_numbers,
+            photo_locations=photo_locations,
+            photo_location_names=photo_location_names,
+            photo_est_dates=photo_est_dates,
+        )
         if changed:
             updated = True
         rwcs.append(rwc)
@@ -336,18 +361,24 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
         write_region_list(xmp_path, rwcs, img_w, img_h)
 
 
-def _metadata_region_caption_maps(photo_captions_list: list[dict]) -> tuple[dict[int, str], dict[int, int]]:
+def _metadata_region_caption_maps(
+    photo_captions_list: list[dict],
+) -> tuple[dict[int, str], dict[int, int], dict[int, str], dict[int, str], dict[int, str]]:
     photo_captions: dict[int, str] = {}
     photo_numbers: dict[int, int] = {}
+    photo_locations: dict[int, str] = {}
+    photo_location_names: dict[int, str] = {}
+    photo_est_dates: dict[int, str] = {}
     for entry in photo_captions_list:
         pn = int(entry.get("photo_number") or 0)
         if pn > 0:
             region_idx = pn - 1
             photo_numbers[region_idx] = pn
-            caption = _metadata_region_caption(entry)
-            if caption:
-                photo_captions[region_idx] = caption
-    return photo_captions, photo_numbers
+            photo_captions[region_idx] = _metadata_region_caption(entry)
+            photo_locations[region_idx] = str(entry.get("location") or "").strip()
+            photo_location_names[region_idx] = str(entry.get("location_name") or "").strip()
+            photo_est_dates[region_idx] = str(entry.get("est_date") or "").strip()
+    return photo_captions, photo_numbers, photo_locations, photo_location_names, photo_est_dates
 
 
 def _metadata_region_caption(photo: Any) -> str:
@@ -813,7 +844,13 @@ def _metadata_step_update_state(
     _update_region_captions_from_metadata(
         Path(caption_source_path) if caption_source_path else image_path,
         [
-            {"photo_number": int(photo.photo_number), "caption": _metadata_region_caption(photo)}
+            {
+                "photo_number": int(photo.photo_number),
+                "caption": _metadata_region_caption(photo),
+                "location": str(getattr(photo, "location", "") or "").strip(),
+                "location_name": str(getattr(photo, "location_name", "") or "").strip(),
+                "est_date": str(getattr(photo, "est_date", "") or "").strip(),
+            }
             for photo in result.photos
             if int(photo.photo_number) > 0
         ],

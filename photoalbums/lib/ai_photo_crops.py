@@ -534,7 +534,7 @@ def _write_crop_sidecar(
     _write_crop_provenance(crop_xmp, view_path, view_xmp)
 
     page_description = str(view_state.get("description") or "").strip()
-    parent_ocr_text = str(view_state.get("parent_ocr_text") or view_state.get("ocr_text") or "").strip()
+    parent_ocr_text = str(view_state.get("parent_ocr_text") or "").strip()
     if not caption:
         caption = page_description
 
