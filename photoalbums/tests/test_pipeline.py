@@ -117,7 +117,7 @@ class TestEffectivePipelineStepIds(unittest.TestCase):
         )
 
         self.assertIn("face-refresh", skip_ids)
-        self.assertNotIn("immich-face-refresh", skip_ids)
+        self.assertIn("immich-face-refresh", skip_ids)
         self.assertEqual(redo_ids, set())
 
     def test_explicit_verify_crops_step_runs(self):
