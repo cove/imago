@@ -1670,6 +1670,8 @@ def _effective_pipeline_step_ids(
     effective_redo_ids = set(valid_step_ids) if force else set(redo_ids)
     if step_id != "face-refresh" and "face-refresh" not in redo_ids:
         effective_skip_ids.add("face-refresh")
+    if step_id != "immich-face-refresh" and "immich-face-refresh" not in redo_ids:
+        effective_skip_ids.add("immich-face-refresh")
     if step_id != "verify-crops" and "verify-crops" not in redo_ids:
         effective_skip_ids.add("verify-crops")
     if refresh_gps:
