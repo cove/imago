@@ -1,4 +1,47 @@
 {
+  "-0.4548118,-90.2651111": {
+    "city": "Parroquia Santa Rosa",
+    "country": "Ecuador",
+    "display_name": "-0.4548118,-90.2651111, Parroquia Santa Rosa, Galapagos, Ecuador",
+    "latitude": "-0.4548118",
+    "longitude": "-90.2651111",
+    "query": "-0.4548118,-90.2651111",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "EC-W",
+        "aeroway": "Seymour Galapagos Ecological Airport",
+        "country": "Ecuador",
+        "country_code": "ec",
+        "county": "Cantón Santa Cruz",
+        "municipality": "Parroquia Santa Rosa",
+        "road": "Vía Aeropuerto",
+        "state": "Galápagos"
+      },
+      "addresstype": "aeroway",
+      "boundingbox": [
+        "-0.4640090",
+        "-0.4437753",
+        "-90.2732814",
+        "-90.2582464"
+      ],
+      "category": "aeroway",
+      "display_name": "Seymour Galapagos Ecological Airport, Vía Aeropuerto, Parroquia Santa Rosa, Cantón Santa Cruz, Galápagos, Ecuador",
+      "importance": 0.35892997054582615,
+      "lat": "-0.4548118",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-90.2651111",
+      "name": "Seymour Galapagos Ecological Airport",
+      "osm_id": 530488351,
+      "osm_type": "way",
+      "place_id": 2195998,
+      "place_rank": 30,
+      "type": "aerodrome"
+    },
+    "source": "nominatim",
+    "state": "Galápagos",
+    "status": "ok",
+    "sublocation": "Vía Aeropuerto"
+  },
   "1034 beverly way, altadena, ca 91001": {
     "city": "Altadena",
     "country": "United States",
@@ -161,6 +204,52 @@
     "state": "California",
     "status": "ok",
     "sublocation": "1235 Keniston Avenue"
+  },
+  "13.5751439,2.0938689": {
+    "city": "Niamey",
+    "country": "Niger",
+    "display_name": "13.5751439,2.0938689, Niamey, Niger",
+    "latitude": "13.5751439",
+    "longitude": "2.0938689",
+    "query": "13.5751439,2.0938689",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "NE-8",
+        "amenity": "Location grue",
+        "city": "Niamey",
+        "city_district": "Arrondissement Communal Niamey 1",
+        "country": "Niger",
+        "country_code": "ne",
+        "county": "Kollo",
+        "neighbourhood": "Cité Députés",
+        "postcode": "8002",
+        "road": "Boulevard Tanimoune",
+        "suburb": "Nord Lazaret"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "13.5750939",
+        "13.5751939",
+        "2.0938189",
+        "2.0939189"
+      ],
+      "category": "amenity",
+      "display_name": "Location grue, Boulevard Tanimoune, Cité Députés, Nord Lazaret, Nord Faisceau, Arrondissement Communal Niamey 1, Niamey, Kollo, 8002, Niger",
+      "importance": 6.516594186308106e-05,
+      "lat": "13.5751439",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.0938689",
+      "name": "Location grue",
+      "osm_id": 8196130584,
+      "osm_type": "node",
+      "place_id": 41858639,
+      "place_rank": 30,
+      "type": "car_rental"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Boulevard Tanimoune"
   },
   "15th century sera monastery": {
     "query": "15th Century Sera Monastery",
@@ -815,6 +904,49 @@
     "status": "ok",
     "sublocation": "京成成田駅東口"
   },
+  "39.2138905,-79.6371124": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Fairview Cemetery, Location Road, Saint George, Tucker County, West Virginia, United States",
+    "latitude": "39.2139938",
+    "longitude": "-79.6368924",
+    "query": "39.2138905,-79.6371124",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WV",
+        "amenity": "Fairview Cemetery",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Tucker County",
+        "hamlet": "Saint George",
+        "road": "Location Road",
+        "state": "West Virginia"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "39.2138597",
+        "39.2140561",
+        "-79.6371205",
+        "-79.6366538"
+      ],
+      "category": "amenity",
+      "display_name": "Fairview Cemetery, Location Road, Saint George, Tucker County, West Virginia, United States",
+      "importance": 3.303654535739707e-05,
+      "lat": "39.2139938",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.6368924",
+      "name": "Fairview Cemetery",
+      "osm_id": 1478713130,
+      "osm_type": "way",
+      "place_id": 350953318,
+      "place_rank": 30,
+      "type": "grave_yard"
+    },
+    "source": "nominatim",
+    "state": "West Virginia",
+    "status": "ok",
+    "sublocation": "Location Road"
+  },
   "42.45616117,89.72831633": {
     "city": "",
     "country": "China",
@@ -1174,6 +1306,145 @@
     "status": "ok",
     "sublocation": "7 Residenzplatz"
   },
+  "48.42831817,-123.364953": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "1, Centennial Square, Chinatown, Downtown, Victoria, Capital Regional District, British Columbia, V8W 1P6, Canada",
+    "latitude": "48.4283109",
+    "longitude": "-123.3658377",
+    "query": "48.42831817,-123.364953",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-BC",
+        "city": "Victoria",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Capital Regional District",
+        "house_number": "1",
+        "neighbourhood": "Chinatown",
+        "postcode": "V8W 1P6",
+        "road": "Centennial Square",
+        "state": "British Columbia",
+        "suburb": "Downtown"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.4282609",
+        "48.4283609",
+        "-123.3658877",
+        "-123.3657877"
+      ],
+      "category": "amenity",
+      "display_name": "1, Centennial Square, Chinatown, Downtown, Victoria, Capital Regional District, British Columbia, V8W 1P6, Canada",
+      "importance": 6.833829251540424e-05,
+      "lat": "48.4283109",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.3658377",
+      "name": "",
+      "osm_id": 11149183911,
+      "osm_type": "node",
+      "place_id": 377071282,
+      "place_rank": 30,
+      "type": "bicycle_parking"
+    },
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": "1 Centennial Square"
+  },
+  "48.4283182,-123.3649530": {
+    "city": "Victoria",
+    "country": "Canada",
+    "display_name": "1, Centennial Square, Chinatown, Downtown, Victoria, Capital Regional District, British Columbia, V8W 1P6, Canada",
+    "latitude": "48.4283109",
+    "longitude": "-123.3658377",
+    "query": "48.4283182,-123.3649530",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-BC",
+        "city": "Victoria",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Capital Regional District",
+        "house_number": "1",
+        "neighbourhood": "Chinatown",
+        "postcode": "V8W 1P6",
+        "road": "Centennial Square",
+        "state": "British Columbia",
+        "suburb": "Downtown"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.4282609",
+        "48.4283609",
+        "-123.3658877",
+        "-123.3657877"
+      ],
+      "category": "amenity",
+      "display_name": "1, Centennial Square, Chinatown, Downtown, Victoria, Capital Regional District, British Columbia, V8W 1P6, Canada",
+      "importance": 6.833829251540424e-05,
+      "lat": "48.4283109",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.3658377",
+      "name": "",
+      "osm_id": 11149183911,
+      "osm_type": "node",
+      "place_id": 378858572,
+      "place_rank": 30,
+      "type": "bicycle_parking"
+    },
+    "source": "nominatim",
+    "state": "British Columbia",
+    "status": "ok",
+    "sublocation": "1 Centennial Square"
+  },
+  "48.50066717,32.23154233": {
+    "city": "Kropyvnytskyi",
+    "country": "Ukraine",
+    "display_name": "48.50066717,32.23154233, Kropyvnytskyi, Kirovohrad Oblast, Ukraine",
+    "latitude": "48.5004853",
+    "longitude": "32.2317940",
+    "query": "48.50066717,32.23154233",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "UA-35",
+        "borough": "Fortechnyi district",
+        "city": "Kropyvnytskyi",
+        "country": "Ukraine",
+        "country_code": "ua",
+        "district": "Kropyvnytskyi Raion",
+        "house_number": "28",
+        "municipality": "Кропивницька міська громада",
+        "postcode": "25030",
+        "road": "Eugene Telnov street",
+        "state": "Kirovohrad Oblast",
+        "suburb": "Cheremushky"
+      },
+      "addresstype": "leisure",
+      "boundingbox": [
+        "48.5004353",
+        "48.5005353",
+        "32.2317440",
+        "32.2318440"
+      ],
+      "category": "leisure",
+      "display_name": "28, Eugene Telnov street, Cheremushky, Fortechnyi district, Kropyvnytskyi, Кропивницька міська громада, Kropyvnytskyi Raion, Kirovohrad Oblast, 25030, Ukraine",
+      "importance": 6.331349660482212e-05,
+      "lat": "48.5004853",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "32.2317940",
+      "name": "",
+      "osm_id": 11253289897,
+      "osm_type": "node",
+      "place_id": 192070541,
+      "place_rank": 30,
+      "type": "bandstand"
+    },
+    "source": "nominatim",
+    "state": "Kirovohrad Oblast",
+    "status": "ok",
+    "sublocation": "28 Eugene Telnov street"
+  },
   "4th century church of st. georgi, bulgaria": {
     "query": "4th Century Church of St. Georgi, Bulgaria",
     "status": "miss"
@@ -1429,6 +1700,46 @@
     "state": "England",
     "status": "ok",
     "sublocation": "56 Pembroke Street"
+  },
+  "61.06669217,-107.991707": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "South Slave Region, Northwest Territories, Canada",
+    "latitude": "61.3140579",
+    "longitude": "-108.5050371",
+    "query": "61.06669217,-107.991707",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-NT",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "South Slave Region",
+        "state": "Northwest Territories"
+      },
+      "addresstype": "county",
+      "boundingbox": [
+        "59.9982603",
+        "62.9246007",
+        "-119.7461425",
+        "-102.0035953"
+      ],
+      "category": "boundary",
+      "display_name": "South Slave Region, Northwest Territories, Canada",
+      "importance": 0.3583819294050449,
+      "lat": "61.3140579",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-108.5050371",
+      "name": "South Slave Region",
+      "osm_id": 9490045,
+      "osm_type": "relation",
+      "place_id": 372234318,
+      "place_rank": 10,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Northwest Territories",
+    "status": "ok",
+    "sublocation": ""
   },
   "801 tigertail rd, brentwood, ca": {
     "city": "Los Angeles",
@@ -29190,6 +29501,34 @@
     "latitude": "40.7127281",
     "longitude": "-74.0060152",
     "query": "New York, New York, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "state": "New York"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.4765780",
+        "40.9176300",
+        "-74.2588430",
+        "-73.7002330"
+      ],
+      "category": "boundary",
+      "display_name": "New York, United States",
+      "importance": 0.8817923363604117,
+      "lat": "40.7127281",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0060152",
+      "name": "New York",
+      "osm_id": 175905,
+      "osm_type": "relation",
+      "place_id": 359971500,
+      "place_rank": 10,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New York",
     "status": "ok",
@@ -30305,6 +30644,47 @@
     "query": "Other Palace Built for Kings Nephew, Belarus",
     "status": "miss"
   },
+  "ottawa, canada": {
+    "city": "Ottawa",
+    "country": "Canada",
+    "display_name": "Ottawa, Eastern Ontario, Ontario, Canada",
+    "latitude": "45.4208777",
+    "longitude": "-75.6901106",
+    "query": "Ottawa, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-ON",
+        "city": "Ottawa",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Ontario",
+        "state_district": "Eastern Ontario"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "44.9617738",
+        "45.5376502",
+        "-76.3555857",
+        "-75.2465783"
+      ],
+      "category": "boundary",
+      "display_name": "Ottawa, Eastern Ontario, Ontario, Canada",
+      "importance": 0.7221345524563392,
+      "lat": "45.4208777",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-75.6901106",
+      "name": "Ottawa",
+      "osm_id": 4136816,
+      "osm_type": "relation",
+      "place_id": 366305631,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Ontario",
+    "status": "ok",
+    "sublocation": ""
+  },
   "our hotel at abu simbel": {
     "query": "Our Hotel at Abu Simbel",
     "status": "miss"
@@ -30908,6 +31288,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "palm springs, california, usa": {
+    "city": "Palm Springs",
+    "country": "United States",
+    "display_name": "Palm Springs, Riverside County, California, United States",
+    "latitude": "33.8246269",
+    "longitude": "-116.5403030",
+    "query": "Palm Springs, California, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Palm Springs",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Riverside County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6125492",
+        "33.9320788",
+        "-116.6847380",
+        "-116.4428260"
+      ],
+      "category": "boundary",
+      "display_name": "Palm Springs, Riverside County, California, United States",
+      "importance": 0.590868823551088,
+      "lat": "33.8246269",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.5403030",
+      "name": "Palm Springs",
+      "osm_id": 2866485,
+      "osm_type": "relation",
+      "place_id": 314683782,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "palm springs, california, usa, united states": {
     "query": "Palm Springs, California, USA, United States",
     "status": "miss"
@@ -31264,6 +31685,10 @@
   },
   "parliament buildings, london, united kingdom": {
     "query": "Parliament Buildings, London, United Kingdom",
+    "status": "miss"
+  },
+  "parliament buildings, ottawa, canada": {
+    "query": "Parliament Buildings, Ottawa, Canada",
     "status": "miss"
   },
   "parliament buildings, vienna": {
@@ -34940,6 +35365,50 @@
     "query": "Rhine Valley, Germany",
     "source": "nominatim",
     "status": "ok"
+  },
+  "rideau canal, ottawa, canada": {
+    "city": "Ottawa",
+    "country": "Canada",
+    "display_name": "Rideau Canal, Osgoode, Ottawa, Eastern Ontario, Ontario, K4M 0T7, Canada",
+    "latitude": "45.2476599",
+    "longitude": "-75.6997209",
+    "query": "Rideau Canal, Ottawa, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-ON",
+        "city": "Ottawa",
+        "city_district": "Osgoode",
+        "country": "Canada",
+        "country_code": "ca",
+        "nature_reserve": "Rideau Canal",
+        "postcode": "K4M 0T7",
+        "state": "Ontario",
+        "state_district": "Eastern Ontario"
+      },
+      "addresstype": "nature_reserve",
+      "boundingbox": [
+        "45.2476099",
+        "45.2477099",
+        "-75.6997709",
+        "-75.6996709"
+      ],
+      "category": "leisure",
+      "display_name": "Rideau Canal, Osgoode, Ottawa, Eastern Ontario, Ontario, K4M 0T7, Canada",
+      "importance": 0.4968638159713613,
+      "lat": "45.2476599",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-75.6997209",
+      "name": "Rideau Canal",
+      "osm_id": 1063070233,
+      "osm_type": "node",
+      "place_id": 366180429,
+      "place_rank": 24,
+      "type": "nature_reserve"
+    },
+    "source": "nominatim",
+    "state": "Ontario",
+    "status": "ok",
+    "sublocation": ""
   },
   "rio de janeiro, brazil": {
     "city": "Rio de Janeiro",
@@ -38675,6 +39144,18 @@
     "status": "ok",
     "sublocation": "11-ti Oktomvri"
   },
+  "shown_location": {
+    "query": "shown_location",
+    "status": "miss"
+  },
+  "shown_location, niger, ecuador": {
+    "query": "shown_location, Niger, Ecuador",
+    "status": "miss"
+  },
+  "shown_location, unknown": {
+    "query": "shown_location, unknown",
+    "status": "miss"
+  },
   "sight of 1976 olympics": {
     "query": "Sight of 1976 Olympics",
     "status": "miss"
@@ -40276,6 +40757,10 @@
     "state": "England",
     "status": "ok",
     "sublocation": ""
+  },
+  "st. joseph's shrine, montreal, canada": {
+    "query": "St. Joseph's Shrine, Montreal, Canada",
+    "status": "miss"
   },
   "st. louis, usa": {
     "city": "St. Louis",
@@ -47451,6 +47936,51 @@
     "state": "British Columbia",
     "status": "ok",
     "sublocation": "1055 Canada Place"
+  },
+  "vanderbilt mansion, hyde park, new york, usa": {
+    "city": "Town of Hyde Park",
+    "country": "United States",
+    "display_name": "Vanderbilt Mansion, 81, Vanderbilt Park Road, Town of Hyde Park, Dutchess County, New York, 12538, United States",
+    "latitude": "41.7964348",
+    "longitude": "-73.9424184",
+    "query": "Vanderbilt Mansion, Hyde Park, New York, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "building": "Vanderbilt Mansion",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Dutchess County",
+        "house_number": "81",
+        "postcode": "12538",
+        "road": "Vanderbilt Park Road",
+        "state": "New York",
+        "town": "Town of Hyde Park"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "41.7961779",
+        "41.7966589",
+        "-73.9426093",
+        "-73.9422326"
+      ],
+      "category": "building",
+      "display_name": "Vanderbilt Mansion, 81, Vanderbilt Park Road, Town of Hyde Park, Dutchess County, New York, 12538, United States",
+      "importance": 0.14389741120638372,
+      "lat": "41.7964348",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9424184",
+      "name": "Vanderbilt Mansion",
+      "osm_id": 184283320,
+      "osm_type": "way",
+      "place_id": 356899572,
+      "place_rank": 30,
+      "type": "yes"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "81 Vanderbilt Park Road"
   },
   "vane hill, torquay": {
     "city": "Torquay",

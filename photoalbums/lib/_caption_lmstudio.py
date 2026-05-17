@@ -4,6 +4,7 @@ import base64
 import io
 import json
 import logging
+import os
 import re
 import time
 import urllib.error
@@ -923,14 +924,24 @@ _LMSTUDIO_RETRY_ATTEMPTS = 10
 _LMSTUDIO_RETRYABLE_HTTP_CODES = (400, 404, 500, 502, 503, 504)
 
 
+def _lmstudio_auth_headers() -> dict[str, str]:
+    token = os.environ.get("LM_API_KEY", "").strip()
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
 def _lmstudio_request_json(url: str, *, payload: dict | None = None, timeout: float) -> dict:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     for attempt in range(1, _LMSTUDIO_RETRY_ATTEMPTS + 1):
+        headers = _lmstudio_auth_headers()
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
         request = urllib.request.Request(
             url,
             data=body,
             method="POST" if payload is not None else "GET",
-            headers={"Content-Type": "application/json"} if payload is not None else {},
+            headers=headers,
         )
         try:
             with urllib.request.urlopen(request, timeout=float(timeout)) as response:
@@ -987,11 +998,13 @@ def _iter_lmstudio_sse_tokens(response):
 
 def _lmstudio_stream_tokens(url: str, payload: dict, timeout: float):
     body = json.dumps(payload).encode("utf-8")
+    headers = _lmstudio_auth_headers()
+    headers["Content-Type"] = "application/json"
     request = urllib.request.Request(
         url,
         data=body,
         method="POST",
-        headers={"Content-Type": "application/json"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=float(timeout)) as response:
@@ -1044,7 +1057,7 @@ _LOCATION_SYSTEM_PROMPT = (
     "- Return only valid JSON matching the response_format schema.\n"
     "- When the response schema asks for `location_name`, only return GPS coordinates when exact coordinates are explicitly visible in the image or OCR text.\n"
     "- If exact coordinates are not explicit, leave GPS fields empty.\n"
-    "- If returning `location_name`, include a country name in the query. If the country is not visible on the page, choose the single best country from the album title.\n"
+    "- If returning `location_name`, include a country name in the query. Use location evidence visible in the image, its caption, or the album title only if the album title explicitly names a place (country, city, or region). Do not guess a country from a family-name or date-only album title.\n"
     "- When the response schema asks for `locations_shown`, only include famous locations that can be confidently identified from visible evidence.\n"
     "- If no famous locations are identifiable, return an empty array.\n"
     "- Do not include reasoning or extra fields."

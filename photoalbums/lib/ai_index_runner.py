@@ -975,16 +975,18 @@ def _resolve_crop_metadata(
     names_from_region: list[str],
     existing_person_names: list[str],
     geocoder: Any = None,
-) -> tuple[dict, list, list[str]]:
+) -> tuple[dict, list, list[str], str | None]:
     region_override = dict(region_state.get("location_override") or {})
     region_assigned = dict(region_state.get("location_payload") or {})
     caption = _region_caption(region_state)
+    photo_location = region_state.get("photo_location")  # str | None
     crop_location = resolve_crop_location(
         region_location_override=region_override,
         region_location_assigned=region_assigned,
         caption=caption,
         locations_shown=locations_shown,
         page_location=page_location,
+        photo_location=photo_location,
     )
     crop_location = _materialize_crop_location(crop_location, geocoder=geocoder)
     crop_locations_shown = resolve_crop_locations_shown(
@@ -1004,7 +1006,8 @@ def _resolve_crop_metadata(
         locations_shown=locations_shown,
         location_payload=crop_location,
     )
-    return crop_location, crop_locations_shown, new_person_names
+    photo_est_date = region_state.get("photo_est_date")  # str | None
+    return crop_location, crop_locations_shown, new_person_names, photo_est_date
 
 
 def _materialize_crop_location(payload: dict[str, Any] | None, *, geocoder: Any = None) -> dict[str, Any]:
@@ -1029,6 +1032,9 @@ def _str_field(d: dict, key: str) -> str:
     return str(d.get(key) or "")
 
 
+_PAGE_TEXT_PREFIX = "Captions from the original album page this photo was cropped from (may not be specific to this photo):"
+
+
 def _write_propagated_crop(
     crop_xmp: Path,
     existing_state: dict,
@@ -1039,10 +1045,18 @@ def _write_propagated_crop(
     step_timestamp: str,
     region_caption: str = "",
     page_dc_date_values: list[str] | None = None,
+    photo_est_date: str | None = None,
+    page_text: str = "",
 ) -> None:
     detections_payload = _build_detections_payload(existing_state, crop_location, step_timestamp)
-    dc_date = list(existing_state.get("dc_date_values") or page_dc_date_values or [])
+    if photo_est_date:
+        dc_date = [photo_est_date]
+    else:
+        dc_date = list(existing_state.get("dc_date_values") or page_dc_date_values or [])
     description = _str_field(existing_state, "description") or str(region_caption or "").strip()
+    parent_ocr_text = _str_field(existing_state, "parent_ocr_text")
+    if page_text and not parent_ocr_text:
+        parent_ocr_text = f"{_PAGE_TEXT_PREFIX}\n{page_text}"
     write_xmp_sidecar(
         crop_xmp,
         person_names=new_person_names,
@@ -1051,7 +1065,7 @@ def _write_propagated_crop(
         title_source=_str_field(existing_state, "title_source"),
         description=description,
         ocr_text=_str_field(existing_state, "ocr_text"),
-        parent_ocr_text=_str_field(existing_state, "parent_ocr_text"),
+        parent_ocr_text=parent_ocr_text,
         ocr_lang=_str_field(existing_state, "ocr_lang"),
         author_text=_str_field(existing_state, "author_text"),
         scene_text=_str_field(existing_state, "scene_text"),
@@ -1084,6 +1098,8 @@ def _propagate_one_crop(
     page_location: dict[str, Any],
     step_timestamp: str,
     page_dc_date_values: list[str] | None = None,
+    page_text: str = "",
+    default_location: dict[str, Any] | None = None,
     geocoder: Any = None,
 ) -> bool:
     if not crop_xmp.is_file():
@@ -1092,7 +1108,7 @@ def _propagate_one_crop(
     if not isinstance(existing_state, dict):
         return False
     existing_person_names = read_person_in_image(crop_xmp)
-    crop_location, crop_locations_shown, new_person_names = _resolve_crop_metadata(
+    crop_location, crop_locations_shown, new_person_names, photo_est_date = _resolve_crop_metadata(
         region_state,
         locations_shown,
         page_location,
@@ -1100,6 +1116,8 @@ def _propagate_one_crop(
         existing_person_names,
         geocoder=geocoder,
     )
+    if not crop_location and default_location:
+        crop_location = dict(default_location)
     _write_propagated_crop(
         crop_xmp,
         existing_state,
@@ -1109,6 +1127,8 @@ def _propagate_one_crop(
         step_timestamp=step_timestamp,
         region_caption=_region_caption(region_state),
         page_dc_date_values=page_dc_date_values,
+        photo_est_date=photo_est_date,
+        page_text=page_text,
     )
     return True
 
@@ -1123,7 +1143,17 @@ def _location_needs_geocoding(location: dict) -> bool:
 def _propagation_needs_geocoder(locations_shown: list, regions: list) -> bool:
     if any(_location_needs_geocoding(loc) for loc in locations_shown if isinstance(loc, dict)):
         return True
-    return any(location_payload_from_caption(_region_caption(region)) for region in regions if isinstance(region, dict))
+    for region in regions:
+        if not isinstance(region, dict):
+            continue
+        photo_location = region.get("photo_location")
+        if photo_location is None:
+            # Old region without AI per-photo data: fall back to caption heuristic
+            if location_payload_from_caption(_region_caption(region)):
+                return True
+        elif photo_location:
+            return True
+    return False
 
 
 def _propagate_all_crops(
@@ -1135,6 +1165,8 @@ def _propagate_all_crops(
     location_payload: dict[str, Any],
     step_timestamp: str,
     page_dc_date_values: list[str],
+    page_text: str,
+    default_location: dict[str, Any] | None,
     geocoder: Any,
 ) -> int:
     crops_updated = 0
@@ -1149,6 +1181,8 @@ def _propagate_all_crops(
             page_location=location_payload,
             step_timestamp=step_timestamp,
             page_dc_date_values=page_dc_date_values,
+            page_text=page_text,
+            default_location=default_location,
             geocoder=geocoder,
         ):
             crops_updated += 1
@@ -1160,6 +1194,7 @@ def run_propagate_to_crops(
     *,
     location_payload: dict[str, Any],
     people_payload: list[dict[str, Any]],
+    default_location: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Propagate location GPS and person names from page XMP to each crop XMP.
 
@@ -1177,6 +1212,7 @@ def run_propagate_to_crops(
     locations_shown = read_locations_shown(sidecar_path)
     page_state = read_ai_sidecar_state(sidecar_path)
     page_dc_date_values = list((page_state or {}).get("dc_date_values") or [])
+    page_text = str((page_state or {}).get("ocr_text") or "").strip()
     step_timestamp = xmp_datetime_now()
     geocoder = None
     if _propagation_needs_geocoder(locations_shown, regions):
@@ -1192,6 +1228,8 @@ def run_propagate_to_crops(
         location_payload=location_payload,
         step_timestamp=step_timestamp,
         page_dc_date_values=page_dc_date_values,
+        page_text=page_text,
+        default_location=default_location,
         geocoder=geocoder,
     )
     return {"crops_updated": crops_updated}
@@ -3736,6 +3774,7 @@ class IndexRunner:
                 image_path,
                 location_payload=locations_out,
                 people_payload=people_out,
+                default_location=self.title_page_location or None,
             )
 
         outcome.step_runner.run("propagate-to-crops", _do_propagate)

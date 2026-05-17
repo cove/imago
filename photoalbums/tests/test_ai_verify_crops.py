@@ -177,8 +177,8 @@ class TestAIVerifyCrops(unittest.TestCase):
 
         result = ai_verify_crops.parse_verification_payload(payload)
 
-        self.assertEqual(result["needs_another_pass"], ["caption", "gps"])
-        self.assertEqual(result["needs_human_review"], ["gps"])
+        self.assertEqual(result["needs_another_pass"], ["caption"])
+        self.assertEqual(result["needs_human_review"], [])
 
     def test_load_page_verifier_inputs_reports_missing_page_context(self):
         with tempfile.TemporaryDirectory() as tmp:

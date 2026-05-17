@@ -28,7 +28,7 @@ from .xmp_review import load_ai_xmp_review
 from .xmp_sidecar import read_pipeline_state, read_region_list, write_pipeline_steps, xmp_datetime_now
 
 VERIFICATION_CONCERNS = ("caption", "gps", "shown_location", "date", "overall")
-ROUTABLE_CONCERNS = ("caption", "gps", "shown_location", "date")
+ROUTABLE_CONCERNS = ("caption", "shown_location", "date")
 VERDICTS = {"good", "bad", "uncertain"}
 
 
@@ -394,8 +394,9 @@ def parse_parameter_suggestion_payload(payload: object) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("Parameter suggestion payload is not an object.")
     try:
+        max_tokens = int(payload.get("caption_max_tokens") or 0)
         return {
-            "caption_max_tokens": int(payload.get("caption_max_tokens") or 0),
+            "caption_max_tokens": max(96, max_tokens) if max_tokens > 0 else 0,
             "caption_temperature": float(payload.get("caption_temperature") or 0.0),
             "caption_max_edge": int(payload.get("caption_max_edge") or 0),
             "reason": _clean_text(payload.get("reason")),

@@ -9,19 +9,20 @@ class PipelineStep:
     id: str
     label: str
     depends_on: list[str]
+    optional: bool = False
 
 
 def _make_steps() -> list[PipelineStep]:
     return [
         PipelineStep(
-            id="render",
-            label="Stitch/convert archive scans to page view JPEGs",
+            id="scan-ai",
+            label="Run AI on archive scan (OCR, YOLO objects, Immich faces, GPS, date, people)",
             depends_on=[],
         ),
         PipelineStep(
-            id="propagate-metadata",
-            label="Copy safe archive XMP fields to page sidecar",
-            depends_on=["render"],
+            id="render",
+            label="Stitch/convert archive scans to page view JPEGs",
+            depends_on=["scan-ai"],
         ),
         PipelineStep(
             id="detect-regions",
@@ -41,12 +42,13 @@ def _make_steps() -> list[PipelineStep]:
         PipelineStep(
             id="ai-index",
             label="Run AI pipeline (OCR, caption, GPS, XMP write)",
-            depends_on=["crop-regions"],
+            depends_on=["face-refresh"],
         ),
         PipelineStep(
             id="verify-crops",
             label="Review each page's crops against the page image and page/crop XMP context",
             depends_on=["ai-index"],
+            optional=True,
         ),
     ]
 
@@ -54,6 +56,8 @@ def _make_steps() -> list[PipelineStep]:
 PIPELINE_STEPS: list[PipelineStep] = _make_steps()
 
 VALID_STEP_IDS: list[str] = [s.id for s in PIPELINE_STEPS]
+
+OPTIONAL_STEP_IDS: set[str] = {s.id for s in PIPELINE_STEPS if s.optional}
 
 
 def validate_step_ids(ids: list[str], *, flag: str) -> list[str]:

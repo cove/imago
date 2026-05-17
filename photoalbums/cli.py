@@ -274,7 +274,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     process_parser = subparsers.add_parser(
         "process",
-        help="Run the full pipeline (render → propagate-metadata → detect-regions → crop-regions → face-refresh → ai-index).",
+        help="Run the full pipeline (scan-ai → render → detect-regions → crop-regions → face-refresh → ai-index). verify-crops is optional (use --redo verify-crops to run it).",
     )
     process_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
     process_parser.add_argument(

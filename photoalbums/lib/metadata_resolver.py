@@ -305,6 +305,7 @@ def resolve_crop_location(
     caption: str,
     locations_shown: list[dict[str, Any]] | None,
     page_location: dict[str, Any] | None,
+    photo_location: str | None = None,
 ) -> dict[str, str]:
     del page_location
     override_payload = normalize_location_payload(region_location_override)
@@ -316,11 +317,12 @@ def resolve_crop_location(
     matched_location = match_caption_to_location_shown(caption, locations_shown)
     if matched_location:
         return matched_location
+    if photo_location is not None:
+        # AI has spoken: use its location if non-empty, skip the caption heuristic either way
+        return {"address": photo_location} if photo_location else {}
     caption_location = location_payload_from_caption(caption)
     if caption_location:
         return caption_location
-    if len(list(locations_shown or [])) == 1:
-        return location_payload_from_location_shown(list(locations_shown or [])[0])
     return {}
 
 
@@ -340,7 +342,4 @@ def resolve_crop_locations_shown(
     matched_location = match_location_shown_row(caption, locations_shown)
     if isinstance(matched_location, dict) and matched_location:
         return [matched_location]
-    if len(list(locations_shown or [])) == 1:
-        only_location = list(locations_shown or [])[0]
-        return [only_location] if isinstance(only_location, dict) else []
     return []

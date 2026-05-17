@@ -268,7 +268,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
             self.assertTrue(crop_locations_shown[0]["gps_latitude"])
             self.assertTrue(crop_locations_shown[0]["gps_longitude"])
 
-    def test_single_location_shown_is_kept_on_crop_rewrite(self):
+    def test_single_page_location_not_inherited_by_crop_without_caption(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             image, _pages_dir, photos_dir = self._setup_page_image(tmp_dir)
@@ -323,11 +323,7 @@ class TestRunPropagateTocrops(unittest.TestCase):
                 )
 
             crop_locations_shown = xmp_sidecar.read_locations_shown(crop1.with_suffix(".xmp"))
-            self.assertEqual(crop_locations_shown[0]["name"], "Hassan II Mosque")
-            self.assertEqual(crop_locations_shown[0]["city"], "Casablanca")
-            self.assertEqual(crop_locations_shown[0]["country_name"], "Morocco")
-            self.assertTrue(crop_locations_shown[0]["gps_latitude"])
-            self.assertTrue(crop_locations_shown[0]["gps_longitude"])
+            self.assertEqual(crop_locations_shown, [])
 
     def test_region_location_payload_writes_crop_specific_locations_shown(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -504,6 +500,212 @@ class TestRunPropagateTocrops(unittest.TestCase):
         runner.run("propagate-to-crops", do_propagate)
         self.assertFalse(called[0], "propagate-to-crops must be skipped when hash matches")
         self.assertFalse(runner.reran.get("propagate-to-crops", True))
+
+
+    def test_per_region_photo_est_date_overrides_page_date(self):
+        """When a region has photo_est_date set, that date is used on the crop instead of the page date."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+
+            from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+            from photoalbums.lib.xmp_sidecar import write_region_list
+
+            region = RegionResult(
+                index=0, x=0, y=0, width=100, height=100,
+                photo_number=1,
+                photo_est_date="1989-04",
+            )
+            write_region_list(image.with_suffix(".xmp"), [RegionWithCaption(region=region, caption="trip")], 100, 100)
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[], subjects=[], description="", source_text="",
+                ocr_text="", dc_date=["1985-01"],
+            )
+            # Re-write regions because write_xmp_sidecar doesn't touch them
+            write_region_list(image.with_suffix(".xmp"), [RegionWithCaption(region=region, caption="trip")], 100, 100)
+
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertEqual(state.get("dc_date_values"), ["1989-04"])
+
+    def test_page_text_written_to_parent_ocr_text_with_prefix(self):
+        """page OCR text is written to each crop's parent_ocr_text with the explanatory prefix."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[], subjects=[], description="",
+                source_text="", ocr_text="PARIS FRANCE 1985, EIFFEL TOWER",
+            )
+
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            pot = state.get("parent_ocr_text") or ""
+            self.assertIn("PARIS FRANCE 1985", pot)
+            self.assertIn("Captions from the original album page", pot)
+
+    def test_parent_ocr_text_not_overwritten_if_already_set(self):
+        """If parent_ocr_text is already present on a crop, propagation does not overwrite it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            existing_prefix = "Captions from the original album page this photo was cropped from (may not be specific to this photo):\nOLD TEXT"
+            xmp_sidecar.write_xmp_sidecar(
+                crop1.with_suffix(".xmp"),
+                person_names=[], subjects=[], description="",
+                source_text="", ocr_text="", parent_ocr_text=existing_prefix,
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[], subjects=[], description="",
+                source_text="", ocr_text="NEW PAGE TEXT",
+            )
+
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertEqual(state.get("parent_ocr_text"), existing_prefix)
+
+    def test_default_location_applied_when_crop_has_no_location(self):
+        """default_location fills in crops that have no location from the page or region."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[], subjects=[], description="", source_text="", ocr_text="",
+            )
+
+            default_loc = {"address": "2240 Lorain Rd, San Marino, CA 91108, USA", "country": "USA"}
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(
+                    image, location_payload={}, people_payload=[],
+                    default_location=default_loc,
+                )
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            self.assertIn("San Marino", state.get("location_created") or "")
+
+    def test_per_region_photo_location_used_instead_of_caption_heuristic(self):
+        """When a region has photo_location set (not None), it is used directly and the
+        caption-to-location heuristic is skipped — even when the caption looks like an address."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            crop1 = photos_dir / "Family_2020_B01_P02_D01-00_V.jpg"
+            crop1.write_bytes(b"crop1")
+            _write_basic_crop_xmp(crop1.with_suffix(".xmp"))
+
+            from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+            from photoalbums.lib.xmp_sidecar import write_region_list
+
+            # photo_location="" means AI ran but found nothing → heuristic should also be skipped
+            region = RegionResult(
+                index=0, x=0, y=0, width=100, height=100,
+                photo_number=1,
+                photo_location="",  # AI returned empty: no location
+                caption_hint="COVE, DOLORES, GLORIA, SARAH",  # looks like comma-sep names, not an address
+            )
+            write_region_list(image.with_suffix(".xmp"), [RegionWithCaption(region=region, caption="COVE, DOLORES, GLORIA, SARAH")], 100, 100)
+            xmp_sidecar.write_xmp_sidecar(
+                image.with_suffix(".xmp"),
+                person_names=[], subjects=[], description="", source_text="", ocr_text="",
+            )
+            write_region_list(image.with_suffix(".xmp"), [RegionWithCaption(region=region, caption="COVE, DOLORES, GLORIA, SARAH")], 100, 100)
+
+            with mock.patch.object(ai_index_runner, "_find_crop_paths_for_page", return_value=[crop1]):
+                run_propagate_to_crops(image, location_payload={}, people_payload=[])
+
+            state = xmp_sidecar.read_ai_sidecar_state(crop1.with_suffix(".xmp"))
+            assert state is not None
+            # Must not have stored the names as a location address
+            loc_created = state.get("location_created") or ""
+            self.assertNotIn("COVE", loc_created)
+            self.assertNotIn("DOLORES", loc_created)
+
+
+class TestResolveCropLocationWithPhotoLocation(unittest.TestCase):
+    """Tests for the photo_location sentinel parameter in resolve_crop_location."""
+
+    def test_photo_location_none_falls_back_to_caption_heuristic(self):
+        """photo_location=None means AI not run → caption heuristic applies."""
+        from photoalbums.lib.metadata_resolver import resolve_crop_location
+
+        result = resolve_crop_location(
+            region_location_override=None,
+            region_location_assigned=None,
+            caption="Paris, France",
+            locations_shown=[],
+            page_location={},
+            photo_location=None,
+        )
+        self.assertEqual(result.get("address"), "Paris, France")
+
+    def test_photo_location_empty_string_skips_caption_heuristic(self):
+        """photo_location='' means AI ran but found nothing → caption heuristic is NOT used."""
+        from photoalbums.lib.metadata_resolver import resolve_crop_location
+
+        result = resolve_crop_location(
+            region_location_override=None,
+            region_location_assigned=None,
+            caption="Paris, France",
+            locations_shown=[],
+            page_location={},
+            photo_location="",
+        )
+        self.assertEqual(result, {})
+
+    def test_photo_location_value_used_directly(self):
+        """photo_location with a value is used as the crop location."""
+        from photoalbums.lib.metadata_resolver import resolve_crop_location
+
+        result = resolve_crop_location(
+            region_location_override=None,
+            region_location_assigned=None,
+            caption="Birthday party",
+            locations_shown=[],
+            page_location={},
+            photo_location="Toronto, Canada",
+        )
+        self.assertEqual(result.get("address"), "Toronto, Canada")
+
+    def test_override_still_wins_over_photo_location(self):
+        """region_location_override takes priority even when photo_location is set."""
+        from photoalbums.lib.metadata_resolver import resolve_crop_location
+
+        result = resolve_crop_location(
+            region_location_override={"address": "Override City, Canada"},
+            region_location_assigned=None,
+            caption="Ignored",
+            locations_shown=[],
+            page_location={},
+            photo_location="Toronto, Canada",
+        )
+        self.assertEqual(result.get("address"), "Override City, Canada")
 
 
 if __name__ == "__main__":
