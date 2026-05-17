@@ -104,6 +104,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable verbose logging.",
     )
 
+    immich_cast_import = subparsers.add_parser(
+        "immich-cast-import",
+        help="Import high-confidence visible face crops from Immich manual person regions into Cast.",
+    )
+    immich_cast_import.add_argument(
+        "--immich-url",
+        default=os.environ.get("IMMICH_URL", ""),
+        help="Immich base URL, e.g. http://immich.local:2283 (or set IMMICH_URL env var).",
+    )
+    immich_cast_import.add_argument(
+        "--api-key",
+        default=os.environ.get("IMMICH_API_KEY", ""),
+        help="Immich API key from Account Settings → API Keys (or set IMMICH_API_KEY env var).",
+    )
+    immich_cast_import.add_argument(
+        "--photos-root",
+        default=".",
+        help="Root directory of local photo albums to inspect. Defaults to current directory.",
+    )
+    immich_cast_import.add_argument(
+        "--extensions",
+        default=".jpg,.jpeg,.tif,.tiff,.png",
+        help="Comma-separated photo extensions to match (default: .jpg,.jpeg,.tif,.tiff,.png).",
+    )
+
     return parser
 
 
@@ -155,6 +180,29 @@ def cmd_immich_sync(args: argparse.Namespace, store: TextFaceStore, parser: argp
     return 0
 
 
+def cmd_immich_cast_import(args: argparse.Namespace, store: TextFaceStore, parser: argparse.ArgumentParser) -> int:
+    from .immich_sync import IMMICH_API_KEY_ENV, IMMICH_URL_ENV, import_immich_cast_faces
+
+    immich_url = str(getattr(args, "immich_url", "") or "").rstrip("/")
+    api_key = str(getattr(args, "api_key", "") or "")
+    if not immich_url:
+        parser.error(f"--immich-url is required (or set {IMMICH_URL_ENV}).")
+    if not api_key:
+        parser.error(f"--api-key is required (or set {IMMICH_API_KEY_ENV}).")
+
+    stats = import_immich_cast_faces(
+        immich_url,
+        api_key,
+        Path(str(getattr(args, "photos_root", ".") or ".")),
+        store,
+        extensions=_parse_extensions(str(args.extensions)),
+    )
+    print(f"Assets matched exactly : {stats['assets_matched']}")
+    print(f"Faces imported to Cast : {stats['faces_imported']}")
+    print(f"Face review seeds added: {stats['review_seeds']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -186,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "immich-sync":
         return cmd_immich_sync(args, store, parser)
+    if args.command == "immich-cast-import":
+        return cmd_immich_cast_import(args, store, parser)
 
     parser.error("Unknown command.")
     return 2

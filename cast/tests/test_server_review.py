@@ -112,6 +112,43 @@ def test_review_skip_keeps_item_pending_and_moves_it_to_end(tmp_path):
         thread.join(timeout=2)
 
 
+def test_review_seed_endpoint_lists_and_resolves_pending_seed(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    seed = store.add_face_review_seed(
+        source_path="photoalbums/page.jpg",
+        person_name="Alice",
+        reason="presence_only_no_visible_face",
+        metadata={"candidate_count": 0},
+    )
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        status, payload = _get_json(f"http://127.0.0.1:{port}/api/review/seeds?status=pending")
+        assert status == 200
+        assert payload["seeds"][0]["seed_id"] == seed["seed_id"]
+        assert payload["seeds"][0]["source_url"].endswith(f"/api/review/seeds/{seed['seed_id']}/source")
+
+        status, payload = _post_json(
+            f"http://127.0.0.1:{port}/api/review/seeds/resolve",
+            {"seed_id": seed["seed_id"], "status": "kept_presence_only"},
+        )
+        assert status == 200
+        assert payload["seed"]["status"] == "kept_presence_only"
+
+        status, payload = _get_json(f"http://127.0.0.1:{port}/api/state")
+        assert status == 200
+        assert payload["counts"]["pending_seeds"] == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def test_server_disables_caching_for_ui_and_state(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()

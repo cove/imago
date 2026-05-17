@@ -40,6 +40,25 @@ def test_store_round_trip(tmp_path):
     assert resolved["decided_person_id"] == person["person_id"]
 
 
+def test_face_review_seed_round_trip_stays_out_of_faces(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    seed = store.add_face_review_seed(
+        source_path="photoalbums/page.jpg",
+        person_name="Alice",
+        reason="presence_only_no_visible_face",
+        metadata={"asset_id": "asset-1"},
+    )
+
+    assert store.list_faces() == []
+    assert store.list_face_review_seeds() == [seed]
+
+    resolved = store.resolve_face_review_seed(seed["seed_id"], "kept_presence_only")
+    assert resolved["status"] == "kept_presence_only"
+    assert resolved["decided_at"]
+
+
 def test_assign_face_can_mark_human_review_and_ignore(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()

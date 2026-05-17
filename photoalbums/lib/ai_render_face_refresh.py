@@ -25,6 +25,7 @@ class RenderFaceRefreshSession:
         self.photos_root = Path(photos_root).expanduser().resolve(strict=False)
         self.runner = IndexRunner(["--photos-root", str(self.photos_root), "--include-view"])
         self.runner.files = []
+        self.last_detection_provenance: dict[str, object] = {}
 
     def set_files(self, files: list[Path]) -> None:
         self.runner.files = [Path(path) for path in files]
@@ -65,6 +66,8 @@ class RenderFaceRefreshSession:
             preserve_existing_xmp_people=False,
             raise_on_error=True,
         )
+        provenance = getattr(people_matcher, "last_detection_provenance", {})
+        self.last_detection_provenance = dict(provenance) if isinstance(provenance, dict) else {}
 
     def refresh_face_regions(
         self,
@@ -88,7 +91,12 @@ class RenderFaceRefreshSession:
                 return False
 
         self._refresh_with_runner(image, sidecar)
-        write_pipeline_step(sidecar, "face_refresh", model="buffalo_l")
+        write_pipeline_step(
+            sidecar,
+            "face_refresh",
+            model="buffalo_l",
+            extra={"face_detection": dict(self.last_detection_provenance)} if self.last_detection_provenance else None,
+        )
         return True
 
     @staticmethod

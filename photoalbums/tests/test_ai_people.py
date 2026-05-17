@@ -172,6 +172,71 @@ def test_new_face_is_added_to_cast_store(tmp_path, monkeypatch):
     assert faces[0]["bbox"] == [10, 10, 60, 60]
 
 
+def test_person_hint_triggers_tiled_detection_without_becoming_ground_truth(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    image_path = tmp_path / "page.jpg"
+    cv2.imwrite(str(image_path), np.full((200, 200, 3), 180, dtype=np.uint8))
+
+    matcher = CastPeopleMatcher(cast_store_dir=store.root_dir, max_faces=5)
+
+    monkeypatch.setattr(matcher, "_detect_faces", lambda _image_bgr: [])
+    monkeypatch.setattr(matcher, "_tile_detection_boxes", lambda _image_bgr: [(10, 10, 40, 40)])
+    monkeypatch.setattr(matcher, "_is_valid_face_crop", lambda _crop: True)
+    monkeypatch.setattr(matcher, "_process_detected_face", lambda **_kwargs: None)
+
+    matcher.match_image(image_path, source_path=image_path, person_hint_count=1)
+
+    assert matcher.last_faces_detected == 1
+    assert matcher.last_detection_provenance["person_hint_count"] == 1
+    assert matcher.last_detection_provenance["person_hint_is_ground_truth"] is False
+    assert [row["stage"] for row in matcher.last_detection_provenance["stages"]] == [
+        "full_frame_high_res",
+        "tiled",
+    ]
+
+
+def test_sparse_single_face_triggers_tiled_detection(tmp_path, monkeypatch):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    image_path = tmp_path / "page.jpg"
+    cv2.imwrite(str(image_path), np.full((800, 800, 3), 180, dtype=np.uint8))
+
+    matcher = CastPeopleMatcher(cast_store_dir=store.root_dir, max_faces=5)
+    monkeypatch.setattr(matcher, "_detect_faces", lambda _image_bgr: [(10, 10, 40, 40)])
+    monkeypatch.setattr(matcher, "_tile_detection_boxes", lambda _image_bgr: [(10, 10, 40, 40), (300, 30, 80, 80)])
+    monkeypatch.setattr(matcher, "_is_valid_face_crop", lambda _crop: True)
+    monkeypatch.setattr(matcher, "_process_detected_face", lambda **_kwargs: None)
+
+    matcher.match_image(image_path, source_path=image_path)
+
+    assert matcher.last_faces_detected == 2
+    assert [row["stage"] for row in matcher.last_detection_provenance["stages"]] == [
+        "full_frame_high_res",
+        "tiled",
+    ]
+
+
+def test_large_low_quality_face_still_enters_review_queue(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+    matcher = CastPeopleMatcher(cast_store_dir=store.root_dir, max_faces=5)
+    face = store.add_face(
+        embedding=[1.0, 0.0, 0.0],
+        source_type="photo",
+        source_path="page.jpg",
+        bbox=[10, 10, 255, 332],
+        quality=0.18,
+        metadata={"embedding_model": matcher._current_embedding_model},
+    )
+
+    matcher._queue_for_review(face, [])
+
+    reviews = store.list_review_items()
+    assert len(reviews) == 1
+    assert reviews[0]["face_id"] == face["face_id"]
+
+
 def test_match_image_recovery_refreshes_active_face_without_duplicate_row(tmp_path, monkeypatch):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()

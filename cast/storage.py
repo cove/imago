@@ -185,6 +185,7 @@ class TextFaceStore:
         self.people_path = self.root_dir / "people.json"
         self.faces_queue_path = self.root_dir / "faces.jsonl"
         self.review_path = self.root_dir / "review_queue.jsonl"
+        self.review_seed_path = self.root_dir / "face_review_seeds.jsonl"
         self._lock = threading.RLock()
         self._face_manifest: dict[str, int] | None = None
         self._chunk_cache: dict[int, list[dict[str, Any]]] = {}
@@ -240,6 +241,7 @@ class TextFaceStore:
             self._ensure_json_file(self.people_path)
             self._ensure_json_file(self.faces_queue_path)
             self._ensure_json_file(self.review_path)
+            self._ensure_json_file(self.review_seed_path)
 
     def _read_all_faces(self) -> list[dict[str, Any]]:
         manifest = self._load_manifest()
@@ -634,6 +636,61 @@ class TextFaceStore:
             rows.append(row)
             self._write_json(self.review_path, rows)
         return dict(row)
+
+    def list_face_review_seeds(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._read_json(self.review_seed_path)
+            if not isinstance(rows, list):
+                return []
+            return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def add_face_review_seed(
+        self,
+        *,
+        source_path: str,
+        person_name: str,
+        reason: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now_iso()
+        row = {
+            "seed_id": str(uuid.uuid4()),
+            "source_path": str(source_path or "").strip(),
+            "person_name": str(person_name or "").strip(),
+            "reason": str(reason or "").strip(),
+            "metadata": dict(metadata or {}),
+            "status": "pending",
+            "decided_at": "",
+            "created_at": now,
+            "updated_at": now,
+        }
+        with self._lock:
+            rows = self._read_json(self.review_seed_path)
+            if not isinstance(rows, list):
+                rows = []
+            rows.append(row)
+            self._write_json(self.review_seed_path, rows)
+        return dict(row)
+
+    def resolve_face_review_seed(self, seed_id: str, status: str) -> dict[str, Any]:
+        seed_key = str(seed_id or "").strip()
+        clean_status = str(status or "").strip().lower()
+        if clean_status not in {"kept_presence_only", "dismissed"}:
+            raise ValueError("status must be one of: kept_presence_only, dismissed")
+        now = utc_now_iso()
+        with self._lock:
+            rows = self._read_json(self.review_seed_path)
+            if not isinstance(rows, list):
+                rows = []
+            for row in rows:
+                if not isinstance(row, dict) or str(row.get("seed_id") or "").strip() != seed_key:
+                    continue
+                row["status"] = clean_status
+                row["decided_at"] = now
+                row["updated_at"] = now
+                self._write_json(self.review_seed_path, rows)
+                return dict(row)
+        raise ValueError(f"Unknown seed_id: {seed_key}")
 
     def resolve_review_item(
         self,

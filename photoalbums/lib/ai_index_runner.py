@@ -169,16 +169,19 @@ def _match_people_with_cast_store_retry(
     source_path: Path,
     bbox_offset: tuple[int, int],
     hint_text: str,
+    person_hint_count: int = 0,
 ) -> list[Any]:
     last_exc: Exception | None = None
     for attempt in range(CAST_STORE_RETRY_ATTEMPTS):
         try:
-            return people_matcher.match_image(
-                image_path,
-                source_path=source_path,
-                bbox_offset=bbox_offset,
-                hint_text=hint_text,
-            )
+            kwargs = {
+                "source_path": source_path,
+                "bbox_offset": bbox_offset,
+                "hint_text": hint_text,
+            }
+            if person_hint_count:
+                kwargs["person_hint_count"] = person_hint_count
+            return people_matcher.match_image(image_path, **kwargs)
         except Exception as exc:
             if not _is_retryable_cast_store_write_error(exc) or attempt >= CAST_STORE_RETRY_ATTEMPTS - 1:
                 raise
@@ -1959,7 +1962,13 @@ def _people_matcher_faces(people_matcher: Any) -> int:
     return last if isinstance(last, int) else 0
 
 
-def _pu_match_people(people_matcher: Any, image_path: Path, ocr_text: str) -> tuple[list[Any], int]:
+def _pu_match_people(
+    people_matcher: Any,
+    image_path: Path,
+    ocr_text: str,
+    *,
+    person_hint_count: int = 0,
+) -> tuple[list[Any], int]:
     if not people_matcher:
         return [], 0
     matches = _match_people_with_cast_store_retry(
@@ -1968,6 +1977,7 @@ def _pu_match_people(people_matcher: Any, image_path: Path, ocr_text: str) -> tu
         source_path=image_path,
         bbox_offset=(0, 0),
         hint_text=ocr_text,
+        person_hint_count=person_hint_count,
     )
     return matches, _people_matcher_faces(people_matcher)
 
@@ -3031,7 +3041,10 @@ class IndexRunner:
         try:
             _pu_step("people")
             pu_people_matches, pu_faces_detected = _pu_match_people(
-                people_matcher, image_path, pu_inputs.existing_ocr_text
+                people_matcher,
+                image_path,
+                pu_inputs.existing_ocr_text,
+                person_hint_count=len(existing_xmp_people),
             )
             pu_people_match_names = _dedupe([r.name for r in pu_people_matches])
             _pu_step(_format_people_step_label("people", pu_people_match_names))

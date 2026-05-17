@@ -81,6 +81,41 @@ def test_source_image_endpoint_and_state_source_url(tmp_path):
         thread.join(timeout=2)
 
 
+def test_review_seed_source_endpoint_renders_manual_region_preview(tmp_path):
+    store = TextFaceStore(tmp_path / "cast_data")
+    store.ensure_files()
+
+    source_image = tmp_path / "photo.jpg"
+    image = np.zeros((220, 320, 3), dtype=np.uint8)
+    cv2.rectangle(image, (80, 60), (180, 180), (180, 180, 180), -1)
+    cv2.imwrite(str(source_image), image)
+    seed = store.add_face_review_seed(
+        source_path=str(source_image),
+        person_name="Alice",
+        reason="presence_only_no_visible_face",
+        metadata={"manual_region_bbox": [80, 60, 100, 120]},
+    )
+
+    server = CastHTTPServer("127.0.0.1", 0, store)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    time.sleep(0.2)
+    try:
+        with urlopen(
+            f"http://127.0.0.1:{port}/api/review/seeds/{seed['seed_id']}/source?highlight=1",
+            timeout=10,
+        ) as response:
+            data = response.read()
+            ctype = str(response.headers.get("Content-Type", ""))
+        assert ctype.startswith("image/jpeg")
+        assert len(data) > 1000
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def test_source_video_endpoint_and_state_source_url_for_vhs(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
     store.ensure_files()

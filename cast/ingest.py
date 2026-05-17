@@ -77,7 +77,7 @@ def _init_insightface_app() -> object:
     from insightface.app import FaceAnalysis  # type: ignore[import]
 
     app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-    app.prepare(ctx_id=-1, det_thresh=0.2203, det_size=(640, 640))
+    app.prepare(ctx_id=-1, det_thresh=0.2203, det_size=(1280, 1280))
     return app
 
 
@@ -355,6 +355,39 @@ class FaceIngestor(_FaceIngestorMixin):
             bbox=bbox,
             quality=estimate_face_quality(crop_bgr),
             metadata=metadata,
+        )
+        crop_rel = self._save_crop(str(face.get("face_id")), crop_bgr)
+        return self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
+
+    def save_arcface_face_from_crop(
+        self,
+        *,
+        crop_bgr: np.ndarray,
+        person_id: str,
+        source_type: str,
+        source_path: str,
+        bbox: list[int],
+        metadata: dict[str, Any],
+        min_quality: float,
+    ) -> dict[str, Any] | None:
+        if crop_bgr is None or crop_bgr.size == 0 or not self.is_valid_face_crop(crop_bgr):
+            return None
+        quality = estimate_face_quality(crop_bgr)
+        embedding = compute_arcface_embedding(crop_bgr)
+        if quality < float(min_quality) or embedding is None:
+            return None
+        payload = dict(metadata or {})
+        payload["detector_model"] = CURRENT_FACE_DETECTOR_MODEL
+        payload["embedding_model"] = CURRENT_FACE_EMBEDDING_MODEL
+        face = self.store.add_face(
+            embedding=embedding,
+            person_id=person_id,
+            source_type=source_type,
+            source_path=source_path,
+            timestamp="",
+            bbox=[float(v) for v in bbox[:4]],
+            quality=quality,
+            metadata=payload,
         )
         crop_rel = self._save_crop(str(face.get("face_id")), crop_bgr)
         return self.store.update_face(str(face.get("face_id")), crop_path=crop_rel)
