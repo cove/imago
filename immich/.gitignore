@@ -1,0 +1,6 @@
+# Local runtime files contain secrets and stay on this machine.
+.env
+.env.restore
+
+# Runtime data
+library/
