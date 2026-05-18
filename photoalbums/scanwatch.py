@@ -81,10 +81,10 @@ except ImportError:
         validate_stitch,
     )
 
-INCOMING_BACKLOG_RE = re.compile(r"^incoming_scan(?P<number>\d{4})\.tif$", re.IGNORECASE)
+INCOMING_BACKLOG_RE = re.compile(r"^incoming_scan_(?P<number>\d{2})\.tif$", re.IGNORECASE)
 WATCHER_STEPS: tuple[tuple[str, str], ...] = (
     ("startup-compress", "Compress already-named TIFF files in the selected album archive when needed"),
-    ("detect-incoming", "Detect incoming_scan.tif or numbered incoming_scan####.tif files"),
+    ("detect-incoming", "Detect numbered incoming_scan_##.tif files in queue order"),
     ("rename", "Rename the incoming TIFF to the next archive scan filename"),
     ("process-tiff", "Normalize TIFF alpha, compression, and predictor settings"),
     ("orientation", "Use AI to check if the scan is right side up and rotate 180 degrees when needed"),
@@ -344,7 +344,7 @@ class ScanWatchService:
     def register_incoming(self, incoming_path: str | Path) -> ScanEvent:
         path = _normalize_path(incoming_path)
         if not self._is_incoming_name(path.name):
-            raise ValueError(f"Expected {self.incoming_name} or incoming_scan####.tif, got {path.name}")
+            raise ValueError(f"Expected incoming_scan_##.tif (e.g. {self.incoming_name}), got {path.name}")
         archive_dir = str(path.parent)
 
         with self._lock:
@@ -805,7 +805,7 @@ class ScanWatchService:
         return newest_mtime, str(dir_path), page_num, dir_path, files
 
     def _is_incoming_name(self, name: str) -> bool:
-        return name.lower() == self.incoming_name.lower() or INCOMING_BACKLOG_RE.fullmatch(name) is not None
+        return INCOMING_BACKLOG_RE.fullmatch(name) is not None
 
     def _register_existing_incoming_scans(self, root: str | Path | None = None) -> None:
         scan_root = _normalize_path(root) if root is not None else self.root
@@ -828,12 +828,12 @@ class ScanWatchService:
         return sorted(events, key=lambda event: self._incoming_path_sort_key(event.incoming_path))
 
     @staticmethod
-    def _incoming_path_sort_key(path: str | Path) -> tuple[int, int, str]:
+    def _incoming_path_sort_key(path: str | Path) -> tuple[int, str]:
         path = Path(path)
         match = INCOMING_BACKLOG_RE.fullmatch(path.name)
         if match is not None:
-            return (0, int(match.group("number")), str(path))
-        return (1, 0, str(path))
+            return (int(match.group("number")), str(path))
+        return (99, str(path))
 
 
 class IncomingScanHandler(FileSystemEventHandler):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from functools import lru_cache
 from pathlib import Path
@@ -186,6 +187,9 @@ def default_view_region_models() -> list[str]:
 
 
 def default_lmstudio_base_url() -> str:
+    env_url = os.environ.get("LMSTUDIO_BASE_URL", "").strip()
+    if env_url:
+        return env_url
     return str(load_ai_model_settings()["lmstudio_base_url"])
 
 
