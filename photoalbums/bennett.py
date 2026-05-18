@@ -13,7 +13,7 @@ from pathlib import Path
 
 BENNETT_PHOTOS_DIR_ENV = "BENNETT_PHOTOS_DIR"
 BENNETT_PHOTOS_SUBPATH = Path("Bennett Photos")
-INCOMING_NAME = "incoming_scan.tif"
+INCOMING_NAME = "incoming_scan_01.tif"
 _BENNETT_FILE_RE = re.compile(r"^Bennett_(\d{4})_a\.jpg$", re.IGNORECASE)
 _POLL_INTERVAL_SECONDS = 2.0
 _STABILITY_WAIT_SECONDS = 2.0
