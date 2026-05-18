@@ -3451,7 +3451,7 @@ class TestAIIndex(unittest.TestCase):
             write_mock.assert_called_once()
             self.assertEqual(write_mock.call_args.kwargs["album_title"], "MAINLAND CHINA 1986 BOOK 11")
 
-    def test_write_sidecar_and_record_uses_configured_title_page_location(self):
+    def test_write_sidecar_and_record_clears_title_page_location(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "China_1986_B02_P01_S01.tif"
             sidecar = image.with_suffix(".xmp")
@@ -3486,16 +3486,13 @@ class TestAIIndex(unittest.TestCase):
                 )
 
             write_mock.assert_called_once()
-            self.assertEqual(write_mock.call_args.kwargs["gps_latitude"], "34.11512")
-            self.assertEqual(write_mock.call_args.kwargs["gps_longitude"], "-118.10492")
-            self.assertEqual(write_mock.call_args.kwargs["location_city"], "San Marino")
-            self.assertEqual(write_mock.call_args.kwargs["location_state"], "CA")
-            self.assertEqual(write_mock.call_args.kwargs["location_country"], "United States")
-            self.assertEqual(write_mock.call_args.kwargs["location_sublocation"], "2240 Lorain Rd")
-            self.assertEqual(
-                write_mock.call_args.kwargs["detections_payload"]["location"]["query"],
-                "2240 Lorain Rd, San Marino, CA 91108",
-            )
+            self.assertEqual(write_mock.call_args.kwargs["gps_latitude"], "")
+            self.assertEqual(write_mock.call_args.kwargs["gps_longitude"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_city"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_state"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_country"], "")
+            self.assertEqual(write_mock.call_args.kwargs["location_sublocation"], "")
+            self.assertNotIn("location", write_mock.call_args.kwargs["detections_payload"])
 
     def test_write_sidecar_and_record_clears_stale_title_page_location_for_non_p01(self):
         with tempfile.TemporaryDirectory() as tmp:

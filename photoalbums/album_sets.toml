@@ -15,15 +15,6 @@ audrey = "Audrey Cordell"
 leslie = "Leslie Cordell"
 karl   = ""   # TODO: fill in full name
 
-[sets.cordell.title_page_location]
-address = "2240 Lorain Rd, San Marino, CA 91108"
-gps_latitude = "34.11512"
-gps_longitude = "-118.10492"
-city = "San Marino"
-state = "CA"
-country = "United States"
-sublocation = "2240 Lorain Rd"
-
 [sets.incoming_scans]
 kind = "scanwatch"
 description = "Incoming scan intake workspace"
