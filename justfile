@@ -105,6 +105,10 @@ photoalbums-list-scan-pipeline-steps:
 photoalbums-scan-pipeline album="":
   {{python}} -m photoalbums watch {{if album != "" { "--album " + '"' + album + '"' } else { "" }}}
 
+# Scan pipeline using previous LM Studio (http://192.168.4.72:1234/v1)
+photoalbums-scan-pipeline-prev album="":
+  $env:LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"; {{python}} -m photoalbums watch {{if album != "" { "--album " + '"' + album + '"' } else { "" }}}
+
 photoalbums-bennett-scan-pipeline:
   {{python}} -m photoalbums.bennett watch
 

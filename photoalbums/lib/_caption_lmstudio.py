@@ -938,11 +938,14 @@ def lmstudio_token_logging(enabled: bool):
 
 def _request_json_once(url: str, *, payload: dict | None = None, timeout: float) -> dict:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = _lmstudio_auth_headers()
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
     request = urllib.request.Request(
         url,
         data=body,
         method="POST" if payload is not None else "GET",
-        headers={"Content-Type": "application/json"} if payload is not None else {},
+        headers=headers,
     )
     with urllib.request.urlopen(request, timeout=float(timeout)) as response:
         return json.loads(response.read().decode("utf-8"))
