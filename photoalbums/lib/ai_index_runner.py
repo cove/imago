@@ -397,36 +397,6 @@ def _append_xmp_job_artifact(image_path: Path, sidecar_path: Path) -> None:
     )
 
 
-def _configured_title_page_location_payload(
-    image_path: Path,
-    title_page_location: dict[str, str] | None,
-) -> dict[str, Any]:
-    if not isinstance(title_page_location, dict):
-        return {}
-    _, _, _, page_str = parse_album_filename(image_path.name)
-    if not page_str.isdigit() or int(page_str) != 1:
-        return {}
-    latitude = str(title_page_location.get("gps_latitude") or "").strip()
-    longitude = str(title_page_location.get("gps_longitude") or "").strip()
-    if not latitude or not longitude:
-        return {}
-    payload: dict[str, Any] = {
-        "gps_latitude": float(latitude),
-        "gps_longitude": float(longitude),
-        "map_datum": "WGS-84",
-        "source": TITLE_PAGE_LOCATION_SOURCE,
-    }
-    address = str(title_page_location.get("address") or "").strip()
-    if address:
-        payload["query"] = address
-        payload["display_name"] = address
-    for key in ("city", "state", "country", "sublocation"):
-        value = str(title_page_location.get(key) or "").strip()
-        if value:
-            payload[key] = value
-    return payload
-
-
 def _apply_title_page_location_config(
     *,
     image_path: Path,
@@ -435,10 +405,10 @@ def _apply_title_page_location_config(
     title_page_location: dict[str, str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     loc = dict(location_payload or {})
-    configured = _configured_title_page_location_payload(image_path, title_page_location)
-    if configured:
-        loc = configured
-    elif str(loc.get("source") or "").strip() == TITLE_PAGE_LOCATION_SOURCE:
+    _, _, _, page_str = parse_album_filename(image_path.name)
+    if (page_str.isdigit() and int(page_str) == 1) or (
+        str(loc.get("source") or "").strip() == TITLE_PAGE_LOCATION_SOURCE
+    ):
         loc = {}
     if not isinstance(detections_payload, dict):
         return loc, detections_payload

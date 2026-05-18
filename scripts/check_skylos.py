@@ -54,8 +54,11 @@ _IGNORED_RULE_IDS: frozenset[str] = frozenset({
 # Data and vendored-reference files below contain scanner false positives but are not executable code:
 # - faces_manifest.json / people.json: UUIDs and hashes, not credentials
 # - geocode_cache.json: upstream place labels can contain legitimate mixed-script text
+# - trusted_xmp_locations.json: preserved sidecar paths and coordinates, not credentials
 # - History.txt: vendored MediaInfo changelog includes a BOM
-_IGNORED_FILE_NAMES: frozenset[str] = frozenset({"faces_manifest.json", "people.json", "geocode_cache.json", "History.txt"})
+_IGNORED_FILE_NAMES: frozenset[str] = frozenset(
+    {"faces_manifest.json", "people.json", "geocode_cache.json", "trusted_xmp_locations.json", "History.txt"}
+)
 
 # Findings in test directories are suppressed: test classes inherently violate cohesion and
 # size rules (setUp/tearDown create disconnected groups; tests grow one method per test case).

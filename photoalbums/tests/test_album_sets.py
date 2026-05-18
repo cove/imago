@@ -15,12 +15,9 @@ from photoalbums.lib import album_sets
 
 
 class TestAlbumSets(unittest.TestCase):
-    def test_cordell_set_exposes_title_page_location(self):
+    def test_cordell_set_has_no_title_page_location(self):
         album_set = album_sets.resolve_archive_set("cordell")
-        self.assertIsNotNone(album_set.title_page_location)
-        self.assertEqual(album_set.title_page_location["address"], "2240 Lorain Rd, San Marino, CA 91108")
-        self.assertEqual(album_set.title_page_location["gps_latitude"], "34.11512")
-        self.assertEqual(album_set.title_page_location["gps_longitude"], "-118.10492")
+        self.assertIsNone(album_set.title_page_location)
 
     def test_read_people_roster_filters_empty_values(self):
         self.assertEqual(
