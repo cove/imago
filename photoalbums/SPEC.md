@@ -112,8 +112,7 @@ Before raw TIFF scans can enter the main pipeline, they must be:
 3. **Registered:** Renamed and moved into the archive directory with the correct naming convention
 
 A long-running **ScanWatchService** monitors an `{INCOMING_NAME}` directory (typically `{PHOTOS_ROOT}/incoming/`) for new `.tif` files matching **either** of these patterns:
-- `incoming_scan.tif` (default single-scan placeholder)
-- `incoming_scan_NNNN.tif` (backlog: numbered 0001–9999 for multiple queued scans)
+- `incoming_scan_NN.tif` (queue: numbered 01–99, processed in ascending order)
 
 When detected:
 
@@ -131,7 +130,7 @@ When detected:
    - If stitch succeeds: mark the group as valid and ready for pipeline processing
    - If stitch fails: alert the operator (beep + Windows modal requesting a rescan); do NOT apply
 5. **Apply on success:**
-   - Rename incoming file to target filename (e.g., `incoming_scan_0001.tif` → `Egypt_1975_B01_P05_S01.tif`)
+   - Rename incoming file to target filename (e.g., `incoming_scan_01.tif` → `Egypt_1975_B01_P05_S01.tif`)
    - Move file to `{Archive}_Archive/` directory
    - Process TIFF in place (convert to standard format, ensure proper orientation, etc.)
    - Create a `ScanEvent` record with `status=applied`, recording the timestamp, target name, and `stitch_validated` flag

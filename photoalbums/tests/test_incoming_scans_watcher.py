@@ -26,7 +26,7 @@ class TestIncomingScansWatcher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             watch_dir = Path(tmp) / "Album_Archive"
             watch_dir.mkdir()
-            incoming = watch_dir / "incoming_scan.tif"
+            incoming = watch_dir / "incoming_scan_01.tif"
             incoming.touch()
             event = DummyEvent(str(incoming))
 
@@ -66,10 +66,10 @@ class TestIncomingScansWatcher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             watch_dir = Path(tmp) / "Album_Archive"
             watch_dir.mkdir()
-            (watch_dir / "incoming_scan0002.tif").write_text("second")
-            first = watch_dir / "incoming_scan0001.tif"
+            (watch_dir / "incoming_scan_02.tif").write_text("second")
+            first = watch_dir / "incoming_scan_01.tif"
             first.write_text("first")
-            event = DummyEvent(str(watch_dir / "incoming_scan0002.tif"))
+            event = DummyEvent(str(watch_dir / "incoming_scan_02.tif"))
 
             service = incoming_scans_watcher.ScanWatchService(
                 root=Path(tmp),
@@ -95,8 +95,8 @@ class TestIncomingScansWatcher(unittest.TestCase):
 
             self.assertEqual((watch_dir / "Album_P01_S01.tif").read_text(), "first")
             self.assertEqual((watch_dir / "Album_P02_S01.tif").read_text(), "second")
-            self.assertFalse((watch_dir / "incoming_scan0001.tif").exists())
-            self.assertFalse((watch_dir / "incoming_scan0002.tif").exists())
+            self.assertFalse((watch_dir / "incoming_scan_01.tif").exists())
+            self.assertFalse((watch_dir / "incoming_scan_02.tif").exists())
 
     def test_on_created_ignores_other_files(self):
         import incoming_scans_watcher

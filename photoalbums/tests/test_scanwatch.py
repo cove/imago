@@ -67,7 +67,7 @@ class TestScanWatch(unittest.TestCase):
             archive_dir = Path(tmp) / "Album_Archive"
             archive_dir.mkdir()
             (archive_dir / "Album_P02_S01.tif").touch()
-            incoming = archive_dir / "incoming_scan.tif"
+            incoming = archive_dir / "incoming_scan_01.tif"
             incoming.touch()
 
             process_mock = mock.Mock(return_value=True)
@@ -101,7 +101,7 @@ class TestScanWatch(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             archive_dir = Path(tmp) / "Album_Archive"
             archive_dir.mkdir()
-            incoming = archive_dir / "incoming_scan.tif"
+            incoming = archive_dir / "incoming_scan_01.tif"
             incoming.touch()
             (archive_dir / "Album_P02_S01.tif").touch()
             (archive_dir / "Album_P02_S02.tif").touch()
@@ -150,8 +150,8 @@ class TestScanWatch(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             archive_dir = Path(tmp) / "Album_Archive"
             archive_dir.mkdir()
-            (archive_dir / "incoming_scan0002.tif").write_text("second")
-            (archive_dir / "incoming_scan0001.tif").write_text("first")
+            (archive_dir / "incoming_scan_02.tif").write_text("second")
+            (archive_dir / "incoming_scan_01.tif").write_text("first")
 
             service = scanwatch.ScanWatchService(
                 root=Path(tmp),
@@ -168,15 +168,15 @@ class TestScanWatch(unittest.TestCase):
             self.assertEqual(len(results), 2)
             self.assertEqual((archive_dir / "Album_P01_S01.tif").read_text(), "first")
             self.assertEqual((archive_dir / "Album_P02_S01.tif").read_text(), "second")
-            self.assertFalse((archive_dir / "incoming_scan0001.tif").exists())
-            self.assertFalse((archive_dir / "incoming_scan0002.tif").exists())
+            self.assertFalse((archive_dir / "incoming_scan_01.tif").exists())
+            self.assertFalse((archive_dir / "incoming_scan_02.tif").exists())
 
     def test_compress_existing_tiffs_processes_only_needed_launch_directory_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             scan_dir = Path(tmp)
             needed = scan_dir / "Album_P02_S01.tif"
             already_done = scan_dir / "Album_P03_S01.tiff"
-            incoming = scan_dir / "incoming_scan.tif"
+            incoming = scan_dir / "incoming_scan_01.tif"
             nested = scan_dir / "nested" / "Album_P04_S01.tif"
             nested.parent.mkdir()
             for path in [needed, already_done, incoming, nested]:
@@ -252,7 +252,7 @@ class TestScanWatch(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             archive_dir = Path(tmp) / "Album_Archive"
             archive_dir.mkdir()
-            incoming = archive_dir / "incoming_scan.tif"
+            incoming = archive_dir / "incoming_scan_01.tif"
             incoming.touch()
 
             display_mock = mock.Mock(return_value=True)
@@ -281,7 +281,7 @@ class TestScanWatch(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             archive_dir = Path(tmp) / "Album_Archive"
             archive_dir.mkdir()
-            incoming = archive_dir / "incoming_scan.tif"
+            incoming = archive_dir / "incoming_scan_01.tif"
             incoming.touch()
             calls = []
 
@@ -316,7 +316,7 @@ class TestScanWatch(unittest.TestCase):
             archive_dir = Path(tmp) / "Album_Archive"
             archive_dir.mkdir()
             (archive_dir / "Album_P02_S01.tif").touch()
-            incoming = archive_dir / "incoming_scan.tif"
+            incoming = archive_dir / "incoming_scan_01.tif"
             incoming.touch()
             preview = Path(tmp) / "preview.tif"
             preview.touch()
@@ -378,7 +378,7 @@ class TestScanWatch(unittest.TestCase):
             service._events["last-event"] = scanwatch.ScanEvent(
                 id="last-event",
                 archive_dir=str(archive_dir.resolve(strict=False)),
-                incoming_path=str(archive_dir / "incoming_scan.tif"),
+                incoming_path=str(archive_dir / "incoming_scan_01.tif"),
                 status="completed",
                 target_name="Album_P12_S04.tif",
                 page_num=12,
