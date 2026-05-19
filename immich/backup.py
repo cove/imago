@@ -190,13 +190,10 @@ def main() -> None:
         )
 
         gz_path = tmp_path / gz_name
-        out_name = tmp_path / (gz_path.with_suffix("").stem + ".sql.gz")
-
-        recompress_to_gz9(gz_path, out_name)
-
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
         out_file = out_dir / f"immich-db-backup-{stamp}.sql.gz"
-        shutil.move(str(out_name), str(out_file))
+
+        recompress_to_gz9(gz_path, out_file)
 
     size_mb = out_file.stat().st_size / 1_048_576
     print(f"Done: {out_file}  ({size_mb:.1f} MB)", flush=True)
