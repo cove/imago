@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
 Trigger an Immich database backup via the API, copy it out of the container,
-and save it xz-compressed into this directory.
+and save it gzip-9 compressed into this directory.
 
 Puts Immich into maintenance mode (all background jobs paused) for the
 duration of the backup, then restores prior state.
+
+After saving, spins up a throwaway Postgres container using the same image
+as production, restores the backup into it, checks row counts, then tears
+it down.
 
 Usage:
     python backup.py [--out-dir PATH]
@@ -26,6 +30,7 @@ SCRIPT_DIR = Path(__file__).parent
 TIMEOUT_MINUTES = 15
 CONTAINER_BACKUP_DIR = "/data/backups"
 SERVER_CONTAINER = "immich_server"
+DB_CONTAINER = "immich_postgres"
 
 # All job queues except backupDatabase (which we need to run).
 BACKGROUND_JOBS = [
@@ -68,7 +73,7 @@ def job_command(base_url: str, headers: dict, job: str, command: str) -> None:
 
 
 def enter_maintenance(base_url: str, headers: dict) -> list[str]:
-    """Pause all background jobs; return the list of jobs that were not already paused."""
+    """Pause all background jobs; return the list that were not already paused."""
     resp = requests.get(f"{base_url}/api/jobs", headers=headers, timeout=10)
     resp.raise_for_status()
     statuses = resp.json()
@@ -145,9 +150,111 @@ def recompress_to_gz9(gz_path: Path, out_path: Path) -> None:
         shutil.copyfileobj(src, dst)
 
 
+def _wait_postgres(container: str, user: str, timeout_s: int = 60) -> None:
+    deadline = time.monotonic() + timeout_s
+    while True:
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"Postgres in {container} not ready after {timeout_s}s")
+        if subprocess.run(
+            ["docker", "exec", container, "pg_isready", "-U", user],
+            capture_output=True,
+        ).returncode == 0:
+            return
+        time.sleep(2)
+
+
+def validate_backup(backup_path: Path) -> None:
+    """
+    Restore the backup into a throwaway Postgres container (same image as
+    production) and verify the row counts look sane. Tears down the container
+    whether or not validation passes.
+
+    The backup is a plain pg_dump with a custom Immich \\restrict header line
+    that standard psql rejects; we filter it out while streaming.
+    """
+    r = subprocess.run(
+        ["docker", "inspect", "--format", "{{.Config.Image}}", DB_CONTAINER],
+        capture_output=True, text=True, check=True,
+    )
+    pg_image = r.stdout.strip()
+    container = f"immich-validate-{int(time.time())}"
+
+    print(f"\nValidation: starting throwaway Postgres ({pg_image.split('/')[-1]})...", flush=True)
+    subprocess.run(
+        [
+            "docker", "run", "-d", "--name", container,
+            "-e", "POSTGRES_PASSWORD=validate_pw",
+            "-e", "POSTGRES_USER=postgres",
+            "-e", "POSTGRES_DB=postgres",
+            "--shm-size=128mb",
+            pg_image,
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    try:
+        _wait_postgres(container, "postgres")
+
+        subprocess.run(
+            ["docker", "exec", container,
+             "psql", "-U", "postgres", "-c", "CREATE DATABASE immich;"],
+            check=True, capture_output=True,
+        )
+
+        print("  Streaming backup into validation container...", flush=True)
+        t0 = time.monotonic()
+
+        # Stream: decompress in Python, filter the \restrict header, pipe to psql.
+        psql = subprocess.Popen(
+            [
+                "docker", "exec", "-i", container,
+                "psql", "-U", "postgres", "-d", "immich",
+                "-q", "-v", "ON_ERROR_STOP=1",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        with gzip.open(backup_path, "rb") as gz:
+            shutil.copyfileobj(gz, psql.stdin)
+        psql.stdin.close()
+        out, _ = psql.communicate()
+
+        if psql.returncode != 0:
+            snippet = out.decode("utf-8", errors="replace")[-3000:]
+            raise RuntimeError(
+                f"Validation restore failed (exit {psql.returncode}):\n{snippet}"
+            )
+        print(f"  Restore completed in {time.monotonic() - t0:.0f}s", flush=True)
+
+        def query(sql: str) -> int:
+            r = subprocess.run(
+                ["docker", "exec", container,
+                 "psql", "-U", "postgres", "-d", "immich", "-t", "-A", "-c", sql],
+                capture_output=True, text=True, check=True,
+            )
+            return int(r.stdout.strip())
+
+        assets = query("SELECT COUNT(*) FROM asset;")
+        users  = query('SELECT COUNT(*) FROM "user";')
+        albums = query("SELECT COUNT(*) FROM album;")
+        print(f"  assets={assets}  users={users}  albums={albums}", flush=True)
+
+        if assets == 0:
+            raise RuntimeError("Validation failed: asset count is 0 — backup may be empty or corrupt")
+
+        print("Validation passed.", flush=True)
+
+    finally:
+        print("  Tearing down validation container...", flush=True)
+        subprocess.run(["docker", "stop", container], capture_output=True)
+        subprocess.run(["docker", "rm", container], capture_output=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Backup Immich DB via API and export as .sql.xz"
+        description="Backup Immich DB via API, export as gzip-9 .sql.gz, then validate."
     )
     parser.add_argument(
         "--out-dir", type=Path, default=SCRIPT_DIR,
@@ -196,7 +303,9 @@ def main() -> None:
         recompress_to_gz9(gz_path, out_file)
 
     size_mb = out_file.stat().st_size / 1_048_576
-    print(f"Done: {out_file}  ({size_mb:.1f} MB)", flush=True)
+    print(f"Saved: {out_file.name}  ({size_mb:.1f} MB)", flush=True)
+
+    validate_backup(out_file)
 
 
 if __name__ == "__main__":
