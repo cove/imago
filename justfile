@@ -131,3 +131,8 @@ photoalbums-checksums:
 
 photoalbums-verify-checksums:
   {{python}} -m photoalbums.sha3_tree_hashes "{{photoalbums_root}}" --verify
+
+# Trigger Immich DB backup via API, pull it out of the container, compress with xz.
+# Puts Immich into maintenance mode (all background jobs paused) for the duration.
+immich-backup *args:
+  just --justfile immich/justfile backup {{args}}
