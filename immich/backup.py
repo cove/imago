@@ -163,7 +163,14 @@ def _wait_postgres(container: str, user: str, timeout_s: int = 60) -> None:
         time.sleep(2)
 
 
-def validate_backup(backup_path: Path) -> None:
+def live_asset_count(base_url: str, headers: dict) -> int:
+    resp = requests.get(f"{base_url}/api/assets/statistics", headers=headers, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["videos"] + data["images"]
+
+
+def validate_backup(backup_path: Path, base_url: str, headers: dict) -> None:
     """
     Restore the backup into a throwaway Postgres container (same image as
     production) and verify the row counts look sane. Tears down the container
@@ -236,13 +243,18 @@ def validate_backup(backup_path: Path) -> None:
             )
             return int(r.stdout.strip())
 
-        assets = query("SELECT COUNT(*) FROM asset;")
+        assets = query('SELECT COUNT(*) FROM asset WHERE "deletedAt" IS NULL;')
         users  = query('SELECT COUNT(*) FROM "user";')
         albums = query("SELECT COUNT(*) FROM album;")
-        print(f"  assets={assets}  users={users}  albums={albums}", flush=True)
+        print(f"  restored: assets={assets}  users={users}  albums={albums}", flush=True)
 
-        if assets == 0:
-            raise RuntimeError("Validation failed: asset count is 0 — backup may be empty or corrupt")
+        expected = live_asset_count(base_url, headers)
+        print(f"  live server: assets={expected}", flush=True)
+
+        if assets != expected:
+            raise RuntimeError(
+                f"Validation failed: restored asset count ({assets}) != live count ({expected})"
+            )
 
         print("Validation passed.", flush=True)
 
@@ -305,7 +317,7 @@ def main() -> None:
     size_mb = out_file.stat().st_size / 1_048_576
     print(f"Saved: {out_file.name}  ({size_mb:.1f} MB)", flush=True)
 
-    validate_backup(out_file)
+    validate_backup(out_file, base_url, headers)
 
 
 if __name__ == "__main__":
