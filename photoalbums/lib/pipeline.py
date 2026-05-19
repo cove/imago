@@ -50,9 +50,14 @@ def _make_steps() -> list[PipelineStep]:
             depends_on=["face-refresh"],
         ),
         PipelineStep(
+            id="sequence-page-dates",
+            label="Sequence _Archive/_Pages dates for viewer sort order",
+            depends_on=["ai-index"],
+        ),
+        PipelineStep(
             id="verify-crops",
             label="Review each page's crops against the page image and page/crop XMP context",
-            depends_on=["ai-index"],
+            depends_on=["sequence-page-dates"],
             optional=True,
         ),
     ]

@@ -19,6 +19,13 @@ from photoalbums.lib.xmp_sidecar import is_step_stale
 
 
 class TestStepIdValidation(unittest.TestCase):
+    def test_sequence_page_dates_is_default_pipeline_step_after_ai_index(self):
+        step_ids = [step.id for step in PIPELINE_STEPS]
+
+        self.assertIn("sequence-page-dates", step_ids)
+        self.assertGreater(step_ids.index("sequence-page-dates"), step_ids.index("ai-index"))
+        self.assertNotIn("sequence-page-dates", {step.id for step in PIPELINE_STEPS if step.optional})
+
     def test_valid_ids_accepted(self):
         # Should not raise or exit
         result = validate_step_ids(["render", "crop-regions"], flag="--skip")

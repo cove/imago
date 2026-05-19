@@ -1034,7 +1034,7 @@ def print_pipeline_plan(
         print(f"{page_count} page(s)")
 
 
-def _dispatch_pipeline_step(
+def _dispatch_pipeline_step(  # noqa: C901
     *,
     step,
     group,
@@ -1155,6 +1155,15 @@ def _dispatch_pipeline_step(
                 view_path=view_path,
                 xmp_path=xmp_path,
                 force_this_step=force_this_step,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
+            )
+        case "sequence-page-dates":
+            _run_pipeline_sequence_page_dates_step(
+                archive=archive,
+                xmp_path=xmp_path,
                 counters=counters,
                 step_just_ran=step_just_ran,
                 stale_dep=stale_dep,
@@ -1482,6 +1491,32 @@ def _run_pipeline_ai_index_step(
     return ai_page_idx
 
 
+def _run_pipeline_sequence_page_dates_step(
+    *,
+    archive: Path,
+    xmp_path: Path,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
+) -> None:
+    sequenced = deps["sequenced_page_date_archives"]
+    if archive in sequenced:
+        counters["sequence-page-dates"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+        return
+    result = deps["sequence_album_page_dates"](archive)
+    sequenced.add(archive)
+    warnings = list(result.get("warnings") or [])
+    for warning in warnings:
+        print(f"    sequence-page-dates warning: {warning}", flush=True)
+    counters["sequence-page-dates"]["run"] += 1
+    counters["sequence-page-dates"]["detail"].append(f"{result.get('sidecars_written', 0)} sidecars written")
+    step_just_ran.add("sequence-page-dates")
+    deps["write_pipeline_step"](xmp_path, "sequence-page-dates")
+    _print_outcome("done", stale_dep)
+
+
 def _run_pipeline_verify_crops_step(
     *,
     view_path: Path,
@@ -1611,6 +1646,7 @@ def run_process_pipeline(
         detect_regions,
         validate_region_set,
     )
+    from .lib.page_date_sequence import sequence_album_page_dates
     from .lib.prompt_debug import PromptDebugSession
 
     model_name = default_view_region_model()
@@ -1650,6 +1686,8 @@ def run_process_pipeline(
         "read_pipeline_state": read_pipeline_state,
         "read_pipeline_step": read_pipeline_step,
         "run_verify_crops_page": run_verify_crops_page,
+        "sequence_album_page_dates": sequence_album_page_dates,
+        "sequenced_page_date_archives": set(),
         "stitch": stitch,
         "tif_to_jpg": tif_to_jpg,
         "validate_region_set": validate_region_set,
