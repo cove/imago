@@ -1,0 +1,23 @@
+# Overlay for validation stack: removes fixed container_name directives so
+# docker compose -p <project> can namespace them without colliding with production.
+# Also drops power-tools (not needed for backup validation).
+services:
+  database:
+    container_name: null
+
+  redis:
+    container_name: null
+
+  immich-server:
+    container_name: null
+    volumes:
+      - validate-data:/data
+      - /etc/localtime:/etc/localtime:ro
+
+  power-tools:
+    container_name: null
+    profiles:
+      - disabled
+
+volumes:
+  validate-data:
