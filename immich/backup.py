@@ -6,9 +6,16 @@ and save it gzip-9 compressed into this directory.
 Puts Immich into maintenance mode (all background jobs paused) for the
 duration of the backup, then restores prior state.
 
-After saving, spins up a throwaway Postgres container using the same image
-as production, restores the backup into it, checks row counts, then tears
-it down.
+After saving, validates by spinning up a full throwaway Immich stack via
+`docker compose -p <project>` using a generated compose file that pulls the
+exact same image digests as production. Two-phase startup:
+
+  Phase 1 — cold start with empty DB: Immich initialises the storage volume
+             (creates .immich marker files, runs migrations).
+  Phase 2 — restore backup, restart server, verify asset count via the
+             Immich API matches the live server.
+
+Tears the stack down (docker compose down -v) whether or not validation passes.
 
 Usage:
     python backup.py [--out-dir PATH]
@@ -16,6 +23,7 @@ Usage:
 
 import argparse
 import gzip
+import json
 import shutil
 import subprocess
 import sys
@@ -30,7 +38,6 @@ SCRIPT_DIR = Path(__file__).parent
 TIMEOUT_MINUTES = 15
 CONTAINER_BACKUP_DIR = "/data/backups"
 SERVER_CONTAINER = "immich_server"
-DB_CONTAINER = "immich_postgres"
 
 # All job queues except backupDatabase (which we need to run).
 BACKGROUND_JOBS = [
@@ -62,6 +69,13 @@ def load_env(path: Path) -> dict[str, str]:
     return env
 
 
+def _container_image(container: str) -> str:
+    return subprocess.run(
+        ["docker", "inspect", "--format", "{{.Config.Image}}", container],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+
+
 def job_command(base_url: str, headers: dict, job: str, command: str) -> None:
     resp = requests.put(
         f"{base_url}/api/jobs/{job}",
@@ -77,7 +91,6 @@ def enter_maintenance(base_url: str, headers: dict) -> list[str]:
     resp = requests.get(f"{base_url}/api/jobs", headers=headers, timeout=10)
     resp.raise_for_status()
     statuses = resp.json()
-
     to_pause = [
         j for j in BACKGROUND_JOBS
         if not statuses.get(j, {}).get("queueStatus", {}).get("isPaused", False)
@@ -132,9 +145,7 @@ def latest_backup_in_container() -> str:
             "docker", "exec", SERVER_CONTAINER,
             "sh", "-c", f"ls -t {CONTAINER_BACKUP_DIR}/*.sql.gz 2>/dev/null | head -1",
         ],
-        check=True,
-        capture_output=True,
-        text=True,
+        check=True, capture_output=True, text=True,
     )
     path = result.stdout.strip()
     if not path:
@@ -150,19 +161,6 @@ def recompress_to_gz9(gz_path: Path, out_path: Path) -> None:
         shutil.copyfileobj(src, dst)
 
 
-def _wait_postgres(container: str, user: str, timeout_s: int = 60) -> None:
-    deadline = time.monotonic() + timeout_s
-    while True:
-        if time.monotonic() > deadline:
-            raise TimeoutError(f"Postgres in {container} not ready after {timeout_s}s")
-        if subprocess.run(
-            ["docker", "exec", container, "pg_isready", "-U", user],
-            capture_output=True,
-        ).returncode == 0:
-            return
-        time.sleep(2)
-
-
 def live_asset_count(base_url: str, headers: dict) -> int:
     resp = requests.get(f"{base_url}/api/assets/statistics", headers=headers, timeout=10)
     resp.raise_for_status()
@@ -170,103 +168,161 @@ def live_asset_count(base_url: str, headers: dict) -> int:
     return data["videos"] + data["images"]
 
 
-def validate_backup(backup_path: Path, base_url: str, headers: dict) -> None:
-    """
-    Restore the backup into a throwaway Postgres container (same image as
-    production) and verify the row counts look sane. Tears down the container
-    whether or not validation passes.
-
-    The backup is a plain pg_dump with a custom Immich \\restrict header line
-    that standard psql rejects; we filter it out while streaming.
-    """
-    r = subprocess.run(
-        ["docker", "inspect", "--format", "{{.Config.Image}}", DB_CONTAINER],
-        capture_output=True, text=True, check=True,
-    )
-    pg_image = r.stdout.strip()
-    container = f"immich-validate-{int(time.time())}"
-
-    print(f"\nValidation: starting throwaway Postgres ({pg_image.split('/')[-1]})...", flush=True)
-    subprocess.run(
-        [
-            "docker", "run", "-d", "--name", container,
-            "-e", "POSTGRES_PASSWORD=validate_pw",
-            "-e", "POSTGRES_USER=postgres",
-            "-e", "POSTGRES_DB=postgres",
-            "--shm-size=128mb",
-            pg_image,
-        ],
-        check=True,
-        capture_output=True,
-    )
-
-    try:
-        _wait_postgres(container, "postgres")
-
-        subprocess.run(
+def _wait_immich_container(container: str, timeout_s: int = 300) -> None:
+    """Poll the Immich ping endpoint via docker exec — no host port mapping needed."""
+    print("  Waiting for Immich server to be healthy...", flush=True)
+    deadline = time.monotonic() + timeout_s
+    while True:
+        if time.monotonic() > deadline:
+            logs = subprocess.run(
+                ["docker", "logs", container, "--tail", "40"],
+                capture_output=True, text=True,
+            )
+            raise TimeoutError(
+                f"Immich validation server not ready after {timeout_s}s.\n"
+                f"Last logs:\n{logs.stdout}{logs.stderr}"
+            )
+        result = subprocess.run(
             ["docker", "exec", container,
-             "psql", "-U", "postgres", "-c", "CREATE DATABASE immich;"],
-            check=True, capture_output=True,
+             "curl", "-fsS", "-m", "2", "http://localhost:2283/api/server/ping"],
+            capture_output=True,
         )
+        if result.returncode == 0:
+            return
+        time.sleep(3)
 
-        print("  Streaming backup into validation container...", flush=True)
+
+def validate_backup(backup_path: Path, cfg: dict, base_url: str, headers: dict) -> None:
+    """
+    Spin up a throwaway Immich stack via docker compose -p <project> using a
+    generated compose file with the exact same image digests as production.
+
+    Two-phase startup:
+      1. Cold boot with empty DB so Immich initialises the storage volume
+         (.immich markers, migrations). Wait for healthy, then stop the server.
+      2. Restore the backup. Restart the server and verify the Immich API
+         reports the same asset count as the live server.
+
+    Queries use docker exec curl inside the container — no host port binding.
+    """
+    api_key  = headers["x-api-key"]
+    db_user  = cfg.get("DB_USERNAME", "postgres")
+    db_name  = cfg.get("DB_DATABASE_NAME", "immich")
+    stamp    = int(time.time())
+    project  = f"immich-val-{stamp}"
+    pg_ctr   = f"{project}-database-1"
+    srv_ctr  = f"{project}-immich-server-1"
+
+    pg_image     = _container_image("immich_postgres")
+    redis_image  = _container_image("immich_redis")
+    server_image = _container_image("immich_server")
+
+    # Generated compose file — no container_name directives so docker compose
+    # -p namespaces everything cleanly without clashing with production.
+    val_compose = SCRIPT_DIR / f".docker-compose.validate-{stamp}.yml"
+    val_compose.write_text(f"""\
+services:
+  database:
+    image: "{pg_image}"
+    environment:
+      POSTGRES_PASSWORD: "validate_pw"
+      POSTGRES_USER: "{db_user}"
+      POSTGRES_DB: "{db_name}"
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    shm_size: 128mb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: "{redis_image}"
+
+  immich-server:
+    image: "{server_image}"
+    environment:
+      DB_HOSTNAME: database
+      DB_PORT: "5432"
+      DB_USERNAME: "{db_user}"
+      DB_PASSWORD: "validate_pw"
+      DB_DATABASE_NAME: "{db_name}"
+      REDIS_HOSTNAME: redis
+    volumes:
+      - library:/data
+    depends_on:
+      - database
+      - redis
+
+volumes:
+  pgdata:
+  library:
+""", encoding="utf-8")
+
+    compose = [
+        "docker", "compose", "-p", project, "-f", str(val_compose),
+    ]
+
+    print(f"\nValidation: spinning up Immich stack (project={project})...", flush=True)
+    try:
+        # --- Phase 1: cold start so Immich initialises the storage volume ---
+        print("  Phase 1: cold start (Immich initialises storage)...", flush=True)
+        subprocess.run([*compose, "up", "-d"], check=True, capture_output=True)
+        _wait_immich_container(srv_ctr)
+        subprocess.run([*compose, "stop", "immich-server"], check=True, capture_output=True)
+        print("  Storage initialised.", flush=True)
+
+        # --- Restore backup ---
+        print("  Restoring backup...", flush=True)
         t0 = time.monotonic()
-
-        # Stream: decompress in Python, filter the \restrict header, pipe to psql.
         psql = subprocess.Popen(
-            [
-                "docker", "exec", "-i", container,
-                "psql", "-U", "postgres", "-d", "immich",
-                "-q", "-v", "ON_ERROR_STOP=1",
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            ["docker", "exec", "-i", pg_ctr,
+             "psql", "-U", db_user, "-d", db_name, "-q", "-v", "ON_ERROR_STOP=1"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
         with gzip.open(backup_path, "rb") as gz:
             shutil.copyfileobj(gz, psql.stdin)
         psql.stdin.close()
         out, _ = psql.communicate()
-
         if psql.returncode != 0:
-            snippet = out.decode("utf-8", errors="replace")[-3000:]
             raise RuntimeError(
-                f"Validation restore failed (exit {psql.returncode}):\n{snippet}"
+                f"Restore failed (exit {psql.returncode}):\n"
+                f"{out.decode('utf-8', errors='replace')[-3000:]}"
             )
-        print(f"  Restore completed in {time.monotonic() - t0:.0f}s", flush=True)
+        print(f"  Restore: {time.monotonic() - t0:.0f}s", flush=True)
 
-        def query(sql: str) -> int:
-            r = subprocess.run(
-                ["docker", "exec", container,
-                 "psql", "-U", "postgres", "-d", "immich", "-t", "-A", "-c", sql],
-                capture_output=True, text=True, check=True,
-            )
-            return int(r.stdout.strip())
+        # --- Phase 2: restart server with restored data ---
+        print("  Phase 2: restarting server with restored data...", flush=True)
+        subprocess.run([*compose, "up", "-d", "immich-server"], check=True, capture_output=True)
+        _wait_immich_container(srv_ctr)
 
-        assets = query('SELECT COUNT(*) FROM asset WHERE "deletedAt" IS NULL;')
-        users  = query('SELECT COUNT(*) FROM "user";')
-        albums = query("SELECT COUNT(*) FROM album;")
-        print(f"  restored: assets={assets}  users={users}  albums={albums}", flush=True)
-
+        # --- Compare counts via Immich API (exec inside container) ---
+        stat_out = subprocess.run(
+            ["docker", "exec", srv_ctr,
+             "curl", "-fsS",
+             "-H", f"x-api-key: {api_key}",
+             "http://localhost:2283/api/assets/statistics"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        stat     = json.loads(stat_out)
+        restored = stat["videos"] + stat["images"]
         expected = live_asset_count(base_url, headers)
-        print(f"  live server: assets={expected}", flush=True)
 
-        if assets != expected:
+        print(f"  validation stack: assets={restored}", flush=True)
+        print(f"  live server:      assets={expected}", flush=True)
+
+        if restored != expected:
             raise RuntimeError(
-                f"Validation failed: restored asset count ({assets}) != live count ({expected})"
+                f"Validation failed: restored count ({restored}) != live count ({expected})"
             )
-
         print("Validation passed.", flush=True)
 
     finally:
-        print("  Tearing down validation container...", flush=True)
-        subprocess.run(["docker", "stop", container], capture_output=True)
-        subprocess.run(["docker", "rm", container], capture_output=True)
+        print("  Tearing down validation stack...", flush=True)
+        subprocess.run([*compose, "down", "-v"], capture_output=True)
+        val_compose.unlink(missing_ok=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Backup Immich DB via API, export as gzip-9 .sql.gz, then validate."
+        description="Backup Immich DB via API, export as gzip-9 .sql.gz, then E2E validate."
     )
     parser.add_argument(
         "--out-dir", type=Path, default=SCRIPT_DIR,
@@ -317,7 +373,7 @@ def main() -> None:
     size_mb = out_file.stat().st_size / 1_048_576
     print(f"Saved: {out_file.name}  ({size_mb:.1f} MB)", flush=True)
 
-    validate_backup(out_file, base_url, headers)
+    validate_backup(out_file, cfg, base_url, headers)
 
 
 if __name__ == "__main__":
