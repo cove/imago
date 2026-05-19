@@ -30,6 +30,7 @@ dependencies = [
   "wand",
   "watchdog",
   "qodo>=0.1.0",
+  "requests",
 ]
 
 [dependency-groups]
