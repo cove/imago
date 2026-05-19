@@ -1,0 +1,11 @@
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+python := "uv run python"
+
+[default]
+default:
+  @just --list
+
+# Trigger Immich DB backup via API, pull it out of the container, compress with xz.
+# Puts Immich into maintenance mode (all background jobs paused) for the duration.
+backup *args:
+  uv run python {{justfile_directory()}}/backup.py {{args}}
