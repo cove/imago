@@ -4,7 +4,7 @@ Purpose: repository-wide operating rules for AI coding agents working on this pr
 
 ## Core Policy
 
-Use `just quality` and `just test` to validate code changes.
+Use `just quality` and `just test` to validate Python code changes. These commands do not validate external filesystem state, Immich state, database migrations, media renames, or other non-code data changes; validate those with direct domain-specific checks against the affected files, APIs, and database rows.
 Prefer reconstructing state from ground truth rather than storing it in a database.
 Prefer fewer files with clear internal structure over many small files. A single module with logical sections is better than splitting into multiple files that only have one caller. Only create a new module when it has a genuinely distinct responsibility and will be imported from multiple places.
 Always bubble up underlying errors when reporting failures. Do not interpret or discard low-level errors.
