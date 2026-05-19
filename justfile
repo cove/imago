@@ -2,6 +2,20 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 python := "uv run python"
 ruff := "uv run ruff"
 photoalbums_root := `uv run python -c "from photoalbums.common import get_photo_albums_dir; print(get_photo_albums_dir())"`
+llama_install := if os() == "windows" {
+  "if (Get-Command llama-server -ErrorAction SilentlyContinue) { exit 0 }; winget list --id ggml.llamacpp --exact | Out-Null; if ($LASTEXITCODE -eq 0) { exit 0 }; winget install --id ggml.llamacpp --exact --accept-package-agreements --accept-source-agreements"
+} else if os() == "macos" {
+  "brew install llama.cpp"
+} else {
+  "echo \"llama-gemma4 only supports Windows and macOS\" && exit 1"
+}
+llama_start := if os() == "windows" {
+  "pwsh -File llama/start.ps1"
+} else if os() == "macos" {
+  "bash llama/start.sh"
+} else {
+  "echo \"llama-gemma4 only supports Windows and macOS\" && exit 1"
+}
 
 [default]
 default:
@@ -51,8 +65,11 @@ verification:
 security:
   uv run dryrun
 
-llama-gemma4:
-  /bin/zsh -lc 'set -o pipefail; llama-server -m "$HOME/.lmstudio/models/lmstudio-community/gemma-4-31B-it-GGUF/gemma-4-31B-it-Q4_K_M.gguf" --mmproj "$HOME/.lmstudio/models/lmstudio-community/gemma-4-31B-it-GGUF/mmproj-gemma-4-31B-it-BF16.gguf" --alias mlx-community/gemma-4-e2b-it-4bit --host 0.0.0.0 --port 8080 --parallel 1 --ctx-size 8192 --cache-ram 0 2>&1 | awk '\''/prompt eval time =/ || /^[[:space:]]*eval time =/ || tolower($0) ~ /error|failed|fatal/ { print }'\'''
+llama-install:
+  {{llama_install}}
+
+llama-gemma4: llama-install
+  {{llama_start}}
 
 cast-init:
   {{python}} -m cast init
@@ -117,3 +134,8 @@ photoalbums-checksums:
 
 photoalbums-verify-checksums:
   {{python}} -m photoalbums.sha3_tree_hashes "{{photoalbums_root}}" --verify
+
+# Trigger Immich DB backup via API, pull it out of the container, compress with xz.
+# Puts Immich into maintenance mode (all background jobs paused) for the duration.
+immich-backup *args:
+  just --justfile immich/justfile backup {{args}}
