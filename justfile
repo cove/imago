@@ -136,3 +136,6 @@ photoalbums-verify-checksums:
 # Puts Immich into maintenance mode (all background jobs paused) for the duration.
 immich-backup *args:
   just --justfile immich/justfile backup {{args}}
+
+immich-photoalbums *args:
+  {{python}} immich/create_photo_albums.py --photos-root "{{photoalbums_root}}" {{args}}
