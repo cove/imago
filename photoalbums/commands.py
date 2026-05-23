@@ -384,6 +384,15 @@ def _iter_face_refresh_targets(view_dir: Path, photos_dir: Path, page: str | Non
     return [*_iter_page_view_targets(view_dir, page), *derived_view_targets, *crop_targets]
 
 
+def _iter_immich_face_refresh_targets(group, view_dir: Path, photos_dir: Path, page: str | None) -> list[Path]:
+    archive_targets = sorted(
+        Path(path)
+        for path in group
+        if Path(path).suffix.lower() in {".tif", ".tiff", ".png"}
+    )
+    return [*archive_targets, *_iter_face_refresh_targets(view_dir, photos_dir, page)]
+
+
 def _build_region_detection_context(view_path: Path, photos_root: Path) -> tuple[str, str, dict[str, str]]:
     from .lib.album_sets import find_archive_set_by_photos_root, read_people_roster
     from .lib.xmp_sidecar import read_ai_sidecar_state
@@ -1139,6 +1148,7 @@ def _dispatch_pipeline_step(
             )
         case "immich-face-refresh":
             _run_pipeline_immich_face_refresh_step(
+                group=group,
                 view_dir=view_dir,
                 photos_dir=photos_dir,
                 current_page=current_page,
@@ -1402,6 +1412,7 @@ def _run_pipeline_face_refresh_step(
 
 def _run_pipeline_immich_face_refresh_step(
     *,
+    group,
     view_dir: Path,
     photos_dir: Path,
     current_page: str,
@@ -1416,7 +1427,7 @@ def _run_pipeline_immich_face_refresh_step(
     if not base_url or not api_key:
         raise RuntimeError("IMMICH_URL and IMMICH_API_KEY are required for immich-face-refresh")
 
-    refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
+    refresh_targets = _iter_immich_face_refresh_targets(group, view_dir, photos_dir, current_page)
     updated = 0
     unmatched = 0
     for img_path in refresh_targets:
@@ -1703,8 +1714,6 @@ def _effective_pipeline_step_ids(
         effective_skip_ids = set(skip_ids) | auto_skipped
     if step_id != "face-refresh" and "face-refresh" not in redo_ids:
         effective_skip_ids.add("face-refresh")
-    if step_id != "immich-face-refresh" and "immich-face-refresh" not in redo_ids:
-        effective_skip_ids.add("immich-face-refresh")
     if step_id != "verify-crops" and "verify-crops" not in redo_ids:
         effective_skip_ids.add("verify-crops")
     if refresh_gps:

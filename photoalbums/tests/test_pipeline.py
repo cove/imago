@@ -117,7 +117,7 @@ class TestEffectivePipelineStepIds(unittest.TestCase):
         )
 
         self.assertIn("face-refresh", skip_ids)
-        self.assertIn("immich-face-refresh", skip_ids)
+        self.assertNotIn("immich-face-refresh", skip_ids)
         self.assertEqual(redo_ids, set())
 
     def test_explicit_verify_crops_step_runs(self):
@@ -386,7 +386,7 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
         write_step.assert_not_called()
         print_outcome.assert_called_once_with("skipped (already complete)", "")
 
-    def test_immich_face_refresh_queries_matching_assets_directly(self):
+    def test_immich_face_refresh_queries_archive_scans_and_rendered_targets(self):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -452,10 +452,20 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                 )
 
         self.assertEqual(code, 0)
-        fetch_assets.assert_called_once_with("http://immich.local:2283", "key", target.name)
-        fetch_faces.assert_called_once_with("http://immich.local:2283", "key", "asset-001")
-        merge_persons.assert_called_once_with(target.with_suffix(".xmp"), ["Alice"])
-        merge_regions.assert_called_once()
+        self.assertEqual(
+            [call.args[2] for call in fetch_assets.call_args_list],
+            [scan.name, target.name],
+        )
+        self.assertEqual(fetch_faces.call_count, 2)
+        self.assertEqual(
+            [call.args[0] for call in merge_persons.call_args_list],
+            [scan.with_suffix(".xmp"), target.with_suffix(".xmp")],
+        )
+        self.assertEqual(
+            [call.args[1] for call in merge_persons.call_args_list],
+            [["Alice"], ["Alice"]],
+        )
+        self.assertEqual(merge_regions.call_count, 2)
         write_step.assert_called_once_with(view_path.with_suffix(".xmp"), "immich-face-refresh")
 
     def test_verify_crops_runs_after_ai_index_when_explicitly_requested(self):

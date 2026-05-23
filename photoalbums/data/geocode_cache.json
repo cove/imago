@@ -2236,6 +2236,10 @@
     "state": "Attica",
     "status": "ok"
   },
+  "aga khan iii tomb, nairobi, kenya": {
+    "query": "Aga Khan III Tomb, Nairobi, Kenya",
+    "status": "miss"
+  },
   "agadir, morocco": {
     "display_name": "Agadir ⴰⴳⴰⴷⵉⵔ أكادير, Pachalik d'Agadir ⵍⴱⴰⵛⴰⵡⵉⵢⴰ ⵏ ⴰⴳⴰⴷⵉⵔ باشوية أكادير, Préfecture d'Agadir Ida-Outanane ⵍⵄⴰⵎⴰⵍⴰ ⵏ ⴰⴳⴰⴷⵉⵔ ⵉⴷⴰ ⵡⵜⴰⵏⴰⵏ عمالة أكادير إدا وتنان, Souss-Massa ⵙⵓⵙⵙ-ⵎⴰⵙⵙⴰ سوس-ماسة, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "30.4205162",
@@ -4339,6 +4343,49 @@
     "query": "Bath, England; Worcester Cathedral, England",
     "status": "miss"
   },
+  "bath, somerset, united kingdom": {
+    "city": "Bath",
+    "country": "United Kingdom",
+    "display_name": "Bath, Bath and North East Somerset, West of England, England, United Kingdom",
+    "latitude": "51.3813864",
+    "longitude": "-2.3596963",
+    "query": "Bath, Somerset, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BAS",
+        "city": "Bath",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bath and North East Somerset",
+        "state": "England",
+        "state_district": "West of England"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "51.3505346",
+        "51.4112023",
+        "-2.4141955",
+        "-2.3157642"
+      ],
+      "category": "place",
+      "display_name": "Bath, Bath and North East Somerset, West of England, England, United Kingdom",
+      "importance": 0.6414257386770721,
+      "lat": "51.3813864",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.3596963",
+      "name": "Bath",
+      "osm_id": 5342409,
+      "osm_type": "relation",
+      "place_id": 282759171,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bath, uk": {
     "city": "Bath",
     "country": "United Kingdom",
@@ -4357,6 +4404,37 @@
     "latitude": "51.3813864",
     "longitude": "-2.3596963",
     "query": "Bath, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BAS",
+        "city": "Bath",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bath and North East Somerset",
+        "state": "England",
+        "state_district": "West of England"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "51.3505346",
+        "51.4112023",
+        "-2.4141955",
+        "-2.3157642"
+      ],
+      "category": "place",
+      "display_name": "Bath, Bath and North East Somerset, West of England, England, United Kingdom",
+      "importance": 0.6414257386770721,
+      "lat": "51.3813864",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.3596963",
+      "name": "Bath",
+      "osm_id": 5342409,
+      "osm_type": "relation",
+      "place_id": 282759171,
+      "place_rank": 16,
+      "type": "city"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -4642,6 +4720,38 @@
     "latitude": "51.4070938",
     "longitude": "-0.0303183",
     "query": "Beckenham, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-BRY",
+        "city": "Greater London",
+        "city_district": "London Borough of Bromley",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "BR3 1DZ",
+        "state": "England",
+        "suburb": "Beckenham"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "51.3870938",
+        "51.4270938",
+        "-0.0503183",
+        "-0.0103183"
+      ],
+      "category": "place",
+      "display_name": "Beckenham, London Borough of Bromley, Greater London, England, BR3 1DZ, United Kingdom",
+      "importance": 0.5091519342459956,
+      "lat": "51.4070938",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.0303183",
+      "name": "Beckenham",
+      "osm_id": 123921330,
+      "osm_type": "node",
+      "place_id": 280515668,
+      "place_rank": 19,
+      "type": "suburb"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -5083,6 +5193,48 @@
   "belvue palace, berlin, germany": {
     "query": "Belvue Palace, Berlin, Germany",
     "status": "miss"
+  },
+  "berkshire, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Berkshire, West Berkshire, England, United Kingdom",
+    "latitude": "51.4534889",
+    "longitude": "-1.0318730",
+    "query": "Berkshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WBK",
+        "ceremonial": "Berkshire",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "West Berkshire",
+        "state": "England"
+      },
+      "addresstype": "ceremonial",
+      "boundingbox": [
+        "51.3289630",
+        "51.5778253",
+        "-1.5880881",
+        "-0.4900443"
+      ],
+      "category": "boundary",
+      "display_name": "Berkshire, West Berkshire, England, United Kingdom",
+      "importance": 0.6688711369593144,
+      "lat": "51.4534889",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.0318730",
+      "name": "Berkshire",
+      "osm_id": 88070,
+      "osm_type": "relation",
+      "place_id": 279403244,
+      "place_rank": 25,
+      "type": "ceremonial"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "berlin radio tower, berlin, germany": {
     "query": "Berlin Radio Tower, Berlin, Germany",
@@ -5607,9 +5759,44 @@
     "latitude": "51.8458244",
     "longitude": "-1.3507147",
     "query": "Blenheim Palace, Woodstock, Oxfordshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-OXF",
+        "city": "West Oxfordshire",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Oxfordshire",
+        "highway": "Blenheim Palace Gates",
+        "postcode": "OX20 1UN",
+        "road": "Oxford Road",
+        "state": "England",
+        "town": "Woodstock"
+      },
+      "addresstype": "highway",
+      "boundingbox": [
+        "51.8457744",
+        "51.8458744",
+        "-1.3507647",
+        "-1.3506647"
+      ],
+      "category": "highway",
+      "display_name": "Blenheim Palace Gates, Oxford Road, Woodstock, West Oxfordshire, Oxfordshire, England, OX20 1UN, United Kingdom",
+      "importance": 5.316166933694999e-05,
+      "lat": "51.8458244",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.3507147",
+      "name": "Blenheim Palace Gates",
+      "osm_id": 533872844,
+      "osm_type": "node",
+      "place_id": 279942315,
+      "place_rank": 30,
+      "type": "bus_stop"
+    },
     "source": "nominatim",
     "state": "England",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "Oxford Road"
   },
   "blenheim palace, woodstock, united kingdom": {
     "city": "West Oxfordshire",
@@ -6668,6 +6855,51 @@
     "query": "Brighton Beach and Palace Pier, Brighton, England",
     "status": "miss"
   },
+  "brighton beach, brighton, united kingdom": {
+    "city": "Brighton",
+    "country": "United Kingdom",
+    "display_name": "Brighton Beach, Kemptown, Brighton, Brighton and Hove, England, BN2 1EN, United Kingdom",
+    "latitude": "50.8165326",
+    "longitude": "-0.1230626",
+    "query": "Brighton Beach, Brighton, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BNH",
+        "beach": "Brighton Beach",
+        "city": "Brighton",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Brighton and Hove",
+        "postcode": "BN2 1EN",
+        "state": "England",
+        "suburb": "Kemptown"
+      },
+      "addresstype": "beach",
+      "boundingbox": [
+        "50.8138543",
+        "50.8192067",
+        "-0.1364058",
+        "-0.1115732"
+      ],
+      "category": "natural",
+      "display_name": "Brighton Beach, Kemptown, Brighton, Brighton and Hove, England, BN2 1EN, United Kingdom",
+      "importance": 0.10673672770275423,
+      "lat": "50.8165326",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1230626",
+      "name": "Brighton Beach",
+      "osm_id": 96624951,
+      "osm_type": "way",
+      "place_id": 285544816,
+      "place_rank": 22,
+      "type": "beach"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "brighton royal pavilion": {
     "city": "Brighton",
     "country": "United Kingdom",
@@ -6784,6 +7016,10 @@
     "query": "Brighton Square, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "brighton square, london, united kingdom": {
+    "query": "Brighton Square, London, United Kingdom",
+    "status": "miss"
   },
   "brighton, brighton and hove, united kingdom": {
     "city": "Brighton",
@@ -7977,6 +8213,46 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cambridgeshire, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cambridgeshire, England, United Kingdom",
+    "latitude": "52.3729017",
+    "longitude": "-0.0449360",
+    "query": "Cambridgeshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ceremonial": "Cambridgeshire",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "England"
+      },
+      "addresstype": "ceremonial",
+      "boundingbox": [
+        "52.0057790",
+        "52.7399783",
+        "-0.4998961",
+        "0.5144550"
+      ],
+      "category": "boundary",
+      "display_name": "Cambridgeshire, England, United Kingdom",
+      "importance": 0.6546656571995115,
+      "lat": "52.3729017",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.0449360",
+      "name": "Cambridgeshire",
+      "osm_id": 87521,
+      "osm_type": "relation",
+      "place_id": 159488198,
+      "place_rank": 25,
+      "type": "ceremonial"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "camp site on the bristol channel": {
     "query": "Camp Site on the Bristol Channel",
     "status": "miss"
@@ -8142,12 +8418,47 @@
     "city": "Canterbury",
     "country": "United Kingdom",
     "display_name": "Canterbury Cathedral, The Precincts, The King's Mile, Canterbury, Kent, England, CT1 2EE, United Kingdom",
-    "latitude": "51.2797999",
+    "latitude": "51.2798000",
     "longitude": "1.0827660",
     "query": "Canterbury Cathedral, Canterbury, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-KEN",
+        "amenity": "Canterbury Cathedral",
+        "city": "Canterbury",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Kent",
+        "postcode": "CT1 2EE",
+        "road": "The Precincts",
+        "state": "England",
+        "suburb": "The King's Mile"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "51.2795439",
+        "51.2800556",
+        "1.0816630",
+        "1.0840556"
+      ],
+      "category": "amenity",
+      "display_name": "Canterbury Cathedral, The Precincts, The King's Mile, Canterbury, Kent, England, CT1 2EE, United Kingdom",
+      "importance": 0.5650652793212096,
+      "lat": "51.2798000",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "1.0827660",
+      "name": "Canterbury Cathedral",
+      "osm_id": 28021345,
+      "osm_type": "way",
+      "place_id": 101375496,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "England",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "The Precincts"
   },
   "canterbury cathedral, england": {
     "city": "Canterbury",
@@ -8671,13 +8982,49 @@
   "cardiff castle, cardiff, wales, united kingdom": {
     "city": "Cardiff",
     "country": "United Kingdom",
-    "display_name": "Cardiff Castle, Crown Court, Castle Quarter, Castle, Cardiff, Wales, CF10 1AY, United Kingdom",
+    "display_name": "Cardiff Castle, North Road, Crockherbtown, Civic Centre, Castle, Cardiff, Wales, CF10 3NL, United Kingdom",
     "latitude": "51.4823315",
     "longitude": "-3.1811710",
     "query": "Cardiff Castle, Cardiff, Wales, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-WLS",
+        "ISO3166-2-lvl6": "GB-CRF",
+        "city": "Cardiff",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Cardiff",
+        "neighbourhood": "Crockherbtown",
+        "postcode": "CF10 3NL",
+        "road": "North Road",
+        "state": "Wales",
+        "suburb": "Civic Centre",
+        "tourism": "Cardiff Castle"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.4813003",
+        "51.4834467",
+        "-3.1828342",
+        "-3.1794991"
+      ],
+      "category": "tourism",
+      "display_name": "Cardiff Castle, North Road, Crockherbtown, Civic Centre, Castle, Cardiff, Wales, CF10 3NL, United Kingdom",
+      "importance": 0.4387538557821415,
+      "lat": "51.4823315",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1811710",
+      "name": "Cardiff Castle",
+      "osm_id": 1093259587,
+      "osm_type": "way",
+      "place_id": 282610176,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "Wales",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "North Road"
   },
   "cardiff civic centre": {
     "city": "Cardiff",
@@ -8761,6 +9108,33 @@
     "latitude": "46.7500001",
     "longitude": "13.8333333",
     "query": "Carinthia, Austria",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "AT-2",
+        "country": "Austria",
+        "country_code": "at",
+        "state": "Carinthia"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "46.3722987",
+        "47.1312975",
+        "12.6568293",
+        "15.0651507"
+      ],
+      "category": "boundary",
+      "display_name": "Carinthia, Austria",
+      "importance": 0.6612279915692584,
+      "lat": "46.7500001",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "13.8333333",
+      "name": "Carinthia",
+      "osm_id": 52345,
+      "osm_type": "relation",
+      "place_id": 69113298,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Carinthia",
     "status": "ok",
@@ -9289,6 +9663,48 @@
     "state": "England",
     "status": "ok"
   },
+  "cerne abbas, dorset, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cerne Abbas, Dorset, England, United Kingdom",
+    "latitude": "50.8079558",
+    "longitude": "-2.4793386",
+    "query": "Cerne Abbas, Dorset, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-DOR",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Dorset",
+        "state": "England",
+        "suburb": "Cerne Abbas"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "50.7877945",
+        "50.8276156",
+        "-2.5092568",
+        "-2.4512831"
+      ],
+      "category": "boundary",
+      "display_name": "Cerne Abbas, Dorset, England, United Kingdom",
+      "importance": 0.39862612808608605,
+      "lat": "50.8079558",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.4793386",
+      "name": "Cerne Abbas",
+      "osm_id": 5722618,
+      "osm_type": "relation",
+      "place_id": 280463454,
+      "place_rank": 20,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cerne abbas, england": {
     "city": "",
     "country": "United Kingdom",
@@ -9356,15 +9772,43 @@
     "status": "miss"
   },
   "ceuta, spain": {
-    "city": "Ceuta",
+    "city": "",
     "country": "Spain",
-    "display_name": "Ceuta, Spain, Ceuta, Plazas de Soberania, Spain",
-    "latitude": "35.8944220",
-    "longitude": "-5.3558174",
+    "display_name": "Ceuta, Spain",
+    "latitude": "35.8883610",
+    "longitude": "-5.3041380",
     "query": "Ceuta, Spain",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "ES-CE",
+        "country": "Spain",
+        "country_code": "es",
+        "state": "Ceuta"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "35.8708627",
+        "35.9179997",
+        "-5.4219494",
+        "-5.2783003"
+      ],
+      "category": "boundary",
+      "display_name": "Ceuta, Spain",
+      "importance": 0.6452737028801474,
+      "lat": "35.8883610",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-5.3041380",
+      "name": "Ceuta",
+      "osm_id": 1154756,
+      "osm_type": "relation",
+      "place_id": 295519158,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "state": "Plazas de Soberanía",
-    "status": "ok"
+    "state": "Ceuta",
+    "status": "ok",
+    "sublocation": ""
   },
   "chain bridge over the danube": {
     "query": "Chain Bridge over the Danube",
@@ -10241,6 +10685,49 @@
     "status": "ok",
     "sublocation": ""
   },
+  "chipping campden, gloucestershire, united kingdom": {
+    "city": "Cotswold District",
+    "country": "United Kingdom",
+    "display_name": "Chipping Campden, Cotswold District, Gloucestershire, England, United Kingdom",
+    "latitude": "52.0496652",
+    "longitude": "-1.7813927",
+    "query": "Chipping Campden, Gloucestershire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-GLS",
+        "city": "Cotswold District",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Gloucestershire",
+        "state": "England",
+        "town": "Chipping Campden"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "52.0013592",
+        "52.0636470",
+        "-1.8390601",
+        "-1.7359113"
+      ],
+      "category": "boundary",
+      "display_name": "Chipping Campden, Cotswold District, Gloucestershire, England, United Kingdom",
+      "importance": 0.4368095154476993,
+      "lat": "52.0496652",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.7813927",
+      "name": "Chipping Campden",
+      "osm_id": 6083984,
+      "osm_type": "relation",
+      "place_id": 258359792,
+      "place_rank": 20,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "chipping campden, the cotswolds, england": {
     "query": "Chipping Campden, The Cotswolds, England",
     "status": "miss"
@@ -10322,6 +10809,10 @@
   },
   "christchurch priory church, christchurch, dorset, england": {
     "query": "Christchurch Priory Church, Christchurch, Dorset, England",
+    "status": "miss"
+  },
+  "christchurch priory, christchurch, dorset, united kingdom": {
+    "query": "Christchurch Priory, Christchurch, Dorset, United Kingdom",
     "status": "miss"
   },
   "christchurch priory, christchurch, england": {
@@ -10417,6 +10908,49 @@
     "query": "Christchurch, Dorset, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "christchurch, dorset, united kingdom": {
+    "city": "Christchurch",
+    "country": "United Kingdom",
+    "display_name": "Christchurch, Bournemouth, Christchurch and Poole, England, United Kingdom",
+    "latitude": "50.7651081",
+    "longitude": "-1.8145131",
+    "query": "Christchurch, Dorset, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BCP",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bournemouth, Christchurch and Poole",
+        "historic": "Christchurch",
+        "state": "England",
+        "town": "Christchurch"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "50.7205854",
+        "50.8096156",
+        "-1.8738931",
+        "-1.6816655"
+      ],
+      "category": "boundary",
+      "display_name": "Christchurch, Bournemouth, Christchurch and Poole, England, United Kingdom",
+      "importance": 0.48333689371115596,
+      "lat": "50.7651081",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.8145131",
+      "name": "Christchurch",
+      "osm_id": 130878,
+      "osm_type": "relation",
+      "place_id": 284383276,
+      "place_rank": 25,
+      "type": "historic"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "christchurch, england": {
     "city": "Hurn",
@@ -11242,6 +11776,38 @@
     "latitude": "50.9909081",
     "longitude": "-4.3998573",
     "query": "Clovelly, Devon, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-DEV",
+        "city": "Torridge District",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Devon",
+        "state": "England",
+        "state_district": "Devon and Torbay",
+        "suburb": "Clovelly"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "50.9669398",
+        "51.0148990",
+        "-4.4359901",
+        "-4.3643277"
+      ],
+      "category": "boundary",
+      "display_name": "Clovelly, Torridge District, Devon, Devon and Torbay, England, United Kingdom",
+      "importance": 0.4607434984208263,
+      "lat": "50.9909081",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-4.3998573",
+      "name": "Clovelly",
+      "osm_id": 4112020,
+      "osm_type": "relation",
+      "place_id": 285290297,
+      "place_rank": 20,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -12111,6 +12677,47 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "cornwall, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cornwall, England, United Kingdom",
+    "latitude": "50.4433489",
+    "longitude": "-4.6246566",
+    "query": "Cornwall, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-CON",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "peninsula": "Cornwall",
+        "state": "England"
+      },
+      "addresstype": "peninsula",
+      "boundingbox": [
+        "49.9554137",
+        "50.9312729",
+        "-5.7471061",
+        "-4.1649444"
+      ],
+      "category": "natural",
+      "display_name": "Cornwall, England, United Kingdom",
+      "importance": 0.6979834998866016,
+      "lat": "50.4433489",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-4.6246566",
+      "name": "Cornwall",
+      "osm_id": 57537,
+      "osm_type": "relation",
+      "place_id": 285884683,
+      "place_rank": 22,
+      "type": "peninsula"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "coronado, calif.": {
     "city": "Coronado",
     "country": "United States",
@@ -12241,10 +12848,46 @@
   "cotswolds, united kingdom": {
     "city": "Welwyn Hatfield",
     "country": "United Kingdom",
-    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welham Green, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
     "latitude": "51.7489426",
     "longitude": "-0.2303335",
     "query": "Cotswolds, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HRT",
+        "city": "Welwyn Hatfield",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hertfordshire",
+        "neighbourhood": "Hilltop",
+        "postcode": "AL10 8JR",
+        "road": "Cotswolds",
+        "state": "England",
+        "suburb": "South Hatfield",
+        "town": "Hatfield",
+        "village": "Welham Green"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.7489422",
+        "51.7489589",
+        "-0.2308589",
+        "-0.2298076"
+      ],
+      "category": "highway",
+      "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welham Green, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+      "importance": 0.0533882665751125,
+      "lat": "51.7489426",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.2303335",
+      "name": "Cotswolds",
+      "osm_id": 10880492,
+      "osm_type": "way",
+      "place_id": 280958707,
+      "place_rank": 26,
+      "type": "residential"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -12826,6 +13469,47 @@
     "source": "nominatim",
     "state": "England",
     "status": "ok"
+  },
+  "cumbria, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cumbria, England, United Kingdom",
+    "latitude": "54.6143136",
+    "longitude": "-2.9420899",
+    "query": "Cumbria, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl15": "GB-CMA",
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ceremonial": "Cumbria",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "England"
+      },
+      "addresstype": "ceremonial",
+      "boundingbox": [
+        "54.0396284",
+        "55.1889848",
+        "-3.6406213",
+        "-2.1589939"
+      ],
+      "category": "boundary",
+      "display_name": "Cumbria, England, United Kingdom",
+      "importance": 0.660459502553793,
+      "lat": "54.6143136",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.9420899",
+      "name": "Cumbria",
+      "osm_id": 88065,
+      "osm_type": "relation",
+      "place_id": 272642374,
+      "place_rank": 25,
+      "type": "ceremonial"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "cypress gardens, florida, usa": {
     "city": "Winter Haven",
@@ -13647,6 +14331,46 @@
     "status": "ok",
     "sublocation": ""
   },
+  "dorset, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Dorset, England, United Kingdom",
+    "latitude": "50.7968369",
+    "longitude": "-2.3447323",
+    "query": "Dorset, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ceremonial": "Dorset",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "England"
+      },
+      "addresstype": "ceremonial",
+      "boundingbox": [
+        "50.5127244",
+        "51.0809976",
+        "-2.9615945",
+        "-1.6816655"
+      ],
+      "category": "boundary",
+      "display_name": "Dorset, England, United Kingdom",
+      "importance": 0.6710191799067992,
+      "lat": "50.7968369",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.3447323",
+      "name": "Dorset",
+      "osm_id": 2698375,
+      "osm_type": "relation",
+      "place_id": 280620312,
+      "place_rank": 25,
+      "type": "ceremonial"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "dover": {
     "display_name": "Dover, Kent, England, United Kingdom",
     "latitude": "51.1251275",
@@ -13697,14 +14421,49 @@
   "dover castle, dover, united kingdom": {
     "city": "Dover",
     "country": "United Kingdom",
-    "display_name": "Dover Castle, Castle Hill Road, Clarendon, Dover, Kent, England, CT16 1QP, United Kingdom",
+    "display_name": "Dover Castle, Upper Road, Dover, Kent, England, CT16 1HP, United Kingdom",
     "latitude": "51.1289759",
     "longitude": "1.3228764",
     "query": "Dover Castle, Dover, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-KEN",
+        "city": "Dover",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Kent",
+        "postcode": "CT16 1HP",
+        "road": "Upper Road",
+        "state": "England",
+        "suburb": "Dover",
+        "tourism": "Dover Castle",
+        "town": "Dover"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.1260031",
+        "51.1317505",
+        "1.3191250",
+        "1.3263432"
+      ],
+      "category": "tourism",
+      "display_name": "Dover Castle, Upper Road, Dover, Kent, England, CT16 1HP, United Kingdom",
+      "importance": 0.4606858229136684,
+      "lat": "51.1289759",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "1.3228764",
+      "name": "Dover Castle",
+      "osm_id": 26658038,
+      "osm_type": "way",
+      "place_id": 101411428,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
-    "sublocation": "Castle Hill Road"
+    "sublocation": "Upper Road"
   },
   "dover castle, england": {
     "city": "Dover",
@@ -14575,6 +15334,47 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "edinburgh, scotland, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "City of Edinburgh, Scotland, United Kingdom",
+    "latitude": "55.9533456",
+    "longitude": "-3.1883749",
+    "query": "Edinburgh, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "Scotland"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "55.8187919",
+        "56.0040837",
+        "-3.4495326",
+        "-3.0749528"
+      ],
+      "category": "boundary",
+      "display_name": "City of Edinburgh, Scotland, United Kingdom",
+      "importance": 0.7363481185006193,
+      "lat": "55.9533456",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1883749",
+      "name": "City of Edinburgh",
+      "osm_id": 1920901,
+      "osm_type": "relation",
+      "place_id": 275600170,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": ""
+  },
   "edward vii memorial gates": {
     "query": "Edward VII Memorial Gates",
     "status": "miss"
@@ -14725,6 +15525,43 @@
     "latitude": "48.8582599",
     "longitude": "2.2945006",
     "query": "Eiffel Tower, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "city": "Paris",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "house_number": "5",
+        "man_made": "Eiffel Tower",
+        "postcode": "75007",
+        "quarter": "Quartier du Gros-Caillou",
+        "region": "Metropolitan France",
+        "road": "Avenue Anatole France",
+        "state": "Ile-de-France",
+        "suburb": "7th Arrondissement"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "48.8574753",
+        "48.8590453",
+        "2.2933119",
+        "2.2956897"
+      ],
+      "category": "man_made",
+      "display_name": "Eiffel Tower, 5, Avenue Anatole France, Quartier du Gros-Caillou, 7th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75007, France",
+      "importance": 0.6205937724353116,
+      "lat": "48.8582599",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.2945006",
+      "name": "Eiffel Tower",
+      "osm_id": 5013364,
+      "osm_type": "way",
+      "place_id": 97838275,
+      "place_rank": 30,
+      "type": "tower"
+    },
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok",
@@ -14831,9 +15668,44 @@
     "latitude": "52.3986555",
     "longitude": "0.2637479",
     "query": "Ely Cathedral, Ely, Cambridgeshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-CAM",
+        "amenity": "Ely Cathedral",
+        "city": "Ely",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Cambridgeshire",
+        "postcode": "CB7 4DL",
+        "road": "The College ('Oister Lane)",
+        "state": "England",
+        "state_district": "Cambridgeshire and Peterborough"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "52.3983631",
+        "52.3989539",
+        "0.2623828",
+        "0.2647489"
+      ],
+      "category": "amenity",
+      "display_name": "Ely Cathedral, The College ('Oister Lane), Ely, East Cambridgeshire, Cambridgeshire, Cambridgeshire and Peterborough, England, CB7 4DL, United Kingdom",
+      "importance": 0.4930696691257567,
+      "lat": "52.3986555",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "0.2637479",
+      "name": "Ely Cathedral",
+      "osm_id": 4311103,
+      "osm_type": "way",
+      "place_id": 159303695,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "England",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "The College ('Oister Lane)"
   },
   "ely cathedral, ely, england": {
     "city": "Ely",
@@ -14926,6 +15798,10 @@
   },
   "ely marina, cambridgeshire, england": {
     "query": "Ely Marina, Cambridgeshire, England",
+    "status": "miss"
+  },
+  "ely marina, cambridgeshire, united kingdom": {
+    "query": "Ely Marina, Cambridgeshire, United Kingdom",
     "status": "miss"
   },
   "ely marina, ely, cambridgeshire, england": {
@@ -16658,9 +17534,35 @@
     "latitude": "46.6033540",
     "longitude": "1.8883335",
     "query": "France",
+    "raw": {
+      "address": {
+        "country": "France",
+        "country_code": "fr"
+      },
+      "addresstype": "country",
+      "boundingbox": [
+        "-50.2187169",
+        "51.3055721",
+        "-178.3873749",
+        "172.3057152"
+      ],
+      "category": "boundary",
+      "display_name": "France",
+      "importance": 0.9781609870055644,
+      "lat": "46.6033540",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "1.8883335",
+      "name": "France",
+      "osm_id": 2202162,
+      "osm_type": "relation",
+      "place_id": 280382580,
+      "place_rank": 4,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "france (general), france": {
     "city": "Paris",
@@ -16672,6 +17574,50 @@
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok"
+  },
+  "france-switzerland border": {
+    "city": "Biel-Benken",
+    "country": "Switzerland",
+    "display_name": "Border Switzerland - France, Leymenstrasse, Biel-Benken, Bezirk Arlesheim, Basel-Landschaft, 4105, Switzerland",
+    "latitude": "47.5027088",
+    "longitude": "7.5110139",
+    "query": "France-Switzerland border",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CH-BL",
+        "building": "Border Switzerland - France",
+        "country": "Switzerland",
+        "country_code": "ch",
+        "county": "Bezirk Arlesheim",
+        "postcode": "4105",
+        "road": "Leymenstrasse",
+        "state": "Basel-Landschaft",
+        "village": "Biel-Benken"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "47.5026268",
+        "47.5027892",
+        "7.5108793",
+        "7.5111488"
+      ],
+      "category": "building",
+      "display_name": "Border Switzerland - France, Leymenstrasse, Biel-Benken, Bezirk Arlesheim, Basel-Landschaft, 4105, Switzerland",
+      "importance": 6.233234149686454e-05,
+      "lat": "47.5027088",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "7.5110139",
+      "name": "Border Switzerland - France",
+      "osm_id": 203671469,
+      "osm_type": "way",
+      "place_id": 93172044,
+      "place_rank": 30,
+      "type": "roof"
+    },
+    "source": "nominatim",
+    "state": "Basel-Landschaft",
+    "status": "ok",
+    "sublocation": "Leymenstrasse"
   },
   "franciscan monastery": {
     "city": "Nitra",
@@ -17222,12 +18168,45 @@
     "sublocation": ""
   },
   "giza, cairo, egypt": {
-    "display_name": "مساكن الجيزة, مدينة القطامية, القاهرة, 11936, مصر",
-    "latitude": "29.9768236",
-    "longitude": "31.4033464",
+    "city": "Cairo",
+    "country": "Egypt",
+    "display_name": "El Giza, Cairo, Egypt",
+    "latitude": "30.0158095",
+    "longitude": "31.3334560",
     "query": "Giza, Cairo, Egypt",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "EG-C",
+        "city": "Cairo",
+        "country": "Egypt",
+        "country_code": "eg",
+        "neighbourhood": "El Giza",
+        "state": "Cairo"
+      },
+      "addresstype": "neighbourhood",
+      "boundingbox": [
+        "30.0108258",
+        "30.0205623",
+        "31.3294271",
+        "31.3369694"
+      ],
+      "category": "place",
+      "display_name": "El Giza, Cairo, Egypt",
+      "importance": 0.08007960402838175,
+      "lat": "30.0158095",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "31.3334560",
+      "name": "El Giza",
+      "osm_id": 701014393,
+      "osm_type": "way",
+      "place_id": 50528605,
+      "place_rank": 24,
+      "type": "neighbourhood"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Cairo",
+    "status": "ok",
+    "sublocation": ""
   },
   "giza, egypt": {
     "city": "Giza",
@@ -17421,13 +18400,51 @@
   "glasgow museum, glasgow, scotland, united kingdom": {
     "city": "Glasgow",
     "country": "United Kingdom",
-    "display_name": "Glasgow Science Centre, 50, Pacific Quay, Stobcross, Cessnock, Glasgow, Glasgow City, Scotland, G51 1EA, United Kingdom",
+    "display_name": "Glasgow Science Centre, 50, Pacific Quay, Stobcross, Ibroxholm, Cessnock, Glasgow, Glasgow City, Scotland, G51 1EA, United Kingdom",
     "latitude": "55.8586952",
     "longitude": "-4.2944658",
     "query": "Glasgow Museum, Glasgow, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-GLG",
+        "city": "Glasgow",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Glasgow City",
+        "house_number": "50",
+        "neighbourhood": "Stobcross",
+        "postcode": "G51 1EA",
+        "quarter": "Ibroxholm",
+        "road": "Pacific Quay",
+        "state": "Scotland",
+        "suburb": "Cessnock",
+        "tourism": "Glasgow Science Centre"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "55.8582061",
+        "55.8591257",
+        "-4.2957029",
+        "-4.2933584"
+      ],
+      "category": "tourism",
+      "display_name": "Glasgow Science Centre, 50, Pacific Quay, Stobcross, Ibroxholm, Cessnock, Glasgow, Glasgow City, Scotland, G51 1EA, United Kingdom",
+      "importance": 0.34431618017923493,
+      "lat": "55.8586952",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-4.2944658",
+      "name": "Glasgow Science Centre",
+      "osm_id": 26565330,
+      "osm_type": "way",
+      "place_id": 276227525,
+      "place_rank": 30,
+      "type": "museum"
+    },
     "source": "nominatim",
     "state": "Scotland",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "50 Pacific Quay"
   },
   "glasgow museum, glasgow, united kingdom": {
     "city": "Glasgow",
@@ -17602,10 +18619,41 @@
   "glasgow, scotland, united kingdom": {
     "city": "Glasgow",
     "country": "United Kingdom",
-    "display_name": "Glasgow, Glasgow City, Scotland, G2 1AL, United Kingdom",
+    "display_name": "Glasgow, Glasgow City, Scotland, G2 1AR, United Kingdom",
     "latitude": "55.8611550",
     "longitude": "-4.2501687",
     "query": "Glasgow, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-GLG",
+        "city": "Glasgow",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Glasgow City",
+        "postcode": "G2 1AR",
+        "state": "Scotland"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "55.7011550",
+        "56.0211550",
+        "-4.4101687",
+        "-4.0901687"
+      ],
+      "category": "place",
+      "display_name": "Glasgow, Glasgow City, Scotland, G2 1AR, United Kingdom",
+      "importance": 0.7520825832994846,
+      "lat": "55.8611550",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-4.2501687",
+      "name": "Glasgow",
+      "osm_id": 11127374,
+      "osm_type": "node",
+      "place_id": 274606452,
+      "place_rank": 16,
+      "type": "city"
+    },
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok",
@@ -19784,6 +20832,51 @@
     "status": "ok",
     "sublocation": "High Street"
   },
+  "high street, oxford, united kingdom": {
+    "city": "Oxford",
+    "country": "United Kingdom",
+    "display_name": "High Street, East Oxford, Oxford, Oxfordshire, England, OX4 1DN, United Kingdom",
+    "latitude": "51.7504588",
+    "longitude": "-1.2448375",
+    "query": "High Street, Oxford, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-OXF",
+        "city": "Oxford",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Oxfordshire",
+        "postcode": "OX4 1DN",
+        "road": "High Street",
+        "state": "England",
+        "suburb": "East Oxford"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.7504191",
+        "51.7504953",
+        "-1.2449042",
+        "-1.2447725"
+      ],
+      "category": "highway",
+      "display_name": "High Street, East Oxford, Oxford, Oxfordshire, England, OX4 1DN, United Kingdom",
+      "importance": 0.2574973608523206,
+      "lat": "51.7504588",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.2448375",
+      "name": "High Street",
+      "osm_id": 977424105,
+      "osm_type": "way",
+      "place_id": 281315931,
+      "place_rank": 26,
+      "type": "tertiary"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "High Street"
+  },
   "high street-brentford": {
     "city": "Greater London",
     "country": "United Kingdom",
@@ -21138,14 +22231,49 @@
   "humber bridge, united kingdom": {
     "city": "Hessle",
     "country": "United Kingdom",
-    "display_name": "Humber Bridge, Cliff Road, Hessle Cliff, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0DF, United Kingdom",
+    "display_name": "Humber Bridge, A15, West Hill, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0EP, United Kingdom",
     "latitude": "53.7079675",
     "longitude": "-0.4501054",
     "query": "Humber Bridge, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-ERY",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "East Riding of Yorkshire",
+        "man_made": "Humber Bridge",
+        "neighbourhood": "West Hill",
+        "postcode": "HU13 0EP",
+        "road": "A15",
+        "state": "England",
+        "state_district": "Hull and East Yorkshire",
+        "town": "Hessle"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "53.6969089",
+        "53.7167827",
+        "-0.4511366",
+        "-0.4489237"
+      ],
+      "category": "man_made",
+      "display_name": "Humber Bridge, A15, West Hill, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0EP, United Kingdom",
+      "importance": 0.4810518668891806,
+      "lat": "53.7079675",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4501054",
+      "name": "Humber Bridge",
+      "osm_id": 353065606,
+      "osm_type": "way",
+      "place_id": 278512561,
+      "place_rank": 30,
+      "type": "bridge"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
-    "sublocation": "Cliff Road"
+    "sublocation": "A15"
   },
   "hungarian parliament building, buda castle hill, budapest, hungary": {
     "query": "Hungarian Parliament Building, Buda Castle Hill, Budapest, Hungary",
@@ -23415,10 +24543,44 @@
   "kenilworth castle, warwickshire, united kingdom": {
     "city": "Kenilworth",
     "country": "United Kingdom",
-    "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1NG, United Kingdom",
+    "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1ND, United Kingdom",
     "latitude": "52.3479445",
     "longitude": "-1.5924026",
     "query": "Kenilworth Castle, Warwickshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WAR",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Warwickshire",
+        "historic": "Kenilworth Castle",
+        "postcode": "CV8 1ND",
+        "road": "The Tiltyard",
+        "state": "England",
+        "suburb": "Castle Green",
+        "town": "Kenilworth"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "52.3471356",
+        "52.3487262",
+        "-1.5941644",
+        "-1.5906669"
+      ],
+      "category": "historic",
+      "display_name": "Kenilworth Castle, The Tiltyard, Castle Green, Kenilworth, Warwick, Warwickshire, England, CV8 1ND, United Kingdom",
+      "importance": 0.40893382561531794,
+      "lat": "52.3479445",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.5924026",
+      "name": "Kenilworth Castle",
+      "osm_id": 26003437,
+      "osm_type": "way",
+      "place_id": 277759658,
+      "place_rank": 30,
+      "type": "castle"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -23505,6 +24667,48 @@
     "query": "Kenilworth, Warwickshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "kenilworth, warwickshire, united kingdom": {
+    "city": "Kenilworth",
+    "country": "United Kingdom",
+    "display_name": "Kenilworth, Warwick, Warwickshire, England, United Kingdom",
+    "latitude": "52.3450526",
+    "longitude": "-1.5816028",
+    "query": "Kenilworth, Warwickshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WAR",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Warwickshire",
+        "state": "England",
+        "town": "Kenilworth"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "52.3229562",
+        "52.3734962",
+        "-1.6464783",
+        "-1.5312595"
+      ],
+      "category": "boundary",
+      "display_name": "Kenilworth, Warwick, Warwickshire, England, United Kingdom",
+      "importance": 0.4491022588632987,
+      "lat": "52.3450526",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.5816028",
+      "name": "Kenilworth",
+      "osm_id": 3383548,
+      "osm_type": "relation",
+      "place_id": 279679295,
+      "place_rank": 20,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "keswick - the lake district, england": {
     "query": "Keswick - The Lake District, England",
@@ -24182,12 +25386,44 @@
     "status": "miss"
   },
   "klagenfurt, austria": {
-    "display_name": "Klagenfurt am Wörthersee, Kärnten, Österreich",
+    "city": "Klagenfurt",
+    "country": "Austria",
+    "display_name": "Klagenfurt, Carinthia, Austria",
     "latitude": "46.6239430",
     "longitude": "14.3075976",
     "query": "Klagenfurt, Austria",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "AT-2",
+        "city": "Klagenfurt",
+        "country": "Austria",
+        "country_code": "at",
+        "state": "Carinthia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "46.5743838",
+        "46.7087065",
+        "14.2102806",
+        "14.4162580"
+      ],
+      "category": "boundary",
+      "display_name": "Klagenfurt, Carinthia, Austria",
+      "importance": 0.599755010289991,
+      "lat": "46.6239430",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "14.3075976",
+      "name": "Klagenfurt",
+      "osm_id": 105870,
+      "osm_type": "relation",
+      "place_id": 68904146,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Carinthia",
+    "status": "ok",
+    "sublocation": ""
   },
   "klagenfurt, own’s austria": {
     "query": "Klagenfurt, own’s Austria",
@@ -24992,6 +26228,35 @@
     "latitude": "38.8563024",
     "longitude": "-85.0351845",
     "query": "Lake Geneva, Switzerland",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Switzerland County",
+        "reservoir": "Lake Geneva",
+        "state": "Indiana"
+      },
+      "addresstype": "reservoir",
+      "boundingbox": [
+        "38.8540841",
+        "38.8585706",
+        "-85.0380423",
+        "-85.0305213"
+      ],
+      "category": "water",
+      "display_name": "Lake Geneva, Switzerland County, Indiana, United States",
+      "importance": 0.1333433333333333,
+      "lat": "38.8563024",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-85.0351845",
+      "name": "Lake Geneva",
+      "osm_id": 103900074,
+      "osm_type": "way",
+      "place_id": 339413040,
+      "place_rank": 20,
+      "type": "reservoir"
+    },
     "source": "nominatim",
     "state": "Indiana",
     "status": "ok",
@@ -25291,6 +26556,51 @@
   "lake windermere, the lake district, england": {
     "query": "Lake Windermere, The Lake District, England",
     "status": "miss"
+  },
+  "lake windermere, united kingdom": {
+    "city": "Ambleside",
+    "country": "United Kingdom",
+    "display_name": "Windermere Lake Cruises, The Esplanade, Waterhead, Lakes, Ambleside, Westmorland and Furness, England, LA22 0EY, United Kingdom",
+    "latitude": "54.4193631",
+    "longitude": "-2.9622227",
+    "query": "Lake Windermere, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "amenity": "Windermere Lake Cruises",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Westmorland and Furness",
+        "postcode": "LA22 0EY",
+        "road": "The Esplanade",
+        "state": "England",
+        "suburb": "Waterhead",
+        "town": "Ambleside"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "54.4192067",
+        "54.4196179",
+        "-2.9623366",
+        "-2.9620976"
+      ],
+      "category": "amenity",
+      "display_name": "Windermere Lake Cruises, The Esplanade, Waterhead, Lakes, Ambleside, Westmorland and Furness, England, LA22 0EY, United Kingdom",
+      "importance": 5.243076218809823e-05,
+      "lat": "54.4193631",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.9622227",
+      "name": "Windermere Lake Cruises",
+      "osm_id": 698103903,
+      "osm_type": "way",
+      "place_id": 276802812,
+      "place_rank": 30,
+      "type": "parking"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "The Esplanade"
   },
   "landmark, city, country": {
     "query": "Landmark, City, Country",
@@ -26313,9 +27623,39 @@
     "city": "Liverpool",
     "country": "United Kingdom",
     "display_name": "Liverpool, Liverpool City Region, England, United Kingdom",
-    "latitude": "53.4071991",
-    "longitude": "-2.9916800",
+    "latitude": "53.3933411",
+    "longitude": "-2.9166389",
     "query": "Liverpool, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-LIV",
+        "city": "Liverpool",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "England",
+        "state_district": "Liverpool City Region"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "53.3115427",
+        "53.4749885",
+        "-3.0191726",
+        "-2.8180003"
+      ],
+      "category": "boundary",
+      "display_name": "Liverpool, Liverpool City Region, England, United Kingdom",
+      "importance": 0.7297576262804647,
+      "lat": "53.3933411",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.9166389",
+      "name": "Liverpool",
+      "osm_id": 172987,
+      "osm_type": "relation",
+      "place_id": 277402667,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -26844,12 +28184,50 @@
     "sublocation": "Lodge Road"
   },
   "longleat, warminster, wiltshire, england": {
+    "city": "Warminster",
+    "country": "United Kingdom",
     "display_name": "Longleat Safari Park, Park Hill, Horningsham, Warminster, Wiltshire, England, BA12 7NW, United Kingdom",
     "latitude": "51.1913791",
     "longitude": "-2.2632858",
     "query": "Longleat, Warminster, Wiltshire, England",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WIL",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Wiltshire",
+        "postcode": "BA12 7NW",
+        "road": "Park Hill",
+        "state": "England",
+        "suburb": "Horningsham",
+        "tourism": "Longleat Safari Park",
+        "town": "Warminster"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.1867532",
+        "51.1965258",
+        "-2.2704747",
+        "-2.2528662"
+      ],
+      "category": "tourism",
+      "display_name": "Longleat Safari Park, Park Hill, Horningsham, Warminster, Wiltshire, England, BA12 7NW, United Kingdom",
+      "importance": 0.3359598069503246,
+      "lat": "51.1913791",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.2632858",
+      "name": "Longleat Safari Park",
+      "osm_id": 26690197,
+      "osm_type": "way",
+      "place_id": 282686208,
+      "place_rank": 30,
+      "type": "zoo"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Park Hill"
   },
   "longleat, warminster, wiltshire, united kingdom": {
     "city": "Warminster",
@@ -28742,6 +30120,51 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "medina, fez, morocco": {
+    "city": "Fez",
+    "country": "Morocco",
+    "display_name": "Medina, Fez, Morocco, Fez, Fez-Meknes, Morocco",
+    "latitude": "34.0631192",
+    "longitude": "-4.9737999",
+    "query": "Medina, Fez, Morocco",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "MA-03",
+        "ISO3166-2-lvl5": "MA-FES",
+        "city": "Fez",
+        "country": "Morocco",
+        "country_code": "ma",
+        "county": "Pachalik du Fes باشوية فاس",
+        "postcode": "30120",
+        "state": "Fez-Meknes",
+        "state_district": "Fez Prefecture",
+        "suburb": "Fès-Médina ⴼⴰⵙ-ⵎⴷⵉⵏⴰ فاس-المدينة"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "34.0431192",
+        "34.0831192",
+        "-4.9937999",
+        "-4.9537999"
+      ],
+      "category": "place",
+      "display_name": "Fès-Médina ⴼⴰⵙ-ⵎⴷⵉⵏⴰ فاس-المدينة, Arrondissement de Fès-Médina مقاطعة فاس المدينة, Fez, Pachalik du Fes باشوية فاس, Fez Prefecture, Fez-Meknes, 30120, Morocco",
+      "importance": 0.14673282749675742,
+      "lat": "34.0631192",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-4.9737999",
+      "name": "Fès-Médina ⴼⴰⵙ-ⵎⴷⵉⵏⴰ فاس-المدينة",
+      "osm_id": 2184888154,
+      "osm_type": "node",
+      "place_id": 295562824,
+      "place_rank": 19,
+      "type": "suburb"
+    },
+    "source": "nominatim",
+    "state": "Fez-Meknes",
+    "status": "ok",
+    "sublocation": ""
+  },
   "medina, morocco": {
     "display_name": "Medina ⵎⴷⵉⵏⴰ المدينة, Arrondissement de Marrakech-Medina مقاطعة مراكش المدينة, Marrakech ⵎⵕⵕⴰⴽⵯⵛ مراكش, Pachalik de Marrakech, Préfecture de Marrakech عمالة مراكش, Marrakech-Safi ⵎⵕⵕⴰⴽⵛ-ⴰⵙⴼⵉ مراكش-أسفي, 40030, Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
     "latitude": "31.6329766",
@@ -29531,9 +30954,39 @@
     "latitude": "46.4310831",
     "longitude": "6.9129921",
     "query": "Montreux, Switzerland",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CH-VD",
+        "country": "Switzerland",
+        "country_code": "ch",
+        "county": "District de la Riviera-Pays-d’Enhaut",
+        "state": "Vaud",
+        "town": "Montreux"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "46.4099984",
+        "46.4864423",
+        "6.8593315",
+        "6.9921162"
+      ],
+      "category": "boundary",
+      "display_name": "Montreux, District de la Riviera-Pays-d’Enhaut, Vaud, Switzerland",
+      "importance": 0.5924309854911062,
+      "lat": "46.4310831",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "6.9129921",
+      "name": "Montreux",
+      "osm_id": 1685062,
+      "osm_type": "relation",
+      "place_id": 91382174,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Vaud",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "montréal, canada": {
     "city": "Montreal",
@@ -29602,12 +31055,42 @@
     "status": "miss"
   },
   "morocco": {
-    "display_name": "Maroc ⵍⵎⵖⵔⵉⴱ المغرب",
+    "city": "",
+    "country": "Morocco",
+    "display_name": "Morocco",
     "latitude": "28.3347722",
     "longitude": "-10.3713379",
     "query": "Morocco",
+    "raw": {
+      "address": {
+        "claimed_administrative": "Morocco",
+        "country": "Morocco",
+        "country_code": "ma"
+      },
+      "addresstype": "claimed_administrative",
+      "boundingbox": [
+        "20.6672520",
+        "35.9965450",
+        "-17.3190239",
+        "-0.9984290"
+      ],
+      "category": "boundary",
+      "display_name": "Morocco",
+      "importance": 0.8210252489236585,
+      "lat": "28.3347722",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-10.3713379",
+      "name": "Morocco",
+      "osm_id": 13834513,
+      "osm_type": "relation",
+      "place_id": 297968087,
+      "place_rank": 25,
+      "type": "claimed_administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "morocco 1988": {
     "city": "Billings",
@@ -29779,12 +31262,46 @@
     "status": "ok"
   },
   "mostar, bosnia and herzegovina": {
-    "display_name": "Mostar, MZ Centar II, Grad Mostar, Hercegovačko-neretvanska županija (kanton), Federacija Bosne i Hercegovine, Bosna i Hercegovina / Босна и Херцеговина",
+    "city": "Mostar",
+    "country": "Bosnia and Herzegovina",
+    "display_name": "Mostar, Local community Centar II, City of Mostar, Herzegovina-Neretva Canton, Federation of Bosnia and Herzegovina, Bosnia and Herzegovina",
     "latitude": "43.3435855",
     "longitude": "17.8076584",
     "query": "Mostar, Bosnia and Herzegovina",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "BA-BIH",
+        "city": "Mostar",
+        "country": "Bosnia and Herzegovina",
+        "country_code": "ba",
+        "county": "City of Mostar",
+        "state": "Federation of Bosnia and Herzegovina",
+        "state_district": "Herzegovina-Neretva Canton"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "43.3111155",
+        "43.3677479",
+        "17.7789661",
+        "17.8379104"
+      ],
+      "category": "boundary",
+      "display_name": "Mostar, Local community Centar II, City of Mostar, Herzegovina-Neretva Canton, Federation of Bosnia and Herzegovina, Bosnia and Herzegovina",
+      "importance": 0.6198312183710227,
+      "lat": "43.3435855",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "17.8076584",
+      "name": "Mostar",
+      "osm_id": 8480923,
+      "osm_type": "relation",
+      "place_id": 51063123,
+      "place_rank": 18,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Federation of Bosnia and Herzegovina",
+    "status": "ok",
+    "sublocation": ""
   },
   "mostar, yugoslavia": {
     "query": "Mostar, Yugoslavia",
@@ -29801,6 +31318,55 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
+  },
+  "moulin rouge, paris, france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Moulin Rouge, Paris, France, Paris, Ile-de-France, France",
+    "latitude": "48.8841094",
+    "longitude": "2.3323564",
+    "query": "Moulin Rouge, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "amenity": "Moulin Rouge",
+        "city": "Paris",
+        "city_block": "Quartier des Grandes-Carrières",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "house_number": "82",
+        "postcode": "75018",
+        "region": "Metropolitan France",
+        "road": "Boulevard de Clichy",
+        "state": "Ile-de-France",
+        "suburb": "18th Arrondissement"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.8840594",
+        "48.8841594",
+        "2.3323064",
+        "2.3324064"
+      ],
+      "category": "amenity",
+      "display_name": "Moulin Rouge, 82, Boulevard de Clichy, Quartier des Grandes-Carrières, 18th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75018, France",
+      "importance": 0.5376141698617072,
+      "lat": "48.8841094",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3323564",
+      "name": "Moulin Rouge",
+      "osm_id": 252969214,
+      "osm_type": "node",
+      "place_id": 98242980,
+      "place_rank": 30,
+      "type": "theatre"
+    },
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok",
+    "sublocation": "82 Boulevard de Clichy"
   },
   "mount fuji, japan": {
     "city": "Oyama",
@@ -30012,6 +31578,48 @@
     "state": "Wales",
     "status": "ok"
   },
+  "nairobi, kenya": {
+    "city": "Nairobi",
+    "country": "Kenya",
+    "display_name": "Nairobi, Zimmerman, Soko ya Mawe, Nairobi County, Kenya",
+    "latitude": "-1.3023980",
+    "longitude": "36.8288509",
+    "query": "Nairobi, Kenya",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "KE-30",
+        "city": "Nairobi",
+        "country": "Kenya",
+        "country_code": "ke",
+        "county": "Soko ya Mawe",
+        "municipality": "Zimmerman",
+        "state": "Nairobi County"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "-1.4448822",
+        "-1.1606749",
+        "36.6647016",
+        "37.1048735"
+      ],
+      "category": "place",
+      "display_name": "Nairobi, Zimmerman, Soko ya Mawe, Nairobi County, Kenya",
+      "importance": 0.6767112080878018,
+      "lat": "-1.3023980",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "36.8288509",
+      "name": "Nairobi",
+      "osm_id": 9185096,
+      "osm_type": "relation",
+      "place_id": 38199347,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "Nairobi County",
+    "status": "ok",
+    "sublocation": ""
+  },
   "nara deer park, nara, japan": {
     "city": "Nara",
     "country": "Japan",
@@ -30168,6 +31776,53 @@
     "status": "ok",
     "sublocation": "581 Santa Fe"
   },
+  "national maritime museum, greenwich, london, united kingdom": {
+    "city": "Greater London",
+    "country": "United Kingdom",
+    "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
+    "latitude": "51.4807759",
+    "longitude": "-0.0051225",
+    "query": "National Maritime Museum, Greenwich, London, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-GRE",
+        "city": "Greater London",
+        "city_district": "Royal Borough of Greenwich",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "SE10 9NF",
+        "quarter": "Greenwich Town Centre",
+        "road": "Romney Road",
+        "state": "England",
+        "suburb": "East Greenwich",
+        "tourism": "National Maritime Museum"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.4801227",
+        "51.4814424",
+        "-0.0063736",
+        "-0.0044361"
+      ],
+      "category": "tourism",
+      "display_name": "National Maritime Museum, Romney Road, Greenwich Town Centre, East Greenwich, Royal Borough of Greenwich, Greater London, England, SE10 9NF, United Kingdom",
+      "importance": 0.5386575135197925,
+      "lat": "51.4807759",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.0051225",
+      "name": "National Maritime Museum",
+      "osm_id": 183090506,
+      "osm_type": "way",
+      "place_id": 277374078,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Romney Road"
+  },
   "national maritime museum, greenwich, united kingdom": {
     "city": "Greater London",
     "country": "United Kingdom",
@@ -30179,6 +31834,53 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Romney Road"
+  },
+  "national museum cardiff, cardiff, wales, united kingdom": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "National Museum Cardiff, Museum Avenue, Crockherbtown, Civic Centre, Castle, Cardiff, Wales, CF10 3NP, United Kingdom",
+    "latitude": "51.4859660",
+    "longitude": "-3.1776109",
+    "query": "National Museum Cardiff, Cardiff, Wales, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-WLS",
+        "ISO3166-2-lvl6": "GB-CRF",
+        "city": "Cardiff",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Cardiff",
+        "neighbourhood": "Crockherbtown",
+        "postcode": "CF10 3NP",
+        "road": "Museum Avenue",
+        "state": "Wales",
+        "suburb": "Civic Centre",
+        "tourism": "National Museum Cardiff"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.4853515",
+        "51.4865808",
+        "-3.1785413",
+        "-3.1766681"
+      ],
+      "category": "tourism",
+      "display_name": "National Museum Cardiff, Museum Avenue, Crockherbtown, Civic Centre, Castle, Cardiff, Wales, CF10 3NP, United Kingdom",
+      "importance": 0.4546455507749083,
+      "lat": "51.4859660",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1776109",
+      "name": "National Museum Cardiff",
+      "osm_id": 11230494,
+      "osm_type": "relation",
+      "place_id": 283008121,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Museum Avenue"
   },
   "national museum cardiff, wales, uk": {
     "city": "Cardiff",
@@ -31384,6 +33086,43 @@
     "latitude": "48.8529371",
     "longitude": "2.3500501",
     "query": "Notre Dame Cathedral, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "amenity": "Cathedral of Notre Dame",
+        "city": "Paris",
+        "city_block": "Quartier Les Îles",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "house_number": "6",
+        "postcode": "75004",
+        "region": "Metropolitan France",
+        "road": "Notre-Dame Forecourt - John Paul II Square",
+        "state": "Ile-de-France",
+        "suburb": "4th Arrondissement"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.8524230",
+        "48.8534513",
+        "2.3489587",
+        "2.3507815"
+      ],
+      "category": "amenity",
+      "display_name": "Cathedral of Notre Dame, 6, Notre-Dame Forecourt - John Paul II Square, Quartier Les Îles, 4th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75004, France",
+      "importance": 0.6112868730397327,
+      "lat": "48.8529371",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3500501",
+      "name": "Cathedral of Notre Dame",
+      "osm_id": 201611261,
+      "osm_type": "way",
+      "place_id": 98445714,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok",
@@ -31803,6 +33542,38 @@
     "latitude": "24.0823108",
     "longitude": "32.8877916",
     "query": "Old Cataract Hotel, Aswan, Egypt",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "EG-ASN",
+        "country": "Egypt",
+        "country_code": "eg",
+        "house_number": "81511",
+        "postcode": "81529",
+        "road": "Al Fanadq Street",
+        "state": "Aswan",
+        "tourism": "Sofitel Legend Old Cataract Aswan Hotel",
+        "town": "Taqouk Mountain"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "24.0815945",
+        "24.0830082",
+        "32.8876538",
+        "32.8887117"
+      ],
+      "category": "tourism",
+      "display_name": "Sofitel Legend Old Cataract Aswan Hotel, 81511, Al Fanadq Street, Taqouk Mountain, Aswan, 81529, Egypt",
+      "importance": 0.19619210675062,
+      "lat": "24.0823108",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "32.8877916",
+      "name": "Sofitel Legend Old Cataract Aswan Hotel",
+      "osm_id": 97885476,
+      "osm_type": "way",
+      "place_id": 52086570,
+      "place_rank": 30,
+      "type": "hotel"
+    },
     "source": "nominatim",
     "state": "Aswan",
     "status": "ok",
@@ -32666,21 +34437,90 @@
   "palace of holyroodhouse, edinburgh, scotland, united kingdom": {
     "city": "City of Edinburgh",
     "country": "United Kingdom",
-    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
     "longitude": "-3.1716130",
     "query": "Palace of Holyroodhouse, Edinburgh, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "historic": "Palace of Holyroodhouse",
+        "neighbourhood": "Holyrood",
+        "postcode": "EH8 8DX",
+        "road": "Canongate",
+        "state": "Scotland",
+        "suburb": "Abbeyhill"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "55.9523510",
+        "55.9530545",
+        "-3.1727373",
+        "-3.1713952"
+      ],
+      "category": "historic",
+      "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+      "importance": 0.5122173217277122,
+      "lat": "55.9526948",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1716130",
+      "name": "Palace of Holyroodhouse",
+      "osm_id": 16769442,
+      "osm_type": "relation",
+      "place_id": 274675187,
+      "place_rank": 30,
+      "type": "castle"
+    },
     "source": "nominatim",
     "state": "Scotland",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "Canongate"
   },
   "palace of holyroodhouse, edinburgh, united kingdom": {
     "city": "City of Edinburgh",
     "country": "United Kingdom",
-    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
     "longitude": "-3.1716130",
     "query": "Palace of Holyroodhouse, Edinburgh, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "neighbourhood": "Holyrood",
+        "postcode": "EH8 8DX",
+        "road": "Canongate",
+        "state": "Scotland",
+        "suburb": "Abbeyhill",
+        "tourism": "Palace of Holyroodhouse"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "55.9523510",
+        "55.9530545",
+        "-3.1727373",
+        "-3.1713952"
+      ],
+      "category": "tourism",
+      "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+      "importance": 0.5122173217277122,
+      "lat": "55.9526948",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1716130",
+      "name": "Palace of Holyroodhouse",
+      "osm_id": 16769442,
+      "osm_type": "relation",
+      "place_id": 277008624,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok",
@@ -32815,6 +34655,54 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Royal Staircase"
+  },
+  "palais garnier, paris, france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Palais Garnier, Paris, France, Paris, Ile-de-France, France",
+    "latitude": "48.8720949",
+    "longitude": "2.3323339",
+    "query": "Palais Garnier, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "amenity": "L'Opéra Restaurant",
+        "city": "Paris",
+        "city_block": "Quartier de la Chaussée-d'Antin",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "postcode": "75009",
+        "region": "Metropolitan France",
+        "road": "Place Jacques Rouché",
+        "state": "Ile-de-France",
+        "suburb": "9th Arrondissement"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.8720449",
+        "48.8721449",
+        "2.3322839",
+        "2.3323839"
+      ],
+      "category": "amenity",
+      "display_name": "L'Opéra Restaurant, Place Jacques Rouché, Quartier de la Chaussée-d'Antin, 9th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75009, France",
+      "importance": 0.2659205816262254,
+      "lat": "48.8720949",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3323339",
+      "name": "L'Opéra Restaurant",
+      "osm_id": 1393155090,
+      "osm_type": "node",
+      "place_id": 97781889,
+      "place_rank": 30,
+      "type": "restaurant"
+    },
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok",
+    "sublocation": "Place Jacques Rouché"
   },
   "palm springs": {
     "city": "Palm Springs",
@@ -35931,12 +37819,49 @@
     "status": "ok"
   },
   "prague, czechoslovakia": {
-    "display_name": "Former State Bank of Czechoslovakia, Staré zámecké schody, Malá Strana, obvod Praha 1, Praha, 118 01, Česko",
+    "city": "Prague",
+    "country": "Czechia",
+    "display_name": "Former State Bank of Czechoslovakia, Old Castle Stairs, Lesser Town, obvod Praha 1, Prague, 118 01, Czechia",
     "latitude": "50.0918742",
     "longitude": "14.4089231",
     "query": "Prague, Czechoslovakia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CZ-10",
+        "city": "Prague",
+        "city_district": "obvod Praha 1",
+        "country": "Czechia",
+        "country_code": "cz",
+        "historic": "Former State Bank of Czechoslovakia",
+        "postcode": "118 01",
+        "region": "Prague",
+        "road": "Old Castle Stairs",
+        "suburb": "Lesser Town"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "50.0918242",
+        "50.0919242",
+        "14.4088731",
+        "14.4089731"
+      ],
+      "category": "historic",
+      "display_name": "Former State Bank of Czechoslovakia, Old Castle Stairs, Lesser Town, obvod Praha 1, Prague, 118 01, Czechia",
+      "importance": 8.434958419160781e-05,
+      "lat": "50.0918742",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "14.4089231",
+      "name": "Former State Bank of Czechoslovakia",
+      "osm_id": 13078964617,
+      "osm_type": "node",
+      "place_id": 133240418,
+      "place_rank": 30,
+      "type": "monument"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "",
+    "status": "ok",
+    "sublocation": "Old Castle Stairs"
   },
   "prague, own czechoslovakia": {
     "query": "Prague, own Czechoslovakia",
@@ -36047,10 +37972,42 @@
   "preston, united kingdom": {
     "city": "Preston",
     "country": "United Kingdom",
-    "display_name": "Preston, Lancashire, England, United Kingdom",
+    "display_name": "Preston, Lancashire, England, PR1 2AR, United Kingdom",
     "latitude": "53.7593363",
     "longitude": "-2.6992717",
     "query": "Preston, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-LAN",
+        "city": "Preston",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Lancashire",
+        "postcode": "PR1 2AR",
+        "state": "England",
+        "state_district": "Lancashire"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "53.5993363",
+        "53.9193363",
+        "-2.8592717",
+        "-2.5392717"
+      ],
+      "category": "place",
+      "display_name": "Preston, Lancashire, England, PR1 2AR, United Kingdom",
+      "importance": 0.5990472226758173,
+      "lat": "53.7593363",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.6992717",
+      "name": "Preston",
+      "osm_id": 21436318,
+      "osm_type": "node",
+      "place_id": 275077977,
+      "place_rank": 16,
+      "type": "city"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -36106,13 +38063,47 @@
   "princes street, edinburgh, scotland, united kingdom": {
     "city": "City of Edinburgh",
     "country": "United Kingdom",
-    "display_name": "Princes Street, The Mound, Old Town, City of Edinburgh, Scotland, EH2 2ER, United Kingdom",
-    "latitude": "55.9517056",
-    "longitude": "-3.1981467",
+    "display_name": "Princes Street, Greenside, Broughton, New Town/Broughton, City of Edinburgh, Scotland, EH2 2AN, United Kingdom",
+    "latitude": "55.9531034",
+    "longitude": "-3.1905382",
     "query": "Princes Street, Edinburgh, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "neighbourhood": "Greenside",
+        "postcode": "EH2 2AN",
+        "road": "Princes Street",
+        "state": "Scotland",
+        "suburb": "Broughton"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "55.9529497",
+        "55.9532609",
+        "-3.1913909",
+        "-3.1896862"
+      ],
+      "category": "highway",
+      "display_name": "Princes Street, Greenside, Broughton, New Town/Broughton, City of Edinburgh, Scotland, EH2 2AN, United Kingdom",
+      "importance": 0.43087867614901804,
+      "lat": "55.9531034",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1905382",
+      "name": "Princes Street",
+      "osm_id": 42178342,
+      "osm_type": "way",
+      "place_id": 275894633,
+      "place_rank": 26,
+      "type": "tertiary"
+    },
     "source": "nominatim",
     "state": "Scotland",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "Princes Street"
   },
   "princes street, edinburgh, united kingdom": {
     "city": "City of Edinburgh",
@@ -37394,6 +39385,51 @@
     "query": "River Ouse (near Ely), Ely, Cambridgeshire, United Kingdom",
     "status": "miss"
   },
+  "river ouse, bedford, united kingdom": {
+    "city": "Bedford",
+    "country": "United Kingdom",
+    "display_name": "River Great Ouse, Castle, Bedford, England, MK42 0BU, United Kingdom",
+    "latitude": "52.1334502",
+    "longitude": "-0.4591818",
+    "query": "River Ouse, Bedford, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BDF",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bedford",
+        "postcode": "MK42 0BU",
+        "river": "River Great Ouse",
+        "state": "England",
+        "suburb": "Castle",
+        "town": "Bedford"
+      },
+      "addresstype": "river",
+      "boundingbox": [
+        "52.1332731",
+        "52.1338683",
+        "-0.4598726",
+        "-0.4581993"
+      ],
+      "category": "waterway",
+      "display_name": "River Great Ouse, Castle, Bedford, England, MK42 0BU, United Kingdom",
+      "importance": 0.14672779659723809,
+      "lat": "52.1334502",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4591818",
+      "name": "River Great Ouse",
+      "osm_id": 943626823,
+      "osm_type": "way",
+      "place_id": 279390922,
+      "place_rank": 19,
+      "type": "river"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "river ouse, ely, england": {
     "query": "River Ouse, Ely, England",
     "status": "miss"
@@ -38674,6 +40710,40 @@
     "latitude": "51.0676304",
     "longitude": "-1.7940766",
     "query": "Salisbury Mall, Salisbury, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WIL",
+        "city": "Salisbury",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Wiltshire",
+        "postcode": "SP1 2DD",
+        "road": "Old George Mall",
+        "shop": "Southons of Salisbury",
+        "state": "England",
+        "suburb": "The Friary"
+      },
+      "addresstype": "shop",
+      "boundingbox": [
+        "51.0675544",
+        "51.0677071",
+        "-1.7943683",
+        "-1.7938666"
+      ],
+      "category": "shop",
+      "display_name": "Southons of Salisbury, Old George Mall, The Friary, Salisbury, Wiltshire, England, SP1 2DD, United Kingdom",
+      "importance": 6.414206149381272e-05,
+      "lat": "51.0676304",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.7940766",
+      "name": "Southons of Salisbury",
+      "osm_id": 292059434,
+      "osm_type": "way",
+      "place_id": 281608508,
+      "place_rank": 30,
+      "type": "furniture"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -38686,6 +40756,10 @@
     "query": "Salisbury Mall, Salisbury, Wiltshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "salisbury mall, san marino, california, united states": {
+    "query": "Salisbury Mall, San Marino, California, United States",
+    "status": "miss"
   },
   "salisbury mall, the red lion hotel, salisbury playhouse, salisbury, england": {
     "query": "Salisbury Mall, The Red Lion Hotel, Salisbury Playhouse, Salisbury, England",
@@ -38809,6 +40883,36 @@
     "latitude": "51.0690613",
     "longitude": "-1.7954134",
     "query": "Salisbury, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WIL",
+        "city": "Salisbury",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Wiltshire",
+        "state": "England"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "51.0485324",
+        "51.1108629",
+        "-1.8502642",
+        "-1.7682073"
+      ],
+      "category": "boundary",
+      "display_name": "Salisbury, Wiltshire, England, United Kingdom",
+      "importance": 0.5920827336765123,
+      "lat": "51.0690613",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.7954134",
+      "name": "Salisbury",
+      "osm_id": 3404205,
+      "osm_type": "relation",
+      "place_id": 282134362,
+      "place_rank": 20,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -40021,6 +42125,49 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "sandringham, norfolk, united kingdom": {
+    "city": "King's Lynn and West Norfolk",
+    "country": "United Kingdom",
+    "display_name": "Sandringham, King's Lynn and West Norfolk, Norfolk, England, United Kingdom",
+    "latitude": "52.8427652",
+    "longitude": "0.4318137",
+    "query": "Sandringham, Norfolk, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-NFK",
+        "city": "King's Lynn and West Norfolk",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Norfolk",
+        "state": "England",
+        "suburb": "Sandringham"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "52.8007570",
+        "52.8848064",
+        "0.3754151",
+        "0.5636001"
+      ],
+      "category": "boundary",
+      "display_name": "Sandringham, King's Lynn and West Norfolk, Norfolk, England, United Kingdom",
+      "importance": 0.41006843495098233,
+      "lat": "52.8427652",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "0.4318137",
+      "name": "Sandringham",
+      "osm_id": 1022734,
+      "osm_type": "relation",
+      "place_id": 158683789,
+      "place_rank": 20,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "sandringham, united kingdom": {
     "city": "King's Lynn and West Norfolk",
     "country": "United Kingdom",
@@ -40303,12 +42450,45 @@
     "status": "miss"
   },
   "sarajevo, bosnia and herzegovina": {
-    "display_name": "Sarajevo, Mjesna zajednica Trg oslobođenja-Centar, Općina Centar, Grad Sarajevo, Kanton Sarajevo, Federacija Bosne i Hercegovine, 71000, Bosna i Hercegovina / Босна и Херцеговина",
+    "city": "City of Sarajevo",
+    "country": "Bosnia and Herzegovina",
+    "display_name": "City of Sarajevo, Sarajevo Canton, Federation of Bosnia and Herzegovina, Bosnia and Herzegovina",
     "latitude": "43.8570713",
     "longitude": "18.4126147",
     "query": "Sarajevo, Bosnia and Herzegovina",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "BA-BIH",
+        "city": "City of Sarajevo",
+        "country": "Bosnia and Herzegovina",
+        "country_code": "ba",
+        "state": "Federation of Bosnia and Herzegovina",
+        "state_district": "Sarajevo Canton"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "43.8209096",
+        "43.9667730",
+        "18.2494674",
+        "18.5171652"
+      ],
+      "category": "boundary",
+      "display_name": "City of Sarajevo, Sarajevo Canton, Federation of Bosnia and Herzegovina, Bosnia and Herzegovina",
+      "importance": 0.7080723092439953,
+      "lat": "43.8570713",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "18.4126147",
+      "name": "City of Sarajevo",
+      "osm_id": 2567380,
+      "osm_type": "relation",
+      "place_id": 57262992,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Federation of Bosnia and Herzegovina",
+    "status": "ok",
+    "sublocation": ""
   },
   "sarajevo, bosnia and herzegovina; mostar, bosnia and herzegovina": {
     "display_name": "Sarajevo osiguranje, Maršala Tita, Carina, Mostar, Grad Mostar, Hercegovačko-neretvanska županija (kanton), Federacija Bosne i Hercegovine, 88000, Bosna i Hercegovina / Босна и Херцеговина",
@@ -40459,6 +42639,50 @@
     "query": "Scarborough, North Yorkshire, UK",
     "source": "nominatim",
     "status": "ok"
+  },
+  "scarborough, north yorkshire, united kingdom": {
+    "city": "Scarborough",
+    "country": "United Kingdom",
+    "display_name": "Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1LP, United Kingdom",
+    "latitude": "54.2820009",
+    "longitude": "-0.4011868",
+    "query": "Scarborough, North Yorkshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-NYK",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "North Yorkshire",
+        "postcode": "YO11 1LP",
+        "state": "England",
+        "state_district": "York and North Yorkshire",
+        "town": "Scarborough"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "54.2420009",
+        "54.3220009",
+        "-0.4411868",
+        "-0.3611868"
+      ],
+      "category": "place",
+      "display_name": "Scarborough, North Yorkshire, York and North Yorkshire, England, YO11 1LP, United Kingdom",
+      "importance": 0.5580047666337923,
+      "lat": "54.2820009",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4011868",
+      "name": "Scarborough",
+      "osm_id": 20629613,
+      "osm_type": "node",
+      "place_id": 275171381,
+      "place_rank": 18,
+      "type": "town"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "scarborough, united kingdom": {
     "city": "Scarborough",
@@ -40731,6 +42955,40 @@
     "latitude": "48.8622608",
     "longitude": "2.3235032",
     "query": "Seine River, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "city": "Paris",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "postcode": "75001",
+        "region": "Metropolitan France",
+        "river": "La Seine",
+        "state": "Ile-de-France",
+        "suburb": "7th Arrondissement"
+      },
+      "addresstype": "river",
+      "boundingbox": [
+        "48.8614751",
+        "48.8630569",
+        "2.3209018",
+        "2.3261078"
+      ],
+      "category": "waterway",
+      "display_name": "La Seine, 7th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75001, France",
+      "importance": 0.14675983901731895,
+      "lat": "48.8622608",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3235032",
+      "name": "La Seine",
+      "osm_id": 164034916,
+      "osm_type": "way",
+      "place_id": 98014557,
+      "place_rank": 19,
+      "type": "river"
+    },
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok",
@@ -42155,6 +44413,10 @@
   },
   "st george's church, brentford, england": {
     "query": "St George's Church, Brentford, England",
+    "status": "miss"
+  },
+  "st george's hall, lime street, liverpool, united kingdom": {
+    "query": "St George's Hall, Lime Street, Liverpool, United Kingdom",
     "status": "miss"
   },
   "st george's hall, liverpool, united kingdom": {
@@ -44327,9 +46589,41 @@
     "latitude": "52.1927803",
     "longitude": "-1.7063400",
     "query": "Stratford-upon-Avon, Warwickshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WAR",
+        "city": "Stratford-on-Avon",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Warwickshire",
+        "state": "England",
+        "town": "Stratford-upon-Avon"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "52.1625733",
+        "52.2272728",
+        "-1.7862978",
+        "-1.6385890"
+      ],
+      "category": "boundary",
+      "display_name": "Stratford-upon-Avon, Stratford-on-Avon, Warwickshire, England, United Kingdom",
+      "importance": 0.5593743167633474,
+      "lat": "52.1927803",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.7063400",
+      "name": "Stratford-upon-Avon",
+      "osm_id": 3558037,
+      "osm_type": "relation",
+      "place_id": 279169240,
+      "place_rank": 20,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "England",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "street in dover": {
     "city": "Dover",
@@ -44941,6 +47235,49 @@
     "query": "Tangermed, Morocco",
     "status": "miss"
   },
+  "tangier, morocco": {
+    "city": "Tangier",
+    "country": "Morocco",
+    "display_name": "Tangier, Morocco, Tangier, Tangier-Tetouan-Al Hoceima, Morocco",
+    "latitude": "35.7696302",
+    "longitude": "-5.8033522",
+    "query": "Tangier, Morocco",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "MA-01",
+        "ISO3166-2-lvl5": "MA-TNG",
+        "city": "Tangier",
+        "country": "Morocco",
+        "country_code": "ma",
+        "county": "Pachalik de Tanger باشوية طنجة",
+        "state": "Tangier-Tetouan-Al Hoceima",
+        "state_district": "Prefecture of Tangier - Assilah"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "35.6995621",
+        "35.8259979",
+        "-5.9484121",
+        "-5.7135397"
+      ],
+      "category": "boundary",
+      "display_name": "Tangier, Pachalik de Tanger باشوية طنجة, Prefecture of Tangier - Assilah, Tangier-Tetouan-Al Hoceima, Morocco",
+      "importance": 0.6320562358110366,
+      "lat": "35.7696302",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-5.8033522",
+      "name": "Tangier",
+      "osm_id": 2758781,
+      "osm_type": "relation",
+      "place_id": 398771764,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Tangier-Tetouan-Al Hoceima",
+    "status": "ok",
+    "sublocation": ""
+  },
   "tarabia fisherman village on the bosphorus": {
     "query": "Tarabia Fisherman Village on the Bosphorus",
     "status": "miss"
@@ -44976,6 +47313,38 @@
     "latitude": "25.7372398",
     "longitude": "32.6086902",
     "query": "Temple of Hatshepsut, Egypt",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "EG-LX",
+        "country": "Egypt",
+        "country_code": "eg",
+        "hamlet": "Sheikh Abd el-Qurna",
+        "information": "Temple of Hatshepsut",
+        "postcode": "85958",
+        "road": "Maabad Hatshebsout Road",
+        "state": "Luxor",
+        "village": "New Al Qarnh City"
+      },
+      "addresstype": "information",
+      "boundingbox": [
+        "25.7371898",
+        "25.7372898",
+        "32.6086402",
+        "32.6087402"
+      ],
+      "category": "information",
+      "display_name": "Temple of Hatshepsut, Maabad Hatshebsout Road, Sheikh Abd el-Qurna, New Al Qarnh City, Luxor, 85958, Egypt",
+      "importance": 6.485465781638845e-05,
+      "lat": "25.7372398",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "32.6086902",
+      "name": "Temple of Hatshepsut",
+      "osm_id": 13467775876,
+      "osm_type": "node",
+      "place_id": 47079445,
+      "place_rank": 30,
+      "type": "board"
+    },
     "source": "nominatim",
     "state": "Luxor",
     "status": "ok",
@@ -47452,6 +49821,40 @@
     "latitude": "51.3872718",
     "longitude": "-2.3682297",
     "query": "The Royal Crescent, Bath, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BAS",
+        "city": "Bath",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bath and North East Somerset",
+        "postcode": "BA1 2LS",
+        "road": "Royal Crescent",
+        "state": "England",
+        "state_district": "West of England",
+        "suburb": "Kingsmead"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.3864321",
+        "51.3872955",
+        "-2.3699833",
+        "-2.3667945"
+      ],
+      "category": "highway",
+      "display_name": "Royal Crescent, Kingsmead, Bath, Bath and North East Somerset, West of England, England, BA1 2LS, United Kingdom",
+      "importance": 0.35782926338984733,
+      "lat": "51.3872718",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.3682297",
+      "name": "Royal Crescent",
+      "osm_id": 3098992,
+      "osm_type": "way",
+      "place_id": 283055178,
+      "place_rank": 26,
+      "type": "residential"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -47492,6 +49895,52 @@
     "latitude": "55.9523603",
     "longitude": "-3.1932563",
     "query": "The Scott Monument, Edinburgh, Scotland",
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Princes Street"
+  },
+  "the scott monument, edinburgh, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Scott Monument, Princes Street, The Mound, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH2 2DQ, United Kingdom",
+    "latitude": "55.9523603",
+    "longitude": "-3.1932563",
+    "query": "The Scott Monument, Edinburgh, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "man_made": "Scott Monument",
+        "neighbourhood": "The Mound",
+        "postcode": "EH2 2DQ",
+        "road": "Princes Street",
+        "state": "Scotland",
+        "suburb": "Abbeyhill"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "55.9522682",
+        "55.9524535",
+        "-3.1934226",
+        "-3.1930920"
+      ],
+      "category": "man_made",
+      "display_name": "Scott Monument, Princes Street, The Mound, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH2 2DQ, United Kingdom",
+      "importance": 0.39416088441914005,
+      "lat": "55.9523603",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1932563",
+      "name": "Scott Monument",
+      "osm_id": 39044819,
+      "osm_type": "way",
+      "place_id": 274673490,
+      "place_rank": 30,
+      "type": "tower"
+    },
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok",
@@ -49365,6 +51814,40 @@
     "latitude": "51.5615216",
     "longitude": "-3.0283389",
     "query": "Tredegar House, Newport, Wales, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-WLS",
+        "ISO3166-2-lvl6": "GB-NWP",
+        "city": "Newport",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Newport",
+        "postcode": "NP10 8YW",
+        "road": "Pencarn Way",
+        "state": "Wales",
+        "suburb": "Duffryn",
+        "tourism": "Tredegar House"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.5612199",
+        "51.5618253",
+        "-3.0285656",
+        "-3.0275894"
+      ],
+      "category": "tourism",
+      "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Wales, NP10 8YW, United Kingdom",
+      "importance": 0.37526729549138227,
+      "lat": "51.5615216",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.0283389",
+      "name": "Tredegar House",
+      "osm_id": 1963832,
+      "osm_type": "relation",
+      "place_id": 282463149,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "Wales",
     "status": "ok",
@@ -50302,12 +52785,46 @@
     "sublocation": ""
   },
   "valley of the kings, luxor, egypt": {
-    "display_name": "وادي الملوك, مدينه القرنة الجديدة, الأقصر, مصر",
+    "city": "New Al Qarnh City",
+    "country": "Egypt",
+    "display_name": "Valley of the Kings, Sheikh Abd el-Qurna, New Al Qarnh City, Luxor, Egypt",
     "latitude": "25.7404899",
     "longitude": "32.6017581",
     "query": "Valley of the Kings, Luxor, Egypt",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "EG-LX",
+        "country": "Egypt",
+        "country_code": "eg",
+        "hamlet": "Sheikh Abd el-Qurna",
+        "scree": "Valley of the Kings",
+        "state": "Luxor",
+        "village": "New Al Qarnh City"
+      },
+      "addresstype": "scree",
+      "boundingbox": [
+        "25.7376593",
+        "25.7428492",
+        "32.5985238",
+        "32.6042618"
+      ],
+      "category": "natural",
+      "display_name": "Valley of the Kings, Sheikh Abd el-Qurna, New Al Qarnh City, Luxor, Egypt",
+      "importance": 0.5679769586436756,
+      "lat": "25.7404899",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "32.6017581",
+      "name": "Valley of the Kings",
+      "osm_id": 115773400,
+      "osm_type": "way",
+      "place_id": 47553991,
+      "place_rank": 22,
+      "type": "scree"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Luxor",
+    "status": "ok",
+    "sublocation": ""
   },
   "valley of the kings, thebes, egypt": {
     "query": "Valley of the Kings, Thebes, Egypt",
@@ -52940,6 +55457,52 @@
     "status": "ok",
     "sublocation": "Cathedral Close"
   },
+  "winchester cathedral, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Winchester Cathedral, Cathedral Close, The Close, Winchester, Hampshire, England, SO23 9LS, United Kingdom",
+    "latitude": "51.0607326",
+    "longitude": "-1.3132458",
+    "query": "Winchester Cathedral, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HAM",
+        "amenity": "Winchester Cathedral",
+        "city": "Winchester",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hampshire",
+        "postcode": "SO23 9LS",
+        "road": "Cathedral Close",
+        "state": "England",
+        "suburb": "The Close"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "51.0603273",
+        "51.0610836",
+        "-1.3144609",
+        "-1.3120999"
+      ],
+      "category": "amenity",
+      "display_name": "Winchester Cathedral, Cathedral Close, The Close, Winchester, Hampshire, England, SO23 9LS, United Kingdom",
+      "importance": 0.5088207551122071,
+      "lat": "51.0607326",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.3132458",
+      "name": "Winchester Cathedral",
+      "osm_id": 41766672,
+      "osm_type": "way",
+      "place_id": 282057771,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Cathedral Close"
+  },
   "winchester cathedral, winchester, england": {
     "city": "Winchester",
     "country": "United Kingdom",
@@ -52979,6 +55542,40 @@
     "latitude": "51.0607326",
     "longitude": "-1.3132458",
     "query": "Winchester Cathedral, Winchester, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HAM",
+        "amenity": "Winchester Cathedral",
+        "city": "Winchester",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hampshire",
+        "postcode": "SO23 9LS",
+        "road": "Cathedral Close",
+        "state": "England",
+        "suburb": "The Close"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "51.0603273",
+        "51.0610836",
+        "-1.3144609",
+        "-1.3120999"
+      ],
+      "category": "amenity",
+      "display_name": "Winchester Cathedral, Cathedral Close, The Close, Winchester, Hampshire, England, SO23 9LS, United Kingdom",
+      "importance": 0.5088207551122071,
+      "lat": "51.0607326",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.3132458",
+      "name": "Winchester Cathedral",
+      "osm_id": 41766672,
+      "osm_type": "way",
+      "place_id": 279466368,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -53107,6 +55704,49 @@
     "status": "ok",
     "sublocation": ""
   },
+  "winchester, england, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Winchester, Hampshire, England, SO23 9LF, United Kingdom",
+    "latitude": "51.0612766",
+    "longitude": "-1.3131692",
+    "query": "Winchester, England, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HAM",
+        "city": "Winchester",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hampshire",
+        "postcode": "SO23 9LF",
+        "state": "England"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "50.9012766",
+        "51.2212766",
+        "-1.4731692",
+        "-1.1531692"
+      ],
+      "category": "place",
+      "display_name": "Winchester, Hampshire, England, SO23 9LF, United Kingdom",
+      "importance": 0.6001335096757001,
+      "lat": "51.0612766",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.3131692",
+      "name": "Winchester",
+      "osm_id": 1610961669,
+      "osm_type": "node",
+      "place_id": 281696700,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "winchester, hampshire, england": {
     "display_name": "Winchester, Hampshire, England, United Kingdom",
     "latitude": "51.0612766",
@@ -53114,6 +55754,49 @@
     "query": "Winchester, Hampshire, England",
     "source": "nominatim",
     "status": "ok"
+  },
+  "winchester, united kingdom": {
+    "city": "Winchester",
+    "country": "United Kingdom",
+    "display_name": "Winchester, Hampshire, England, SO23 9LF, United Kingdom",
+    "latitude": "51.0612766",
+    "longitude": "-1.3131692",
+    "query": "Winchester, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HAM",
+        "city": "Winchester",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hampshire",
+        "postcode": "SO23 9LF",
+        "state": "England"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "50.9012766",
+        "51.2212766",
+        "-1.4731692",
+        "-1.1531692"
+      ],
+      "category": "place",
+      "display_name": "Winchester, Hampshire, England, SO23 9LF, United Kingdom",
+      "importance": 0.6001335096757001,
+      "lat": "51.0612766",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.3131692",
+      "name": "Winchester",
+      "osm_id": 1610961669,
+      "osm_type": "node",
+      "place_id": 281012189,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "windermere": {
     "city": "Windermere",
@@ -53153,6 +55836,10 @@
   },
   "windmills on highway 5, just south of san francisco, california, united states": {
     "query": "Windmills on Highway 5, just south of San Francisco, California, United States",
+    "status": "miss"
+  },
+  "windsor castle, berkshire, united kingdom": {
+    "query": "Windsor Castle, Berkshire, United Kingdom",
     "status": "miss"
   },
   "windsor castle, england": {
@@ -53510,6 +56197,48 @@
       "osm_id": 1875341,
       "osm_type": "relation",
       "place_id": 276597584,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "worcester, united kingdom": {
+    "city": "Worcester",
+    "country": "United Kingdom",
+    "display_name": "Worcester, Worcestershire, England, United Kingdom",
+    "latitude": "52.1965281",
+    "longitude": "-2.2095608",
+    "query": "Worcester, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WOR",
+        "city": "Worcester",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Worcestershire",
+        "state": "England"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "52.1616361",
+        "52.2313920",
+        "-2.2632087",
+        "-2.1573039"
+      ],
+      "category": "boundary",
+      "display_name": "Worcester, Worcestershire, England, United Kingdom",
+      "importance": 0.5888622163959537,
+      "lat": "52.1965281",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.2095608",
+      "name": "Worcester",
+      "osm_id": 1875341,
+      "osm_type": "relation",
+      "place_id": 276222435,
       "place_rank": 16,
       "type": "administrative"
     },

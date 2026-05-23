@@ -14,7 +14,7 @@ DEFAULT_DOCLING_PRESET = "granite_docling"
 DEFAULT_DOCLING_BACKEND = "auto_inline"
 DEFAULT_DOCLING_DEVICE = "auto"
 DEFAULT_DOCLING_RETRIES = 3
-AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "ai_models.toml"
+AI_MODEL_SETTINGS_PATH = Path(__file__).resolve().parents[2] / "imago.toml"
 
 
 def _normalize_model_value(value: Any) -> str:

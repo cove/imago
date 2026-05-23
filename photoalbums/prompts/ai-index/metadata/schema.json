@@ -9,13 +9,17 @@
           "photo_number": {"type": "integer"},
           "location": {"type": "string"},
           "location_name": {"type": "string"},
+          "location_write_action": {"type": "string", "enum": ["auto_write", "review", "none"]},
+          "location_evidence": {"type": "string"},
           "est_date": {"type": "string"},
+          "est_date_write_action": {"type": "string", "enum": ["auto_write", "review", "none"]},
+          "est_date_evidence": {"type": "string"},
           "scene_ocr": {"type": "string"},
           "caption": {"type": "string"},
           "corrected_caption": {"type": "string"},
           "people_count": {"type": "integer"}
         },
-        "required": ["photo_number", "location", "location_name", "est_date", "scene_ocr", "caption", "corrected_caption", "people_count"],
+        "required": ["photo_number", "location", "location_name", "location_write_action", "location_evidence", "est_date", "est_date_write_action", "est_date_evidence", "scene_ocr", "caption", "corrected_caption", "people_count"],
         "additionalProperties": false
       }
     }

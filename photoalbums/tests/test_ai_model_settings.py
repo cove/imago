@@ -21,7 +21,7 @@ class TestAIModelSettings(unittest.TestCase):
 
     def test_load_ai_model_settings_reads_model_aliases_and_selected_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.toml"
+            path = Path(tmp) / "imago.toml"
             path.write_text(
                 textwrap.dedent(
                     """
@@ -102,7 +102,7 @@ class TestAIModelSettings(unittest.TestCase):
 
     def test_load_ai_model_settings_rejects_selected_alias_not_in_models(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.toml"
+            path = Path(tmp) / "imago.toml"
             path.write_text(
                 textwrap.dedent(
                     """
@@ -125,7 +125,7 @@ class TestAIModelSettings(unittest.TestCase):
 
     def test_load_ai_model_settings_requires_models_object(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.toml"
+            path = Path(tmp) / "imago.toml"
             path.write_text(
                 textwrap.dedent(
                     """
@@ -145,7 +145,7 @@ class TestAIModelSettings(unittest.TestCase):
 
     def test_load_ai_model_settings_defaults_lmstudio_base_url_when_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.toml"
+            path = Path(tmp) / "imago.toml"
             path.write_text(
                 textwrap.dedent(
                     """
@@ -167,7 +167,7 @@ class TestAIModelSettings(unittest.TestCase):
 
     def test_load_ai_model_settings_allows_direct_view_region_model_identifier(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "ai_models.toml"
+            path = Path(tmp) / "imago.toml"
             path.write_text(
                 textwrap.dedent(
                     """

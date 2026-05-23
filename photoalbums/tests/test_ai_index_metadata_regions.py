@@ -20,7 +20,12 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib.ai_index_analysis import _metadata_photo_payload, _update_region_captions_from_metadata
+from photoalbums.lib.ai_index_analysis import (
+    _metadata_photo_payload,
+    _metadata_step_update_state,
+    _update_region_captions_from_metadata,
+)
+from photoalbums.lib.ai_metadata import MetadataPhotoResult, MetadataResult
 from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
 from photoalbums.lib.xmp_sidecar import read_region_list, write_region_list
 
@@ -568,6 +573,24 @@ class TestMetadataResponseParsing(unittest.TestCase):
         result = _parse_metadata_response(raw)
         self.assertEqual(result.photos[0].corrected_caption, "Karnten, Austria")
 
+    def test_parse_metadata_response_reads_write_policy_fields(self):
+        from photoalbums.lib.ai_metadata import _parse_metadata_response
+
+        raw = (
+            '{"photos": [{"photo_number": 1, "location": "", '
+            '"location_name": "", "location_write_action": "review", '
+            '"location_evidence": "same clothes as nearby identified photo", '
+            '"est_date": "1977", "est_date_write_action": "auto_write", '
+            '"est_date_evidence": "album title", "scene_ocr": "", '
+            '"caption": "Jim-Miriam-Donald", "corrected_caption": "", '
+            '"people_count": 3}]}'
+        )
+        result = _parse_metadata_response(raw)
+        self.assertEqual(result.photos[0].location_write_action, "review")
+        self.assertEqual(result.photos[0].location_evidence, "same clothes as nearby identified photo")
+        self.assertEqual(result.photos[0].est_date_write_action, "auto_write")
+        self.assertEqual(result.photos[0].est_date_evidence, "album title")
+
     def test_request_payload_disables_thinking(self):
         """The metadata engine sends chat_template_kwargs.enable_thinking=false
         so thinking-capable templates skip emitting reasoning."""
@@ -609,7 +632,7 @@ class TestMetadataResponseParsing(unittest.TestCase):
         )
 
         self.assertIn("Location Signatures", family_prompt)
-        self.assertIn("San Marino, California, United States", family_prompt)
+        self.assertIn("2240 Lorain Rd, San Marino, CA 91108, United States", family_prompt)
         self.assertIn("classic off-white tapered drum lampshade", family_prompt)
         self.assertNotIn("Location Signatures", travel_prompt)
 
@@ -635,6 +658,77 @@ class TestPerPhotoMetadataOnRegions(unittest.TestCase):
             self.assertEqual(regions[0]["photo_est_date"], "1989-03")
             self.assertEqual(regions[1]["photo_location"], "Victoria, B.C., Canada")
             self.assertEqual(regions[1]["photo_est_date"], "1989-04")
+
+    def test_review_only_location_and_date_write_empty_region_sentinels(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "page.jpg"
+            _make_minimal_jpeg(image)
+            xmp_path = _seed_regions_xmp(image, count=1)
+
+            photos = [
+                {
+                    "photo_number": 1,
+                    "caption": "Jim-Miriam-Donald",
+                    "location": "San Marino, California, United States",
+                    "location_write_action": "review",
+                    "est_date": "1977",
+                    "est_date_write_action": "review",
+                }
+            ]
+            _update_region_captions_from_metadata(image, photos)
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual(regions[0]["photo_location"], "")
+            self.assertEqual(regions[0]["photo_est_date"], "")
+
+    def test_metadata_step_locations_shown_contains_auto_write_page_union(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "page.jpg"
+            _make_minimal_jpeg(image)
+            _seed_regions_xmp(image, count=3)
+            state = {}
+            result = MetadataResult(
+                photos=[
+                    MetadataPhotoResult(
+                        photo_number=1,
+                        location="2240 Lorain Rd, San Marino, CA 91108, United States",
+                        location_name="",
+                        location_write_action="auto_write",
+                        caption="San Marino",
+                    ),
+                    MetadataPhotoResult(
+                        photo_number=2,
+                        location="Berkeley, California, United States",
+                        location_name="",
+                        location_write_action="auto_write",
+                        caption="Berkeley",
+                    ),
+                    MetadataPhotoResult(
+                        photo_number=3,
+                        location="Altadena, California, United States",
+                        location_name="",
+                        location_write_action="review",
+                        caption="maybe Altadena",
+                    ),
+                ]
+            )
+
+            _metadata_step_update_state(
+                result,
+                state=state,
+                image_path=image,
+                caption_source_path=None,
+                geocoder=None,
+                geocode_recorder=None,
+            )
+
+            self.assertEqual(
+                [location["name"] for location in state["locations_shown"]],
+                [
+                    "2240 Lorain Rd, San Marino, CA 91108, United States",
+                    "Berkeley, California, United States",
+                ],
+            )
 
     def test_photo_location_round_trips_through_xmp(self):
         """photo_location survives write_region_list → read_region_list."""
