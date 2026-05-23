@@ -354,7 +354,9 @@
       "Bash(Select-String \"Family_1985\")",
       "Bash(.venv/Scripts/python.exe -m pytest photoalbums/tests/test_scanwatch.py photoalbums/tests/test_incoming_scans_watcher.py -v --no-header -q)",
       "Bash(.venv/Scripts/python.exe -m photoalbums watch --help)",
-      "Bash(Sort-Object Name)"
+      "Bash(Sort-Object Name)",
+      "Bash(uv lock *)",
+      "Bash(grep -v \"^$\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",
