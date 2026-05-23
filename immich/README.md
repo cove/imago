@@ -10,7 +10,9 @@ This folder keeps the local Immich deployment together:
 ## First-time setup
 
 1. Copy `.env.example` to `.env` and set:
+   - `PHOTO_ALBUMS_LOCATION`
    - `DB_PASSWORD`
+   - `EXTERNAL_IMMICH_URL`
    - `IMMICH_API_KEY`
    - `JWT_SECRET`
 2. Copy `.env.restore.example` to `.env.restore` and set a temporary `DB_PASSWORD` different from the runtime password.
@@ -32,4 +34,8 @@ The backup at `~/immich-db-backup-5-8-2026-1138.sql` is a cluster dump, not a si
 
 ## Remote access
 
-The Compose file publishes Immich on port `2283` and Immich Power Tools on port `3000` on all host interfaces. Power Tools talks to Immich over Docker's internal network via `IMMICH_URL=http://immich-server:2283` and `DB_HOST=database`; the published ports are only for browsers reaching the host from elsewhere.
+The Compose file publishes Immich on port `2283` and Immich Power Tools on port `3000` on all host interfaces. Power Tools talks to Immich over Docker's internal network via `IMMICH_URL=http://immich-server:2283` and `DB_HOST=database`; browser-facing links and redirects use `EXTERNAL_IMMICH_URL`.
+
+## External photo library
+
+`PHOTO_ALBUMS_LOCATION` is mounted read-only into the Immich server at `/cordell_photos`. In Immich, add `/cordell_photos` as an external library path when you want Immich to index the raw Photo Albums tree without taking ownership of it.
