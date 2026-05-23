@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -14,6 +15,8 @@ try:
     from .naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
 except ImportError:
     from naming import PAGE_SCAN_RE as NAME_PAGE_SCAN_RE
+
+IMAGO_TOML_PATH = Path(__file__).resolve().parents[1] / "imago.toml"
 
 INCOMING_NAME = "incoming_scan_01.tif"
 PHOTO_ALBUMS_DIR_ENV = "PHOTOALBUMS_DIR"
@@ -40,8 +43,11 @@ def _first_existing_path(candidates: Iterable[Path]) -> Path | None:
         if key in seen:
             continue
         seen.add(key)
-        if candidate.exists():
-            return candidate
+        try:
+            if candidate.exists():
+                return candidate
+        except OSError:
+            continue
     return None
 
 
@@ -83,7 +89,25 @@ def _get_default_onedrive_dir(env_name: str, subpath: Path) -> Path:
     return preferred
 
 
+def _photo_albums_dir_from_config() -> Path | None:
+    try:
+        with open(IMAGO_TOML_PATH, "rb") as f:
+            config = tomllib.load(f)
+        raw = str(config.get("photo_albums_dir") or "").strip()
+        if raw:
+            return Path(raw).expanduser()
+    except FileNotFoundError:
+        pass
+    return None
+
+
 def get_photo_albums_dir() -> Path:
+    configured = str(os.environ.get(PHOTO_ALBUMS_DIR_ENV, "") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    from_config = _photo_albums_dir_from_config()
+    if from_config is not None:
+        return from_config
     return _get_default_onedrive_dir(PHOTO_ALBUMS_DIR_ENV, PHOTO_ALBUMS_SUBPATH)
 
 

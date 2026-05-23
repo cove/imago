@@ -296,6 +296,7 @@ def _build_region_with_caption(
         new_hint != existing_hint
         or new_pn != int(r.get("photo_number") or 0)
         or (new_photo_location is not None and new_photo_location != r.get("photo_location"))
+        or (new_photo_location_name is not None and new_photo_location_name != r.get("photo_location_name"))
         or (new_photo_est_date is not None and new_photo_est_date != r.get("photo_est_date"))
     )
     region_obj = RegionResult(
@@ -375,10 +376,26 @@ def _metadata_region_caption_maps(
             region_idx = pn - 1
             photo_numbers[region_idx] = pn
             photo_captions[region_idx] = _metadata_region_caption(entry)
-            photo_locations[region_idx] = str(entry.get("location") or "").strip()
-            photo_location_names[region_idx] = str(entry.get("location_name") or "").strip()
-            photo_est_dates[region_idx] = str(entry.get("est_date") or "").strip()
+            if _metadata_write_action(entry, "location") == "auto_write":
+                photo_locations[region_idx] = str(entry.get("location") or "").strip()
+                photo_location_names[region_idx] = str(entry.get("location_name") or "").strip()
+            else:
+                photo_locations[region_idx] = ""
+                photo_location_names[region_idx] = ""
+            if _metadata_write_action(entry, "est_date") == "auto_write":
+                photo_est_dates[region_idx] = str(entry.get("est_date") or "").strip()
+            else:
+                photo_est_dates[region_idx] = ""
     return photo_captions, photo_numbers, photo_locations, photo_location_names, photo_est_dates
+
+
+def _metadata_write_action(photo: Any, field: str) -> str:
+    key = f"{field}_write_action"
+    if isinstance(photo, dict):
+        value = str(photo.get(key) or "auto_write").strip()
+    else:
+        value = str(getattr(photo, key, "") or "auto_write").strip()
+    return value if value in {"auto_write", "review", "none"} else "review"
 
 
 def _metadata_region_caption(photo: Any) -> str:
@@ -400,7 +417,11 @@ def _metadata_photo_fields_dict(photo: dict) -> tuple[str, str, dict[str, Any]]:
         "photo_number": int(photo.get("photo_number") or 0),
         "location": str(photo.get("location") or ""),
         "location_name": str(photo.get("location_name") or ""),
+        "location_write_action": _metadata_write_action(photo, "location"),
+        "location_evidence": str(photo.get("location_evidence") or ""),
         "est_date": str(photo.get("est_date") or ""),
+        "est_date_write_action": _metadata_write_action(photo, "est_date"),
+        "est_date_evidence": str(photo.get("est_date_evidence") or ""),
         "scene_ocr": str(photo.get("scene_ocr") or ""),
         "caption": _metadata_region_caption(photo),
         "corrected_caption": corrected,
@@ -416,7 +437,11 @@ def _metadata_photo_fields_obj(photo: Any) -> tuple[str, str, dict[str, Any]]:
         "photo_number": int(getattr(photo, "photo_number", 0) or 0),
         "location": str(getattr(photo, "location", "") or ""),
         "location_name": str(getattr(photo, "location_name", "") or ""),
+        "location_write_action": _metadata_write_action(photo, "location"),
+        "location_evidence": str(getattr(photo, "location_evidence", "") or ""),
         "est_date": str(getattr(photo, "est_date", "") or ""),
+        "est_date_write_action": _metadata_write_action(photo, "est_date"),
+        "est_date_evidence": str(getattr(photo, "est_date_evidence", "") or ""),
         "scene_ocr": str(getattr(photo, "scene_ocr", "") or ""),
         "caption": _metadata_region_caption(photo),
         "corrected_caption": corrected,
@@ -805,6 +830,7 @@ def _metadata_primary_location(result: Any) -> str:
             candidate
             for photo in result.photos
             for candidate in (photo.location, photo.location_name)
+            if _metadata_write_action(photo, "location") == "auto_write"
             if _metadata_location_is_known(candidate)
         ),
         "",
@@ -854,6 +880,24 @@ def _metadata_step_location_payload(
     )
 
 
+def _metadata_locations_shown_from_photos(photos: list[Any]) -> list[dict[str, str]]:
+    locations: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for photo in photos:
+        if _metadata_write_action(photo, "location") != "auto_write":
+            continue
+        for value in (getattr(photo, "location_name", ""), getattr(photo, "location", "")):
+            text = str(value or "").strip()
+            if not _metadata_location_is_known(text):
+                continue
+            key = " ".join(text.casefold().split())
+            if key in seen:
+                continue
+            seen.add(key)
+            locations.append({"name": text})
+    return locations
+
+
 def _metadata_step_update_state(
     result: Any,
     *,
@@ -866,9 +910,7 @@ def _metadata_step_update_state(
     _extract_metadata_text_fields(result, state)
     primary_location = _metadata_primary_location(result)
     state["location_payload"] = _metadata_step_location_payload(primary_location, geocoder, geocode_recorder)
-    state["locations_shown"] = _metadata_known_locations_shown(
-        [{"name": photo.location_name} for photo in result.photos]
-    )
+    state["locations_shown"] = _metadata_locations_shown_from_photos(list(result.photos))
     state["locations_shown_ran"] = True
     _update_region_captions_from_metadata(
         Path(caption_source_path) if caption_source_path else image_path,
@@ -878,7 +920,11 @@ def _metadata_step_update_state(
                 "caption": _metadata_region_caption(photo),
                 "location": str(getattr(photo, "location", "") or "").strip(),
                 "location_name": str(getattr(photo, "location_name", "") or "").strip(),
+                "location_write_action": _metadata_write_action(photo, "location"),
+                "location_evidence": str(getattr(photo, "location_evidence", "") or "").strip(),
                 "est_date": str(getattr(photo, "est_date", "") or "").strip(),
+                "est_date_write_action": _metadata_write_action(photo, "est_date"),
+                "est_date_evidence": str(getattr(photo, "est_date_evidence", "") or "").strip(),
             }
             for photo in result.photos
             if int(photo.photo_number) > 0

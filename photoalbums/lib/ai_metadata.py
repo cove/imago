@@ -72,7 +72,11 @@ class MetadataPhotoResult:
     photo_number: int = 0
     location: str = ""
     location_name: str = ""
+    location_write_action: str = "auto_write"
+    location_evidence: str = ""
     est_date: str = ""
+    est_date_write_action: str = "auto_write"
+    est_date_evidence: str = ""
     scene_ocr: str = ""
     caption: str = ""
     corrected_caption: str = ""
@@ -134,7 +138,11 @@ def _metadata_photo_from_dict(photo_data: dict) -> MetadataPhotoResult:
         photo_number=int(photo_data.get("photo_number") or 0),
         location=str(photo_data.get("location") or "").strip(),
         location_name=str(photo_data.get("location_name") or "").strip(),
+        location_write_action=str(photo_data.get("location_write_action") or "auto_write").strip(),
+        location_evidence=str(photo_data.get("location_evidence") or "").strip(),
         est_date=str(photo_data.get("est_date") or "").strip(),
+        est_date_write_action=str(photo_data.get("est_date_write_action") or "auto_write").strip(),
+        est_date_evidence=str(photo_data.get("est_date_evidence") or "").strip(),
         scene_ocr=str(photo_data.get("scene_ocr") or "").strip(),
         caption=str(photo_data.get("caption") or "").strip(),
         corrected_caption=str(photo_data.get("corrected_caption") or "").strip(),
