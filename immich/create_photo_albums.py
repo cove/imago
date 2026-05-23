@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
-from collections import defaultdict
+import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,8 @@ DEFAULT_IMMICH_URL = "http://192.168.4.26:2283"
 MANAGED_DESCRIPTION = "Managed by imago immich/create_photo_albums.py. Recreated from Photo Albums directories."
 ASSET_SEARCH_PAGE_SIZE = 1000
 ADD_ASSETS_CHUNK_SIZE = 500
+LIBRARY_SCAN_POLL_SECONDS = 5
+LIBRARY_SCAN_TIMEOUT_SECONDS = 45 * 60
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,21 @@ class ImmichClient:
             _exit_type(f"Immich /api/albums returned {type(data).__name__}, expected list")
         return [album for album in data if isinstance(album, dict)]
 
+    def get_libraries(self) -> list[dict[str, Any]]:
+        data = self.request("GET", "/api/libraries")
+        if not isinstance(data, list):
+            _exit_type(f"Immich /api/libraries returned {type(data).__name__}, expected list")
+        return [library for library in data if isinstance(library, dict)]
+
+    def get_jobs(self) -> dict[str, Any]:
+        data = self.request("GET", "/api/jobs")
+        if not isinstance(data, dict):
+            _exit_type(f"Immich /api/jobs returned {type(data).__name__}, expected object")
+        return data
+
+    def scan_library(self, library_id: str) -> None:
+        self.request("POST", f"/api/libraries/{library_id}/scan", expected=(204,))
+
     def delete_album(self, album_id: str) -> None:
         self.request("DELETE", f"/api/albums/{album_id}", expected=(200, 204))
 
@@ -117,16 +135,23 @@ class ImmichClient:
     def add_assets_to_album(self, album_id: str, asset_ids: Sequence[str]) -> None:
         if not asset_ids:
             return
-        self.request("POST", f"/api/albums/{album_id}/assets", payload={"ids": list(asset_ids)})
+        self.request("PUT", f"/api/albums/{album_id}/assets", payload={"ids": list(asset_ids)})
 
-    def search_assets_by_original_filename(self, original_filename: str) -> list[dict[str, Any]]:
+    def search_assets_by_original_filename(self, original_filename: str, *, visibility: str | None = None) -> list[dict[str, Any]]:
         assets: list[dict[str, Any]] = []
         page = 1
         while True:
+            payload: dict[str, Any] = {
+                "originalFileName": original_filename,
+                "page": page,
+                "size": ASSET_SEARCH_PAGE_SIZE,
+            }
+            if visibility:
+                payload["visibility"] = visibility
             data = self.request(
                 "POST",
                 "/api/search/metadata",
-                payload={"originalFileName": original_filename, "page": page, "size": ASSET_SEARCH_PAGE_SIZE},
+                payload=payload,
             )
             asset_page = data.get("assets", {}) if isinstance(data, dict) else {}
             batch = asset_page.get("items", []) if isinstance(asset_page, dict) else []
@@ -141,12 +166,24 @@ class ImmichClient:
 def _album_name_from_dir_name(dirname: str) -> str | None:
     for suffix in ALBUM_DIR_SUFFIXES:
         if dirname.endswith(suffix):
-            return dirname[: -len(suffix)]
+            return dirname
     return None
 
 
-def _immich_album_name(album_name: str) -> str:
+def _album_base_name(album_name: str) -> str:
+    for suffix in ALBUM_DIR_SUFFIXES:
+        if album_name.endswith(suffix):
+            return album_name[: -len(suffix)]
+    return album_name
+
+
+def _legacy_immich_album_name(album_name: str) -> str:
     return album_name.replace("_", " ")
+
+
+def _immich_album_name(album_name: str) -> str:
+    spaced = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", album_name)
+    return spaced.replace("_", " ")
 
 
 def _media_files(directory: Path, extensions: set[str]) -> list[Path]:
@@ -164,20 +201,13 @@ def discover_local_albums(photos_root: Path, extensions: Iterable[str] = DEFAULT
         raise NotADirectoryError(photos_root)
 
     extension_set = {ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in extensions}
-    grouped: dict[str, list[Path]] = defaultdict(list)
+    albums: list[LocalAlbum] = []
     for path in sorted(photos_root.iterdir()):
         if not path.is_dir():
             continue
         album_name = _album_name_from_dir_name(path.name)
         if album_name:
-            grouped[album_name].append(path)
-
-    albums: list[LocalAlbum] = []
-    for name, directories in sorted(grouped.items()):
-        files: list[Path] = []
-        for directory in directories:
-            files.extend(_media_files(directory, extension_set))
-        albums.append(LocalAlbum(name=name, directories=tuple(directories), files=tuple(sorted(files))))
+            albums.append(LocalAlbum(name=album_name, directories=(path,), files=tuple(_media_files(path, extension_set))))
     return albums
 
 
@@ -198,9 +228,16 @@ def _asset_id_for_file(
     photos_root: Path,
     file_path: Path,
     cache: dict[str, list[dict[str, Any]]],
+    *,
+    progress: bool = False,
 ) -> str | None:
     if file_path.name not in cache:
         cache[file_path.name] = client.search_assets_by_original_filename(file_path.name)
+        if not cache[file_path.name]:
+            cache[file_path.name] = client.search_assets_by_original_filename(file_path.name, visibility="archive")
+    if progress:
+        sys.stdout.write(".")
+        sys.stdout.flush()
     candidates = cache[file_path.name]
     if not candidates:
         return None
@@ -224,12 +261,13 @@ def resolve_album_asset_ids(
     album: LocalAlbum,
     *,
     allow_missing_assets: bool = False,
+    progress: bool = False,
 ) -> tuple[list[str], list[Path]]:
     cache: dict[str, list[dict[str, Any]]] = {}
     asset_ids: dict[str, None] = {}
     missing: list[Path] = []
     for file_path in album.files:
-        asset_id = _asset_id_for_file(client, photos_root, file_path, cache)
+        asset_id = _asset_id_for_file(client, photos_root, file_path, cache, progress=progress)
         if asset_id is None:
             missing.append(file_path)
             continue
@@ -247,6 +285,71 @@ def _chunked(items: Sequence[str], size: int) -> Iterable[Sequence[str]]:
         yield items[index : index + size]
 
 
+def _job_counts(jobs: dict[str, Any], job_name: str) -> dict[str, int]:
+    job = jobs.get(job_name)
+    counts = job.get("jobCounts", {}) if isinstance(job, dict) else {}
+    if not isinstance(counts, dict):
+        _exit_type(f"Immich /api/jobs {job_name}.jobCounts returned {type(counts).__name__}, expected object")
+    return {key: int(counts.get(key, 0) or 0) for key in ("active", "completed", "failed", "delayed", "waiting", "paused")}
+
+
+def _resolve_library_id(client: ImmichClient, library_name: str) -> str:
+    libraries = client.get_libraries()
+    matches = [library for library in libraries if library.get("name") == library_name]
+    if not matches:
+        names = ", ".join(sorted(str(library.get("name") or "<unnamed>") for library in libraries))
+        _exit_runtime(f"Immich library named {library_name!r} was not found. Available libraries: {names}")
+    if len(matches) > 1:
+        ids = ", ".join(str(library.get("id") or "<missing id>") for library in matches)
+        _exit_runtime(f"Multiple Immich libraries named {library_name!r}: {ids}")
+    library_id = str(matches[0].get("id") or "").strip()
+    if not library_id:
+        _exit_runtime(f"Immich library named {library_name!r} did not include an id")
+    return library_id
+
+
+def rescan_immich_library(
+    client: ImmichClient,
+    library_name: str,
+    *,
+    poll_seconds: int = LIBRARY_SCAN_POLL_SECONDS,
+    timeout_seconds: int = LIBRARY_SCAN_TIMEOUT_SECONDS,
+) -> None:
+    library_id = _resolve_library_id(client, library_name)
+    before_counts = _job_counts(client.get_jobs(), "library")
+    failed_before = before_counts["failed"]
+    sys.stdout.write(f"Triggering Immich library scan for {library_name} ({library_id})\n")
+    sys.stdout.flush()
+    client.scan_library(library_id)
+
+    deadline = time.monotonic() + timeout_seconds
+    last_counts: tuple[int, int, int, int, int] | None = None
+    while True:
+        counts = _job_counts(client.get_jobs(), "library")
+        current_counts = (
+            counts["waiting"],
+            counts["active"],
+            counts["delayed"],
+            counts["completed"],
+            counts["failed"],
+        )
+        if current_counts != last_counts:
+            sys.stdout.write(
+                "Immich library queue: "
+                f"waiting={counts['waiting']} active={counts['active']} delayed={counts['delayed']} "
+                f"completed={counts['completed']} failed={counts['failed']}\n"
+            )
+            sys.stdout.flush()
+            last_counts = current_counts
+        if counts["waiting"] == 0 and counts["active"] == 0 and counts["delayed"] == 0:
+            if counts["failed"] > failed_before:
+                _exit_runtime(f"Immich library scan failed count rose from {failed_before} to {counts['failed']}")
+            return
+        if time.monotonic() > deadline:
+            _exit_runtime(f"Immich library scan did not finish within {timeout_seconds} seconds")
+        time.sleep(poll_seconds)
+
+
 def recreate_album(
     client: ImmichClient,
     album: LocalAlbum,
@@ -256,7 +359,7 @@ def recreate_album(
     dry_run: bool,
 ) -> str | None:
     immich_name = _immich_album_name(album.name)
-    replace_names = {album.name, immich_name}
+    replace_names = {album.name, _legacy_immich_album_name(album.name), immich_name}
     matches = [item for item in existing_albums if item.get("albumName") in replace_names]
     if dry_run:
         sys.stdout.write(
@@ -280,6 +383,33 @@ def recreate_album(
     return album_id
 
 
+def delete_obsolete_grouped_albums(
+    client: ImmichClient,
+    albums: Sequence[LocalAlbum],
+    *,
+    existing_albums: Sequence[dict[str, Any]],
+    dry_run: bool,
+) -> list[str]:
+    grouped_names: set[str] = set()
+    for album in albums:
+        base_name = _album_base_name(album.name)
+        if base_name != album.name:
+            grouped_names.update({base_name, _legacy_immich_album_name(base_name), _immich_album_name(base_name)})
+
+    deleted_ids: list[str] = []
+    for match in existing_albums:
+        if match.get("albumName") not in grouped_names:
+            continue
+        album_id = str(match.get("id") or "").strip()
+        if not album_id:
+            _exit_runtime(f"Existing Immich grouped album named {match.get('albumName')} did not include an id")
+        deleted_ids.append(album_id)
+        if dry_run:
+            continue
+        client.delete_album(album_id)
+    return deleted_ids
+
+
 def sync_photo_albums(
     client: ImmichClient,
     photos_root: Path,
@@ -291,18 +421,51 @@ def sync_photo_albums(
 ) -> int:
     albums = discover_local_albums(photos_root, extensions)
     if album_filter:
-        albums = [album for album in albums if album.name in album_filter]
+        albums = [album for album in albums if album.name in album_filter or _album_base_name(album.name) in album_filter]
     if not albums:
         _exit_runtime("No matching *_Archive, *_Pages, or *_Photos album directories found")
 
-    existing_albums = client.get_albums()
-    for album in albums:
+    resolved_albums: list[tuple[LocalAlbum, list[str], list[Path]]] = []
+    for index, album in enumerate(albums, start=1):
+        sys.stdout.write(f"[{index}/{len(albums)}] Resolving {_immich_album_name(album.name)} ({len(album.files)} file(s)) ")
+        sys.stdout.flush()
         asset_ids, missing = resolve_album_asset_ids(
             client,
             photos_root,
             album,
-            allow_missing_assets=allow_missing_assets,
+            allow_missing_assets=True,
+            progress=True,
         )
+        missing_note = f", {len(missing)} missing" if missing else ""
+        sys.stdout.write(f" {len(asset_ids)} asset(s){missing_note}\n")
+        sys.stdout.flush()
+        resolved_albums.append((album, asset_ids, missing))
+
+    missing_albums = [(album, missing) for album, _, missing in resolved_albums if missing]
+    if missing_albums and not allow_missing_assets:
+        lines = []
+        for album, missing in missing_albums[:5]:
+            examples = ", ".join(str(path) for path in missing[:5])
+            suffix = "" if len(missing) <= 5 else f", and {len(missing) - 5} more"
+            lines.append(f"{album.name}: {len(missing)} local file(s) did not match Immich assets: {examples}{suffix}")
+        suffix = "" if len(missing_albums) <= 5 else f"\n... and {len(missing_albums) - 5} more album(s)"
+        _exit_runtime("Missing Immich assets; no albums were deleted or created:\n" + "\n".join(lines) + suffix)
+
+    existing_albums = client.get_albums()
+    deleted_grouped_ids = set(
+        delete_obsolete_grouped_albums(
+            client,
+            albums,
+            existing_albums=existing_albums,
+            dry_run=dry_run,
+        )
+    )
+    existing_albums = [
+        album
+        for album in existing_albums
+        if str(album.get("id") or "").strip() not in deleted_grouped_ids
+    ]
+    for album, asset_ids, missing in resolved_albums:
         recreated_id = recreate_album(
             client,
             album,
@@ -338,6 +501,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--album", action="append", default=[], help="Album name to process; repeat to process several.")
     parser.add_argument("--dry-run", action="store_true", help="Resolve local assets without deleting or creating albums.")
     parser.add_argument(
+        "--rescan-library",
+        action="store_true",
+        help="Trigger and wait for an Immich external library scan before resolving assets.",
+    )
+    parser.add_argument(
+        "--library-name",
+        default="cordell",
+        help="Immich external library name to scan when --rescan-library is set.",
+    )
+    parser.add_argument(
         "--allow-missing-assets",
         action="store_true",
         help="Create albums with matched assets even when some local files are not in Immich.",
@@ -364,6 +537,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     extensions = tuple(args.extension) if args.extension else DEFAULT_EXTENSIONS
     client = ImmichClient(base_url, api_key)
+    if args.rescan_library:
+        rescan_immich_library(client, str(args.library_name or ""))
     return sync_photo_albums(
         client,
         Path(args.photos_root).expanduser(),
