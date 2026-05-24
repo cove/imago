@@ -45,7 +45,7 @@ All artifacts for a single album live in three sibling directories with the same
 
 ### 1.3 File Naming Convention
 
-The pipeline keys nearly every operation off filename structure, so consistent naming is mandatory at ingest. Detailed regexes and validation rules live in Section 11; the four canonical patterns are summarized here:
+The pipeline keys nearly every operation off filename structure, so consistent naming is mandatory at ingest. Detailed regexes and validation rules live in §10; the four canonical patterns are summarized here:
 
 | Artifact | Pattern | Example |
 |----------|---------|---------|
@@ -91,23 +91,21 @@ The pipeline expects these properties of its environment and inputs to be provid
 - **Album-title hint:** a human-readable album title string used to seed the metadata extractor (see Section 5.3.1)
 
 **AI baseline specs:**
-- **OCR/caption model and host:** `google/gemma-4-31b` served by an lmstudio-compatible endpoint at `http://127.0.0.1:1234/v1` (or a `localhost` equivalent)
-- **Layout-analysis pipeline:** Docling configured with preset `granite_docling`, backend `auto_inline`, device `auto`, retries `3`
-- **Photo-restoration pipeline:** RealRestorer at the pinned commit (Section 5.0); skipped automatically if the host has insufficient RAM
+- **OCR/caption model:** the OCR/caption model identified in §14.1, served over an OpenAI-style chat-completions API.
+- **Layout-analysis pipeline:** Docling configured with preset `granite_docling`, backend `auto_inline`, device `auto`, retries `3` (Docling model variant in §14.1)
+- **Photo-restoration pipeline:** RealRestorer at the pinned commit (§14.1); skipped automatically if the host has insufficient RAM
 
 **Render specs (defaults when no per-album override is supplied):**
 - JPEG quality: `95`
 - Render scale: `1.0` (full resolution)
-- Stitch detector strategy: the full `AFFINE_STITCH_ATTEMPTS` sequence (Section 2.4), with optional per-album overrides like `"sift"`
+- Stitch detector strategy: the full `AFFINE_STITCH_ATTEMPTS` sequence (§2.4), with optional per-album overrides like `"sift"`
 
 **External-service specs:**
-- **Nominatim:** reachable HTTPS endpoint, default `https://nominatim.openstreetmap.org`, with a custom `User-Agent` (`imago-photoalbums-ai-index/1.0`)
-- **Local cache directory:** writable `{PHOTOALBUMS_DIR}/data/` for `geocode_cache.json` and similar artifacts
+- **Nominatim:** a reachable Nominatim-compatible geocoding endpoint, called with a custom `User-Agent` (`imago-photoalbums-ai-index/1.0`).
+- **Immich:** a reachable Immich server with API credentials — **required** when the `immich-face-refresh` pipeline step (§5.5) runs; the step fails if Immich is not reachable.
+- **Local cache directory:** writable application-local directory for `geocode_cache.json` and similar artifacts.
 
-**Environment variables (read at runtime):**
-- `IMMICH_URL` and `IMMICH_API_KEY` — **required** by the `immich-face-refresh` pipeline step (§5.5); the step fails if either is unset.
-- `LMSTUDIO_BASE_URL` — optional override; when set, takes precedence over `lmstudio_base_url` in the AI-models spec (§10.2).
-- `LM_API_KEY` — optional bearer token; when set, added as `Authorization: Bearer …` to every LM Studio request.
+These values may be persisted in any storage the implementation chooses (TOML, JSON, environment variables, database, etc.) — that is a deployment concern, not a spec concern.
 
 ### 1.5 Scan Acquisition & Validation (Watcher System)
 
@@ -160,10 +158,10 @@ When detected:
 
 ### 1.6 Ingest-Time Orientation Check
 
-After a scan is validated and registered (§1.5) but before it enters the main pipeline, the ingest stage submits the page image to an lmstudio-hosted vision model to determine whether the page is right-side up. The model returns a structured payload of the form `{ "right_side_up": bool }`; if `right_side_up` is `false`, the image is rotated 180° in place before processing continues.
+After a scan is validated and registered (§1.5) but before it enters the main pipeline, the ingest stage submits the page image to the OCR/caption model (§5.0) to determine whether the page is right-side up. The model returns a structured payload of the form `{ "right_side_up": bool }`; if `right_side_up` is `false`, the image is rotated 180° in place before processing continues.
 
 **Properties:**
-- **Service:** the same lmstudio-compatible endpoint and model selection used for OCR/caption (§5.0, §10.2).
+- **Service:** the same OpenAI-style chat-completions endpoint and model used for OCR/caption (§5.0).
 - **Response schema:** a JSON object with a required boolean `right_side_up` field.
 - **On model failure:** the orientation check is treated as a no-op; the image is left as scanned.
 - **Caching:** the orientation decision is cached per scan so it is not re-asked on watcher restart or on retry of a downstream step.
@@ -336,7 +334,7 @@ For each picture, record a frozen dataclass with these fields:
 - `person_names` (list[str], default []): list of person names (empty from Docling)
 - `photo_number` (int, default 0): optional photo identifier
 
-**Important:** The actual caption text that becomes `mwg-rs:Name` in XMP comes from the **Gemma-4 metadata extraction** (lmstudio model), not from Docling. Docling only provides bounding boxes and optional hints.
+**Important:** The actual caption text that becomes `mwg-rs:Name` in XMP comes from the **OCR/caption model** (§5.0), not from Docling. Docling only provides bounding boxes and optional hints.
 
 **Step 7: Coordinate Conversion to MWG-RS Normalized Format**
 After extracting pixel coordinates, convert to normalized center-point format for XMP storage:
@@ -431,23 +429,21 @@ Call the RealRestorer pipeline with the following parameters:
 **Current AI Stack:**
 
 **1. OCR/Caption Extraction Engine**
-- **Service Type:** Local inference server (lmstudio)
-- **Server URL:** `http://127.0.0.1:1234/v1` (TOML config) or `http://localhost:1234/v1` (code default fallback)
-- **Model Name:** `google/gemma-4-31b` (Google Gemma 4, 31 billion parameters)
-- **Model Source:** Hugging Face / lmstudio model registry
-- **Per-purpose model lists:** `pc = ["google/gemma-4-31b"]` (people-count), `primary = ["google/gemma-4-31b"]` (general)
+- **Service Type:** OpenAI-style chat-completions API (any compatible local or remote server can host the model)
+- **Endpoint Contract:** `chat.completions` with `response_format` set to `json_schema` for structured output. The concrete host is a deployment concern (see §1.4).
+- **Model Name:** see §14.1
+- **Per-purpose model lists:** `pc`, `primary`, and `fallback` all default to a single-element list containing the OCR/caption model (§14.1). `pc` is used for OCR/caption/people-count; `primary` is used for caption matching; `fallback` is consulted when the selected list fails.
 
 **2. View Region Detection (Photo Detection)**
 - **Service Type:** Docling layout analysis pipeline
 - **Pipeline Preset:** `granite_docling`
+- **Model Variant:** see §14.1
 - **Backend:** `auto_inline` (automatically selects best backend: transformers or mlx)
 - **Device:** `auto` (automatically detects GPU/MPS/CPU)
 - **Retry Attempts:** 3 (if no regions found, retry up to 3 times)
 
 **3. Photo Restoration**
-- **Model:** RealRestorer diffusion pipeline
-- **Repository:** https://github.com/yfyang007/RealRestorer.git
-- **Pinned Commit:** `fa2a3e3c23768eb94748c5855d83cc2e340ab13b`
+- **Model:** RealRestorer diffusion pipeline (pinned commit in §14.1)
 - **Inference Parameters:**
   - num_inference_steps = 28
   - guidance_scale = 3.0
@@ -458,12 +454,11 @@ Call the RealRestorer pipeline with the following parameters:
 **4. Face Recognition**
 
 The pipeline provides two face-region sources, run as separate pipeline steps (see §5.5):
-- **Local face matching (`face-refresh` step):** Cast-based matcher using `buffalo_l` via InsightFace. Matches detected faces against the people roster (§1.4) and writes regions/persons into the rendered output's XMP sidecar.
-- **Immich import (`immich-face-refresh` step):** Pulls face regions and person names from a running Immich server, looking up each rendered image by original filename and merging Immich's face boxes and named persons into the XMP sidecar. Requires `IMMICH_URL` and `IMMICH_API_KEY` (§1.4).
+- **Local face matching (`face-refresh` step):** Cast-based matcher using the InsightFace `buffalo_l` model (§14.1). Matches detected faces against the people roster (§1.4) and writes regions/persons into the rendered output's XMP sidecar.
+- **Immich import (`immich-face-refresh` step):** Pulls face regions and person names from a running Immich server, looking up each rendered image by original filename and merging Immich's face boxes and named persons into the XMP sidecar. Requires a reachable Immich server with API credentials (§1.4, §14.2).
 
 **5. Object Detection (Optional)**
-- **Model:** YOLOv11 nano (Ultralytics)
-- **Model Path:** `models/yolo11n.pt` (resolved relative to the photoalbums package)
+- **Model:** YOLOv11 nano weights (§14.1)
 - **Default Confidence Threshold:** `0.30` (configurable)
 
 ### 5.1 Overview
@@ -482,8 +477,8 @@ For each page view, run a series of AI analyses on the original page and extract
 This step extracts a structured metadata record per visible photograph (caption, location, estimated date, OCR'd scene text, people count) from the full page view image.
 
 **Baseline:**
-- **Service:** lmstudio-compatible local HTTP server at `http://127.0.0.1:1234/v1`
-- **Model:** `google/gemma-4-31b`
+- **Service:** the OpenAI-style chat-completions API defined in §5.0
+- **Model:** the OCR/caption model defined in §14.1
 - **Endpoint:** `/v1/chat/completions` with `response_format` set to `json_schema` for structured output
 
 **Prompt Source:** `photoalbums/prompts/ai-index/metadata/` (`system.md`, `user.md`, `schema.json`, `params.toml`)
@@ -545,7 +540,7 @@ Album title: {album_title}
 #### 5.3.2 People Count (Per-Crop Refinement)
 For each detected crop, optionally run a separate people-counting request to refine estimates.
 
-**Baseline:** same lmstudio server and `google/gemma-4-31b` model as 5.3.1.
+**Baseline:** same chat-completions API and OCR/caption model as 5.3.1.
 
 **Prompt Source:** `photoalbums/prompts/ai-index/people-count/` (`system.md`, `user.md`, `output.md`, `params.toml`)
 
@@ -609,12 +604,11 @@ Estimate GPS coordinates from image content and page context.
 #### 5.3.6 Geocoding (Nominatim Reverse Lookup)
 Convert GPS coordinates to human-readable location names.
 
-**Service:** Nominatim OpenStreetMap API
-**Base URL:** `https://nominatim.openstreetmap.org`
+**Service:** a Nominatim-compatible geocoding API
 **User Agent:** `imago-photoalbums-ai-index/1.0`
 **Timeout:** 20.0 seconds per request
 **Min Interval:** 1.0 second between requests (rate limiting)
-**Cache:** `{PHOTOALBUMS_DIR}/data/geocode_cache.json`
+**Cache:** the local cache directory described in §1.4 (e.g., `geocode_cache.json`)
 
 **Query Structure:**
 - Input: lat, lon, zoom (optional)
@@ -961,7 +955,7 @@ Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` struc
             "input_hash": "sha256:..."
           }
         },
-        "caption": {"text": "Cairo temple 1975", "source": "google/gemma-4-31b"}
+        "caption": {"text": "Cairo temple 1975", "source": "mlx-community/gemma-4-e2b-it-4bit"}
       }</imago:Detections>
     </rdf:Description>
   </rdf:RDF>
@@ -1023,7 +1017,7 @@ Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` struc
         "objects": [
           {"class": "person", "confidence": 0.97}
         ],
-        "caption": {"text": "Temple entrance with tourists", "source": "google/gemma-4-31b"},
+        "caption": {"text": "Temple entrance with tourists", "source": "mlx-community/gemma-4-e2b-it-4bit"},
         "location": {
           "city": "Cairo", "country": "Egypt",
           "gps_latitude": 30.0288, "gps_longitude": 31.2495,
@@ -1241,63 +1235,9 @@ When determining whether to reprocess a stage:
 
 ---
 
-## 10. Storing the Specs (Reference File Layouts)
+## 10. Naming & Identification
 
-Section 1.4 describes *what* the system needs. This section shows one concrete way to persist those specs on disk so the pipeline can read them; a reimplementation may use any equivalent storage. Filenames here are descriptive, not required.
-
-### 10.1 Album-Set Spec (TOML example)
-```toml
-[archive_set_name]
-photos_root = "/path/to/Photo Albums"
-people_roster_path = "people.csv"
-```
-
-Maps an archive-set identifier to its `{PHOTOS_ROOT}` directory and its people roster.
-
-### 10.2 AI-Models Spec (TOML example)
-```toml
-[archive_set_name.docling]
-preset  = "granite_docling"
-backend = "auto_inline"
-device  = "auto"
-retries = 3
-lmstudio_base_url = "http://127.0.0.1:1234/v1"
-
-[archive_set_name.lmstudio]
-primary = ["google/gemma-4-31b"]
-pc      = ["google/gemma-4-31b"]
-
-[archive_set_name.restoration]
-enabled    = true
-model_name = "RealRestorer/RealRestorer"
-```
-
-Per-archive overrides for the AI baseline. Values shown here are the defaults the current codebase ships with.
-
-**Env-var overrides:** `LMSTUDIO_BASE_URL`, when set, takes precedence over the `lmstudio_base_url` value above. `LM_API_KEY`, when set, is sent as `Authorization: Bearer …` on every LM Studio request.
-
-### 10.3 Render Spec (JSON example)
-```json
-{
-  "archive_settings": {
-    "render_scale": 1.0,
-    "jpeg_quality": 95
-  },
-  "chapter_settings": {
-    "Egypt_1975_B01": {
-      "stitch_detector": "sift"
-    }
-  }
-}
-```
-
-Per-album rendering overrides. With no override, stitching uses the full `AFFINE_STITCH_ATTEMPTS` sequence (Section 2.4).
-
----
-
-## 11. Naming & Identification
-
-### 11.1 File Naming Patterns
+### 10.1 File Naming Patterns
 
 **Album Directory Structure:**
 All album content is organized in three sibling directories with the same base name:
@@ -1335,7 +1275,7 @@ Where Base = `{Collection}_{Year}_B{Book}`
 - **Derived:** 2-digit per-page index of a derived photo extracted from the page, e.g., "00", "01"
 - **Iter:** 2-digit version of the derived (`D##`) image, e.g., "00" (first version); increments when the derived photo is re-derived (recropped, regeometried) from the same source page region
 
-### 11.2 Validation & Parsing Rules
+### 10.2 Validation & Parsing Rules
 
 **TIFF Scan File Validation:**
 - Must match: `{Collection}_{Year}_B{Book}_P{Page:02d}_S{Scan:02d}.tif`
@@ -1375,9 +1315,9 @@ Where Base = `{Collection}_{Year}_B{Book}`
 
 ---
 
-## 12. Error Handling & Recovery
+## 11. Error Handling & Recovery
 
-### 12.1 Validation Failures
+### 11.1 Validation Failures
 **Region validation fails:**
 - Log region as invalid (zero area, full page, etc.)
 - Continue with remaining regions
@@ -1392,20 +1332,20 @@ Where Base = `{Collection}_{Year}_B{Book}`
 - Try ImageMagick fallback
 - If both fail: skip image
 
-### 12.2 Network Failures
+### 11.2 Network Failures
 
 **Nominatim failure (timeout, HTTP error, 429):**
 - Baseline behavior: the geocoder raises and the calling step records the failure; no automatic retry/backoff (see Section 8.5)
 - The cached entry, if any, is still served on later runs
 
-**lmstudio (Gemma-4) failure:**
+**OCR/caption model failure:**
 - Log error with the request payload identifier
 - Mark the AI step's pipeline record with a non-`ok` `result`
 - Continue with remaining images; downstream steps that depend on the missing metadata are skipped
 
 A reimplementation that swaps the AI provider (e.g., a hosted vision API) is free to add retry policies — but the baseline does not.
 
-### 12.3 Processing Locks
+### 11.3 Processing Locks
 To prevent concurrent processing of same image:
 - Acquire lock file before processing: `{image_path}.processing`
 - Release lock on completion (success or failure)
@@ -1413,9 +1353,9 @@ To prevent concurrent processing of same image:
 
 ---
 
-## 13. Output Artifacts
+## 12. Output Artifacts
 
-### 13.1 Directory Structure After Full Processing
+### 12.1 Directory Structure After Full Processing
 
 ```
 {PHOTOS_ROOT}/
@@ -1437,7 +1377,7 @@ To prevent concurrent processing of same image:
     └── ...
 ```
 
-### 13.2 XMP Sidecar Metadata
+### 12.2 XMP Sidecar Metadata
 Every JPEG (page view or crop) has companion `.xmp` file with:
 - OCR text & captions
 - Detected faces & objects
@@ -1447,7 +1387,7 @@ Every JPEG (page view or crop) has companion `.xmp` file with:
 - Processing pipeline history
 - Region detection metadata (page views only)
 
-### 13.3 Optional: Debug Artifacts
+### 12.3 Optional: Debug Artifacts
 When `--debug` flag enabled:
 - Docling pipeline debug JSON: `{image_path}.view-regions.debug.json`
 - AI processing logs: stdout/stderr redirection
@@ -1455,36 +1395,35 @@ When `--debug` flag enabled:
 
 ---
 
-## 14. Maintaining the Baseline Snapshot
+## 13. Maintaining the Baseline Snapshot
 
 This document is a **labeled snapshot of a working implementation**, not a forward-looking design. A reimplementation is free to improve on the baseline, but the values recorded here must continue to describe what the current code actually does so the working example is never lost.
 
-### 14.1 What Counts as Baseline (Update When Code Changes)
+### 13.1 What Counts as Baseline (Update When Code Changes)
 
 The following are load-bearing baseline values. If the code drifts from any of them, update the spec in the same change:
 
 | Category | Examples of baseline values to keep in sync |
 |----------|---------------------------------------------|
-| Library versions | `opencv-contrib-python`, `pillow`, `stitching`, `docling`, `torch` (Section 15.1) |
-| Models | `google/gemma-4-31b`, RealRestorer commit hash, YOLO weights path (Section 5.0) |
-| Inference parameters | `max_tokens`, `temperature`, `timeout_seconds` per prompt (Sections 5.3.1, 5.3.2, 7.4) |
-| Stitching | `AFFINE_STITCH_ATTEMPTS` ordering, linear-fallback constants (Section 2.4) |
-| Docling | `preset`, `backend`, `device`, `retries`, `do_ocr` (Section 3.3) |
-| Restoration | Prompt text, `num_inference_steps`, `guidance_scale`, `seed`, `size_level` (Section 4.4) |
-| Geocoder | User-Agent, timeout, min interval, reverse-lookup `zoom`, retry policy (Section 8) |
-| Format contracts | XMP namespaces, MWG-RS attribute layout, file-naming patterns (Sections 6, 11) |
-| Prompt text | Exact `system.md`/`user.md` contents under `photoalbums/prompts/` (Sections 5.3.1, 5.3.2, 7.3) |
+| Component versions | All AI models, model weights, library versions, and pinned commits (§14.1 — single source of truth) |
+| Inference parameters | `max_tokens`, `temperature`, `timeout_seconds` per prompt (§§5.3.1, 5.3.2, 7.4) |
+| Stitching | `AFFINE_STITCH_ATTEMPTS` ordering, linear-fallback constants (§2.4) |
+| Docling | `preset`, `backend`, `device`, `retries`, `do_ocr` (§3.3) |
+| Restoration | Prompt text, `num_inference_steps`, `guidance_scale`, `seed`, `size_level` (§4.4) |
+| Geocoder | User-Agent, timeout, min interval, reverse-lookup `zoom`, retry policy (§8) |
+| Format contracts | XMP namespaces, MWG-RS attribute layout, file-naming patterns (§§6, 10) |
+| Prompt text | Exact prompt contents shipped with the implementation (§§5.3.1, 5.3.2, 7.3) |
 
-### 14.2 What Is Not Baseline (Reimplementation Is Free to Change)
+### 13.2 What Is Not Baseline (Reimplementation Is Free to Change)
 
-These are accidents of the current implementation; a reimplementation may diverge without updating the baseline section, as long as functional behavior in Sections 1–9 still holds:
+These are accidents of the current implementation; a reimplementation may diverge without updating the baseline section, as long as functional behavior in §§1–9 still holds:
 
-- Specific Python library choices (e.g., using `xml.etree.ElementTree` vs. `lxml`)
+- Specific XML library choice for sidecar I/O
 - Internal helper names, exception class names, and module layout
-- Retry policies for network calls (the baseline has none for Nominatim — adding sensible retries is an *improvement*, not a deviation)
-- Storage format of the operator-supplied specs (TOML vs. JSON vs. env vars; see Section 10)
+- Retry policies for network calls (the baseline has none for the geocoder — adding sensible retries is an *improvement*, not a deviation)
+- Storage layout of the operator-supplied specs from §1.4 (TOML, JSON, environment variables, database, etc.)
 
-### 14.3 Update Checklist
+### 13.3 Update Checklist
 
 When any code change affects a baseline value above:
 
@@ -1495,68 +1434,61 @@ When any code change affects a baseline value above:
 
 ---
 
-## 15. Key Dependencies & External Services
+## 14. Key Dependencies & External Services
 
-### 15.1 Python Libraries & Versions
-- `opencv-contrib-python` **4.10.0.84**: Image stitching (AffineStitcher), feature detection (SIFT, AKAZE, BRISK), image manipulation
-- `pillow` **12.1.1**: Image I/O (JPEG, TIFF, PNG), EXIF handling, image format conversion
-- `stitching` **0.6.1**: High-level affine stitcher wrapper (uses OpenCV backend)
-- `docling` **2.88.0**: Document layout analysis and image region detection (photo detection from page layouts)
-- `diffusers` (RealRestorer fork): RealRestorer pipeline for photo restoration (from https://github.com/yfyang007/RealRestorer.git)
-- `torch` **2.10.0**: Hardware/precision detection for RealRestorer and other ML models
+### 14.1 Component Versions
 
-The XMP sidecar reader/writer uses Python's standard-library `xml.etree.ElementTree`; that's an implementation choice and a reimplementation may use any equivalent XML library.
+The exact AI models, model weights, and library versions used to produce the current image artifacts. Update this table in the same change as any version, commit, or model-identifier bump (see §13 and AGENTS.md).
 
-### 15.2 External Services
-- **lmstudio (local):** Hosts `google/gemma-4-31b` for OCR/caption/metadata extraction at `http://127.0.0.1:1234/v1`
-- **Nominatim (OpenStreetMap):** Forward and reverse geocoding at `https://nominatim.openstreetmap.org`
-- **Cast Service:** Face recognition / people matching (internal/custom)
-- **Immich (self-hosted photo server):** Source of face regions and person names for the `immich-face-refresh` pipeline step (§5.5). Reached via `IMMICH_URL` with `IMMICH_API_KEY` bearer auth (§1.4).
-- **YOLO (Ultralytics):** Optional object detection via local `models/yolo11n.pt`
+**AI models & weights**
 
-### 15.3 System Tools
+| Component | Identifier / version | Notes |
+|---|---|---|
+| OCR / caption model | `mlx-community/gemma-4-e2b-it-4bit` | MLX-quantized 4-bit Gemma-4 2B-instruct |
+| Layout-analysis model | `granite-docling-258m` | Loaded by Docling's `granite_docling` preset |
+| Photo-restoration model | RealRestorer @ commit `fa2a3e3c23768eb94748c5855d83cc2e340ab13b` | Diffusion pipeline |
+| Face-embedding model | `buffalo_l` | Loaded via InsightFace; used by the `face-refresh` step |
+| Object-detection weights | `yolo11n.pt` | YOLOv11 nano (Ultralytics) |
+
+**Python libraries**
+
+| Library | Version | Role |
+|---|---|---|
+| `opencv-contrib-python` | 4.10.0.84 | Image stitching (AffineStitcher), feature detection (SIFT, AKAZE, BRISK) |
+| `pillow` | 12.1.1 | Image I/O (JPEG, TIFF, PNG), EXIF handling |
+| `stitching` | 0.6.1 | High-level affine stitcher wrapper (uses OpenCV backend) |
+| `docling` | 2.88.0 | Document layout analysis runtime for the layout-analysis model |
+| `diffusers` (RealRestorer fork) | 0.36.0.dev0 | RealRestorer pipeline (pinned commit above) |
+| `torch` | 2.10.0 | Hardware/precision detection for ML models |
+| `insightface` | 0.7.3 | Provides the `buffalo_l` face-embedding model |
+| `ultralytics` | 8.4.24 | YOLO runtime for `yolo11n.pt` |
+
+### 14.2 External Services
+
+- **OCR/caption inference server:** an OpenAI-style chat-completions server hosting the OCR/caption model (§14.1). Any compatible local or remote server works; the reachable host is supplied per archive (§1.4).
+- **Nominatim-compatible geocoding service:** forward and reverse geocoding.
+- **Cast Service:** Face recognition / people matching (internal/custom).
+- **Immich (self-hosted photo server):** Source of face regions and person names for the `immich-face-refresh` pipeline step (§5.5). Reached over Immich's HTTP API using a bearer-token API key (operator-supplied per §1.4).
+
+### 14.3 System Tools
 - **ImageMagick (`magick` command):** Fallback image reading for problematic formats
 - **Git:** Not required at runtime, used for version control only
 
 ---
 
-## 16. Performance Characteristics
+## 15. Testing & Validation
 
-### 16.1 Processing Time Estimates (per page)
-- **Stitching:** 2-10 seconds (varies by detector, image size)
-- **Docling region detection:** 1-5 seconds
-- **Cropping + restoration:** 0.5-2 seconds per crop
-- **AI caption extraction:** 5-20 seconds (network latency dominated)
-- **Geocoding:** 1-5 seconds per location query (network latency + cache hits)
+### 15.1 Unit Test Entry Points
+- Test suites accompany the implementation; their location and structure are implementation choices.
 
-### 16.2 Memory Usage
-- Page view JPEG in memory: ~50-500 MB (depending on resolution)
-- RealRestorer model: ~42 GB loaded (uses CPU offload if needed)
-- Docling converter: ~200 MB (cached per session)
-- lmstudio host process: governed by the loaded Gemma-4 model (separate process; not counted against the pipeline's RSS)
-
-### 16.3 Disk Space
-- Each album page JPEG: ~2-20 MB
-- Each crop JPEG: ~0.1-2 MB
-- XMP sidecar: ~5-50 KB per image
-- Geocoding cache: ~100-500 KB
-
----
-
-## 17. Testing & Validation
-
-### 17.1 Unit Test Entry Points
-- `photoalbums/tests/` directory contains test suites
-- Test data in `photoalbums/data/` and `photoalbums/evals/`
-
-### 17.2 Integration Validation
+### 15.2 Integration Validation
 - **Stitch rendering:** Validate output JPEG exists and is readable
 - **Docling regions:** Check region count > 0 and bounding boxes within image bounds
 - **XMP sidecars:** Validate XML structure and required namespace declarations
 - **Crop images:** Check dimensions and format
 - **Metadata round-trip:** Read XMP, parse all fields, ensure no data loss
 
-### 17.3 Known Limitations
+### 15.3 Known Limitations
 - **Stitching:** May fail on pages with non-overlapping scans or extreme perspective distortion
 - **Docling:** Struggles with ornate page borders or text-heavy layouts
 - **Location inference:** Relies on visible landmarks or context; isolated photos may have low confidence
