@@ -7,6 +7,21 @@ Purpose: operating rules for the `photoalbums/` project.
 - Do not use brittle regex or string replacements to edit AI model responses. Improve the prompt instead so the model produces the right JSON.
 - `photoalbums/prompts/` is the runtime prompt source of truth for the `photoalbums/` pipeline.
 
+## Spec Maintenance
+
+`SPEC.md` is the authoritative description of the photo album pipeline and must be updated in the same change that alters its underlying contracts. Use the table below to decide whether a code change is spec-affecting; if any row applies, edit the listed `SPEC.md` sections in the same commit (or explain in the PR why it does not apply).
+
+| If you change… | Update these SPEC.md sections |
+| --- | --- |
+| Pipeline step list, ids, labels, or dependencies in `lib/pipeline.py` | §5 (AI Processing Pipeline), §9.2 (Pipeline Step Records) |
+| Pipeline step implementation in `commands.py` (new step, removed step, changed inputs/outputs, new required env var) | §1.4 (Required Specs), §5, §9.2, §14 (Services) |
+| Required env vars or service endpoints in `lib/ai_model_settings.py`, `lib/_caption_lmstudio.py`, or any new external integration (Immich, etc.) | §1.4, §10.2 (AI-Models Spec), §14 |
+| XMP sidecar schema, namespaces, or `imago:Detections` keys in `lib/xmp_sidecar.py` | §6 (Sidecar Structure), §7 (XMP Elements), §9 (Pipeline State Tracking) |
+| File naming, scan ingest naming, or stitch rules in `naming.py`, `scanwatch.py`, `bennett.py` | §1 (Naming), §2 (Pre-Pipeline Ingest), §11 (Naming Regexes) |
+| Docling or RealRestorer configuration | §3 (Photo Region Detection), §4 (Restoration), §5 |
+
+Drive-by code edits (refactors, lint fixes, bug fixes that do not alter the contracts above) do not require spec updates.
+
 ## Photo Album File Naming Convention
 
 All photo album files use this naming scheme:
