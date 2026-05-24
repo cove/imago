@@ -104,6 +104,11 @@ The pipeline expects these properties of its environment and inputs to be provid
 - **Nominatim:** reachable HTTPS endpoint, default `https://nominatim.openstreetmap.org`, with a custom `User-Agent` (`imago-photoalbums-ai-index/1.0`)
 - **Local cache directory:** writable `{PHOTOALBUMS_DIR}/data/` for `geocode_cache.json` and similar artifacts
 
+**Environment variables (read at runtime):**
+- `IMMICH_URL` and `IMMICH_API_KEY` — **required** by the `immich-face-refresh` pipeline step (§5.5); the step fails if either is unset.
+- `LMSTUDIO_BASE_URL` — optional override; when set, takes precedence over `lmstudio_base_url` in the AI-models spec (§10.2).
+- `LM_API_KEY` — optional bearer token; when set, added as `Authorization: Bearer …` to every LM Studio request.
+
 ### 1.5 Scan Acquisition & Validation (Watcher System)
 
 Before raw TIFF scans can enter the main pipeline, they must be:
@@ -132,7 +137,7 @@ When detected:
 5. **Apply on success:**
    - Rename incoming file to target filename (e.g., `incoming_scan_01.tif` → `Egypt_1975_B01_P05_S01.tif`)
    - Move file to `{Archive}_Archive/` directory
-   - Process TIFF in place (convert to standard format, ensure proper orientation, etc.)
+   - Process TIFF in place (convert to standard format, apply the ingest-time orientation check in §1.6, etc.)
    - Create a `ScanEvent` record with `status=applied`, recording the timestamp, target name, and `stitch_validated` flag
 6. **Sync archive state:** Update the `ArchiveState` for the target album set:
    - Increment page scan count: `page_scan_counts[page] += 1`
@@ -152,6 +157,17 @@ When detected:
   - Tracks which pages have how many scans and which pages need operator attention
 
 **Note:** The watcher is optional — raw scans can be manually renamed and placed in `{Archive}_Archive/` without going through the watcher. The watcher is a convenience for operator feedback during the ingest phase.
+
+### 1.6 Ingest-Time Orientation Check
+
+After a scan is validated and registered (§1.5) but before it enters the main pipeline, the ingest stage submits the page image to an lmstudio-hosted vision model to determine whether the page is right-side up. The model returns a structured payload of the form `{ "right_side_up": bool }`; if `right_side_up` is `false`, the image is rotated 180° in place before processing continues.
+
+**Properties:**
+- **Service:** the same lmstudio-compatible endpoint and model selection used for OCR/caption (§5.0, §10.2).
+- **Response schema:** a JSON object with a required boolean `right_side_up` field.
+- **On model failure:** the orientation check is treated as a no-op; the image is left as scanned.
+- **Caching:** the orientation decision is cached per scan so it is not re-asked on watcher restart or on retry of a downstream step.
+- **Pipeline-state interaction:** this is an ingest-time correction. It does not produce a per-step XMP record (§9.2) and is independent of the per-page AI processing described in §5.
 
 ---
 
@@ -439,10 +455,11 @@ Call the RealRestorer pipeline with the following parameters:
   - size_level = 1024
 - **Restoration Prompt:** "Please restore this low-quality image, recovering its normal brightness and clarity."
 
-**4. Face Recognition (Optional)**
-- **Service Type:** Cast (internal face matching service)
-- **Model:** buffalo_l (via InsightFace)
-- **Purpose:** Match detected faces against people roster
+**4. Face Recognition**
+
+The pipeline provides two face-region sources, run as separate pipeline steps (see §5.5):
+- **Local face matching (`face-refresh` step):** Cast-based matcher using `buffalo_l` via InsightFace. Matches detected faces against the people roster (§1.4) and writes regions/persons into the rendered output's XMP sidecar.
+- **Immich import (`immich-face-refresh` step):** Pulls face regions and person names from a running Immich server, looking up each rendered image by original filename and merging Immich's face boxes and named persons into the XMP sidecar. Requires `IMMICH_URL` and `IMMICH_API_KEY` (§1.4).
 
 **5. Object Detection (Optional)**
 - **Model:** YOLOv11 nano (Ultralytics)
@@ -615,6 +632,23 @@ Individual cropped photos inherit page-level metadata (caption, date, location) 
 - Crop-specific people counting
 - Crop-specific location grounding
 - Crop XMP verification (see Section 7)
+
+### 5.5 Pipeline Step Inventory
+
+The runtime step graph consists of:
+
+| id | depends_on | optional | summary |
+|----|------------|----------|---------|
+| `scan-ai` | — | no | Run AI on archive scan (OCR, YOLO objects, Immich faces, GPS, date, people) |
+| `render` | `scan-ai` | no | Stitch/convert archive scans to page-view JPEGs (§2) |
+| `detect-regions` | `render` | no | Detect photo bounding boxes and write MWG-RS XMP regions (§3) |
+| `crop-regions` | `detect-regions` | no | Crop detected regions to `_Photos/` (§4) |
+| `face-refresh` | `crop-regions` | no | Update face region metadata using the local Cast/buffalo_l matcher |
+| `immich-face-refresh` | `crop-regions` | no | Refresh face region metadata from current Immich assets |
+| `ai-index` | `face-refresh` | no | Run AI page/crop indexing (caption, GPS, XMP write) |
+| `verify-crops` | `ai-index` | yes | Review each page's crops against the page image and page/crop XMP context (§7) |
+
+These step ids are the authoritative names used to address steps in re-run and skip directives, and as keys in the per-step XMP records under `imago:Detections.pipeline.{step_id}` (§9.2).
 
 ---
 
@@ -1184,7 +1218,7 @@ Stored under `imago:Detections.processing` as boolean flags. Stage names observe
 - (other stage-specific keys added as new pipeline steps come online)
 
 ### 9.2 Pipeline Step Records
-Stored under `imago:Detections.pipeline.{step_name}` as a JSON object per step. Common step names: `view_regions`, `crop`, `restoration`, `ai_caption`, `ai_metadata`, `verify_crops`, `geocode`.
+Stored under `imago:Detections.pipeline.{step_name}` as a JSON object per step. The step names are the pipeline step ids enumerated in §5.5: `scan-ai`, `render`, `detect-regions`, `crop-regions`, `face-refresh`, `immich-face-refresh`, `ai-index`, `verify-crops`.
 
 **Common per-step keys:**
 | Key | Meaning |
@@ -1239,6 +1273,8 @@ model_name = "RealRestorer/RealRestorer"
 ```
 
 Per-archive overrides for the AI baseline. Values shown here are the defaults the current codebase ships with.
+
+**Env-var overrides:** `LMSTUDIO_BASE_URL`, when set, takes precedence over the `lmstudio_base_url` value above. `LM_API_KEY`, when set, is sent as `Authorization: Bearer …` on every LM Studio request.
 
 ### 10.3 Render Spec (JSON example)
 ```json
@@ -1475,6 +1511,7 @@ The XMP sidecar reader/writer uses Python's standard-library `xml.etree.ElementT
 - **lmstudio (local):** Hosts `google/gemma-4-31b` for OCR/caption/metadata extraction at `http://127.0.0.1:1234/v1`
 - **Nominatim (OpenStreetMap):** Forward and reverse geocoding at `https://nominatim.openstreetmap.org`
 - **Cast Service:** Face recognition / people matching (internal/custom)
+- **Immich (self-hosted photo server):** Source of face regions and person names for the `immich-face-refresh` pipeline step (§5.5). Reached via `IMMICH_URL` with `IMMICH_API_KEY` bearer auth (§1.4).
 - **YOLO (Ultralytics):** Optional object detection via local `models/yolo11n.pt`
 
 ### 15.3 System Tools
