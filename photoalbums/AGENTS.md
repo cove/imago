@@ -19,6 +19,7 @@ Purpose: operating rules for the `photoalbums/` project.
 | XMP sidecar schema, namespaces, or `imago:Detections` keys in `lib/xmp_sidecar.py` | §6 (Sidecar Structure), §7 (XMP Elements), §9 (Pipeline State Tracking) |
 | File naming, scan ingest naming, or stitch rules in `naming.py`, `scanwatch.py`, `bennett.py` | §1 (Naming), §2 (Pre-Pipeline Ingest), §11 (Naming Regexes) |
 | Docling or RealRestorer configuration | §3 (Photo Region Detection), §4 (Restoration), §5 |
+| Dependency version bumps (root `pyproject.toml`, `uv.lock`) or AI model identifiers/pinned commits (`ai_models.toml`, model names in code) | §1.4 (Required Specs), §5 (model versions per step), §14 (Services — record the new version/commit so we have a history of what was used) |
 
 Drive-by code edits (refactors, lint fixes, bug fixes that do not alter the contracts above) do not require spec updates.
 
