@@ -11,15 +11,20 @@ Purpose: operating rules for the `photoalbums/` project.
 
 `SPEC.md` is the authoritative description of the photo album pipeline and must be updated in the same change that alters its underlying contracts. Use the table below to decide whether a code change is spec-affecting; if any row applies, edit the listed `SPEC.md` sections in the same commit (or explain in the PR why it does not apply).
 
+**Spec writing style — RFC, not code tour.** `SPEC.md` describes contracts and behavior, not the implementation. When editing it:
+- Do not reference internal file paths, module names, function names, or class names (e.g., `lib/pipeline.py`, `_run_pipeline_immich_face_refresh_step`). Refer to concepts instead: pipeline steps, services, sidecar fields, env vars.
+- Refer to pipeline steps by their public step id (e.g., `immich-face-refresh`), services by their service name (e.g., Immich, lmstudio, Docling), and env vars by their exact name.
+- A reader who has never seen the source tree should be able to reimplement the pipeline from the spec alone. The file/module pointers in the table below are aids for the *agent deciding whether a change is spec-affecting* — they do not belong in the spec text.
+
 | If you change… | Update these SPEC.md sections |
 | --- | --- |
 | Pipeline step list, ids, labels, or dependencies in `lib/pipeline.py` | §5 (AI Processing Pipeline), §9.2 (Pipeline Step Records) |
-| Pipeline step implementation in `commands.py` (new step, removed step, changed inputs/outputs, new required env var) | §1.4 (Required Specs), §5, §9.2, §14 (Services) |
-| Required env vars or service endpoints in `lib/ai_model_settings.py`, `lib/_caption_lmstudio.py`, or any new external integration (Immich, etc.) | §1.4, §10.2 (AI-Models Spec), §14 |
+| Pipeline step implementation in `commands.py` (new step, removed step, changed inputs/outputs, new required env var) | §1.4 (Required Specs), §5, §9.2, §15 (Key Dependencies & External Services) |
+| Required env vars or service endpoints in `lib/ai_model_settings.py`, `lib/_caption_lmstudio.py`, or any new external integration (Immich, etc.) | §1.4, §10.2 (AI-Models Spec), §15 |
 | XMP sidecar schema, namespaces, or `imago:Detections` keys in `lib/xmp_sidecar.py` | §6 (Sidecar Structure), §7 (XMP Elements), §9 (Pipeline State Tracking) |
 | File naming, scan ingest naming, or stitch rules in `naming.py`, `scanwatch.py`, `bennett.py` | §1 (Naming), §2 (Pre-Pipeline Ingest), §11 (Naming Regexes) |
 | Docling or RealRestorer configuration | §3 (Photo Region Detection), §4 (Restoration), §5 |
-| Dependency version bumps (root `pyproject.toml`, `uv.lock`) or AI model identifiers/pinned commits (`ai_models.toml`, model names in code) | §1.4 (Required Specs), §5 (model versions per step), §14 (Services — record the new version/commit so we have a history of what was used) |
+| Dependency version bumps (root `pyproject.toml`, `uv.lock`) or AI model identifiers/pinned commits (`ai_models.toml`, model names in code) | §1.4 (Required Specs), §5 (model versions per step), §15 (Key Dependencies & External Services — record the new version/commit so we have a history of what was used) |
 
 Drive-by code edits (refactors, lint fixes, bug fixes that do not alter the contracts above) do not require spec updates.
 
