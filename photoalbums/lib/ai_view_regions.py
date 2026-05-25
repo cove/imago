@@ -30,7 +30,7 @@ _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
 
 # Region debug rendering (previously ai_view_region_render.py)
 
-_MAX_EDGE = 1500
+_MAX_EDGE = 4096
 
 _PALETTE = [
     (255, 60, 60),  # red

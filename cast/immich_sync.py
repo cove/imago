@@ -224,12 +224,28 @@ def _face_to_region(face: dict[str, Any]) -> dict[str, Any] | None:
     coords = _bbox_to_relative(face)
     if coords is None:
         return None
-    return {"name": name, **coords}
+    return {
+        "name": name,
+        "image_width": int(face.get("imageWidth", 0)),
+        "image_height": int(face.get("imageHeight", 0)),
+        **coords,
+    }
 
 
 def _faces_to_regions(faces: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert Immich face dicts to relative-coordinate region dicts."""
     return [r for f in faces if (r := _face_to_region(f)) is not None]
+
+
+def _local_image_dimensions(path: Path) -> tuple[int, int]:
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            return int(image.width), int(image.height)
+    except Exception as exc:
+        log.debug("could not read local image dimensions for %s: %s", path, exc)
+        return 0, 0
 
 
 def _dedupe_names(names: list[str]) -> list[str]:
@@ -274,6 +290,11 @@ def _write_asset_xmp(
         return 0, 1
     names = _dedupe_names([str(f["person"]["name"]).strip() for f in named])
     regions = _faces_to_regions(named)
+    local_width, local_height = _local_image_dimensions(local_path)
+    if local_width > 0 and local_height > 0:
+        for region in regions:
+            region["image_width"] = local_width
+            region["image_height"] = local_height
     xmp_path = local_path.with_suffix(".xmp")
     if dry_run:
         print(f"[DRY RUN] {xmp_path.name}: {', '.join(names)}")

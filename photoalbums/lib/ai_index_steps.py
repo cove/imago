@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .ai_prompt_assets import asset_hashes
@@ -31,6 +31,10 @@ class StepDef:
     name: str
     depends_on: list[str]
     output_keys: list[str]
+    # Keys that must be present in existing_detections for the step to be fresh.
+    # A step whose recorded outputs were never written (e.g. incomplete sidecar)
+    # is stale even when its input hash hasn't changed.
+    required_output_keys: list[str] = field(default_factory=list)
 
 
 # ── Step declarations ──────────────────────────────────────────────────────────
@@ -118,11 +122,16 @@ class StepRunner:
         existing_pipeline_state: dict[str, dict],
         existing_detections: dict[str, Any],
         forced_steps: set[str],
+        required_output_keys: dict[str, list[str]] | None = None,
     ) -> None:
         self.settings = settings
         self.existing_pipeline_state = existing_pipeline_state
         self.existing_detections = existing_detections
         self.forced_steps = forced_steps
+        # Per-run additions to required_output_keys (merged with StepDef.required_output_keys).
+        # A step is stale if any required key is absent from existing_detections, even when
+        # the input hash matches — covering the incomplete-sidecar case.
+        self.required_output_keys: dict[str, list[str]] = required_output_keys or {}
         # Track which steps ran this session
         self.reran: dict[str, bool] = {}
         # Computed output hash per step (for downstream input hashes)
@@ -148,6 +157,9 @@ class StepRunner:
             return True
         step = STEPS[step_name]
         if any(self.reran.get(dep, False) for dep in step.depends_on):
+            return True
+        required = list(step.required_output_keys) + list(self.required_output_keys.get(step_name, []))
+        if any(self.existing_detections.get(k) is None for k in required):
             return True
         return False
 

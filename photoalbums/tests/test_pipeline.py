@@ -91,6 +91,10 @@ class TestPrintPipelinePlan(unittest.TestCase):
         self.assertIn("TestAlbum", output)
         self.assertIn("5 page(s)", output)
 
+    def test_immich_face_refresh_runs_after_ai_index(self):
+        step_ids = [step.id for step in PIPELINE_STEPS]
+        self.assertLess(step_ids.index("ai-index"), step_ids.index("immich-face-refresh"))
+
 
 class TestEffectivePipelineStepIds(unittest.TestCase):
     def test_verify_crops_is_skipped_by_default(self):
@@ -386,7 +390,7 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
         write_step.assert_not_called()
         print_outcome.assert_called_once_with("skipped (already complete)", "")
 
-    def test_immich_face_refresh_queries_matching_assets_directly(self):
+    def test_immich_face_refresh_queries_archive_scan_and_rendered_assets_directly(self):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -430,6 +434,7 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                 patch("cast.immich_sync.fetch_asset_faces", return_value=[face]) as fetch_faces,
                 patch("cast.xmp_writer.merge_persons_xmp") as merge_persons,
                 patch("cast.xmp_writer.merge_face_regions_xmp") as merge_regions,
+                patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(200, 100)),
                 patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
                 patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner),
             ):
@@ -452,10 +457,26 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
                 )
 
         self.assertEqual(code, 0)
-        fetch_assets.assert_called_once_with("http://immich.local:2283", "key", target.name)
-        fetch_faces.assert_called_once_with("http://immich.local:2283", "key", "asset-001")
-        merge_persons.assert_called_once_with(target.with_suffix(".xmp"), ["Alice"])
-        merge_regions.assert_called_once()
+        self.assertEqual(
+            fetch_assets.call_args_list,
+            [
+                unittest.mock.call("http://immich.local:2283", "key", scan.name),
+                unittest.mock.call("http://immich.local:2283", "key", target.name),
+            ],
+        )
+        self.assertEqual(
+            fetch_faces.call_args_list,
+            [
+                unittest.mock.call("http://immich.local:2283", "key", "asset-001"),
+                unittest.mock.call("http://immich.local:2283", "key", "asset-001"),
+            ],
+        )
+        merge_persons.assert_any_call(scan.with_suffix(".xmp"), ["Alice"])
+        merge_persons.assert_any_call(target.with_suffix(".xmp"), ["Alice"])
+        self.assertEqual(merge_regions.call_count, 2)
+        for call in merge_regions.call_args_list:
+            self.assertEqual(call.args[1][0]["image_width"], 200)
+            self.assertEqual(call.args[1][0]["image_height"], 100)
         write_step.assert_called_once_with(view_path.with_suffix(".xmp"), "immich-face-refresh")
 
     def test_verify_crops_runs_after_ai_index_when_explicitly_requested(self):

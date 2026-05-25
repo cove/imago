@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import urllib.error
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 from unittest.mock import patch
@@ -13,6 +14,7 @@ from cast.immich_sync import (
     _dedupe_names,
     _faces_to_regions,
     _http_get,
+    _write_asset_xmp,
     build_local_index,
     fetch_assets_by_original_filename,
     fetch_person_assets,
@@ -20,6 +22,10 @@ from cast.immich_sync import (
 )
 from cast.storage import TextFaceStore
 from cast.xmp_writer import read_person_in_image
+
+RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
+STDIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 
 # ---------------------------------------------------------------------------
 # Unit tests for pure helpers
@@ -147,6 +153,27 @@ def test_faces_to_regions_skips_zero_image_dimensions() -> None:
 def test_dedupe_names_case_insensitive() -> None:
     result = _dedupe_names(["Alice", "alice", "ALICE", "Bob"])
     assert result == ["Alice", "Bob"]
+
+
+def test_write_asset_xmp_uses_local_image_dimensions_for_region_metadata(tmp_path: Path) -> None:
+    from PIL import Image
+
+    photo = tmp_path / "IMG_001.jpg"
+    Image.new("RGB", (200, 100)).save(photo)
+
+    with patch("cast.immich_sync.fetch_asset_faces", return_value=[_FACE_ALICE]):
+        updated, skipped = _write_asset_xmp("asset-001", photo, _BASE, _KEY, dry_run=False)
+
+    assert (updated, skipped) == (1, 0)
+    root = ET.parse(photo.with_suffix(".xmp")).getroot()
+    applied = root.find(
+        ".//"
+        f"{{{MWGRS_NS}}}Regions/"
+        f"{{{MWGRS_NS}}}AppliedToDimensions"
+    )
+    assert applied is not None
+    assert applied.findtext(f"{{{STDIM_NS}}}w") == "200"
+    assert applied.findtext(f"{{{STDIM_NS}}}h") == "100"
 
 
 def test_http_get_prints_immich_error_and_retries_until_recovery(capsys) -> None:

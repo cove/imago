@@ -12,6 +12,13 @@ from cast.xmp_writer import (
 
 IPTC_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
+STDIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
+MP_NS = "http://ns.microsoft.com/photo/1.2/"
+MPRI_NS = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#"
+MPREG_NS = "http://ns.microsoft.com/photo/1.2/t/Region#"
+# ExifTool uses a slightly different stArea namespace URI
+EXIFTOOL_STAREA_NS = "http://ns.adobe.com/xmp/sType/Area#"
 
 
 def _parse_face_regions(xmp_path: Path) -> list[dict]:
@@ -54,14 +61,81 @@ def _parse_face_regions(xmp_path: Path) -> list[dict]:
     return regions
 
 
+def _parse_exiftool_mwgrs_regions(xmp_path: Path) -> list[dict]:
+    """Parse mwg-rs:Regions as written by ExifTool (child text elements)."""
+    tree = ET.parse(str(xmp_path))
+    root = tree.getroot()
+    rdf_rdf = root.find(f"{{{RDF_NS}}}RDF")
+    if rdf_rdf is None:
+        return []
+    regions = []
+    # ExifTool may split namespaces across multiple rdf:Description elements
+    for desc in rdf_rdf.findall(f"{{{RDF_NS}}}Description"):
+        region_info = desc.find(f"{{{MWGRS_NS}}}Regions")
+        if region_info is None:
+            continue
+        applied = region_info.find(f"{{{MWGRS_NS}}}AppliedToDimensions")
+        dim_w = applied.findtext(f"{{{STDIM_NS}}}w") if applied is not None else ""
+        dim_h = applied.findtext(f"{{{STDIM_NS}}}h") if applied is not None else ""
+        region_list = region_info.find(f"{{{MWGRS_NS}}}RegionList")
+        if region_list is None:
+            continue
+        bag = region_list.find(f"{{{RDF_NS}}}Bag")
+        if bag is None:
+            continue
+        for li in bag.findall(f"{{{RDF_NS}}}li"):
+            area = li.find(f"{{{MWGRS_NS}}}Area")
+            regions.append({
+                "type": str(li.findtext(f"{{{MWGRS_NS}}}Type") or ""),
+                "name": str(li.findtext(f"{{{MWGRS_NS}}}Name") or ""),
+                "x": str(area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}x") if area is not None else ""),
+                "y": str(area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}y") if area is not None else ""),
+                "w": str(area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}w") if area is not None else ""),
+                "h": str(area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}h") if area is not None else ""),
+                "unit": str(area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}unit") if area is not None else ""),
+                "dim_w": str(dim_w or ""),
+                "dim_h": str(dim_h or ""),
+            })
+    return regions
+
+
+def _parse_mp_regions(xmp_path: Path) -> list[dict]:
+    """Parse MP:RegionInfo as written by ExifTool (child text elements)."""
+    tree = ET.parse(str(xmp_path))
+    root = tree.getroot()
+    rdf_rdf = root.find(f"{{{RDF_NS}}}RDF")
+    if rdf_rdf is None:
+        return []
+    for desc in rdf_rdf.findall(f"{{{RDF_NS}}}Description"):
+        region_info = desc.find(f"{{{MP_NS}}}RegionInfo")
+        if region_info is None:
+            continue
+        regions = region_info.find(f"{{{MPRI_NS}}}Regions")
+        if regions is None:
+            return []
+        bag = regions.find(f"{{{RDF_NS}}}Bag")
+        if bag is None:
+            return []
+        return [
+            {
+                "name": str(li.findtext(f"{{{MPREG_NS}}}PersonDisplayName") or ""),
+                "rectangle": str(li.findtext(f"{{{MPREG_NS}}}Rectangle") or ""),
+            }
+            for li in bag.findall(f"{{{RDF_NS}}}li")
+        ]
+    return []
+
+
 def test_create_minimal_sidecar_with_face_regions(tmp_path: Path) -> None:
     xmp = tmp_path / "photo.xmp"
-    regions = [{"name": "Alice", "rx": 0.1, "ry": 0.2, "rw": 0.3, "rh": 0.4}]
+    regions = [{"name": "Alice", "rx": 0.1, "ry": 0.2, "rw": 0.3, "rh": 0.4, "image_width": 1000, "image_height": 800}]
 
     result = merge_face_regions_xmp(xmp, regions)
 
     assert result == xmp
     assert xmp.is_file()
+
+    # IPTC regions (written via XML)
     parsed = _parse_face_regions(xmp)
     assert len(parsed) == 1
     assert parsed[0]["name"] == "Alice"
@@ -73,6 +147,25 @@ def test_create_minimal_sidecar_with_face_regions(tmp_path: Path) -> None:
     assert abs(float(parsed[0]["rbY"]) - 0.2) < 1e-5
     assert abs(float(parsed[0]["rbW"]) - 0.3) < 1e-5
     assert abs(float(parsed[0]["rbH"]) - 0.4) < 1e-5
+
+    # MWG-RS regions (written via ExifTool — mwg-rs:Regions, center-normalized coords)
+    mwgrs = _parse_exiftool_mwgrs_regions(xmp)
+    assert len(mwgrs) == 1
+    assert mwgrs[0]["type"] == "Face"
+    assert mwgrs[0]["name"] == "Alice"
+    assert mwgrs[0]["unit"] == "normalized"
+    assert abs(float(mwgrs[0]["x"]) - 0.25) < 1e-5  # rx + rw/2 = 0.1 + 0.15
+    assert abs(float(mwgrs[0]["y"]) - 0.4) < 1e-5   # ry + rh/2 = 0.2 + 0.20
+    assert abs(float(mwgrs[0]["w"]) - 0.3) < 1e-5
+    assert abs(float(mwgrs[0]["h"]) - 0.4) < 1e-5
+    assert mwgrs[0]["dim_w"] == "1000"
+    assert mwgrs[0]["dim_h"] == "800"
+
+    # MP regions (written via ExifTool — top-left normalized coords)
+    mp = _parse_mp_regions(xmp)
+    assert len(mp) == 1
+    assert mp[0]["name"] == "Alice"
+    assert mp[0]["rectangle"] == "0.100000, 0.200000, 0.300000, 0.400000"
 
 
 def test_multiple_regions_numbered_sequentially(tmp_path: Path) -> None:
@@ -127,11 +220,16 @@ def test_second_call_replaces_regions(tmp_path: Path) -> None:
 
 def test_empty_regions_removes_face_entries(tmp_path: Path) -> None:
     xmp = tmp_path / "photo.xmp"
-    merge_face_regions_xmp(xmp, [{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.2, "rh": 0.2}])
+    merge_face_regions_xmp(xmp, [{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.2, "rh": 0.2,
+                                   "image_width": 100, "image_height": 100}])
     assert len(_parse_face_regions(xmp)) == 1
+    assert len(_parse_exiftool_mwgrs_regions(xmp)) == 1
+    assert len(_parse_mp_regions(xmp)) == 1
 
     merge_face_regions_xmp(xmp, [])
     assert _parse_face_regions(xmp) == []
+    assert _parse_exiftool_mwgrs_regions(xmp) == []
+    assert _parse_mp_regions(xmp) == []
 
 
 def test_zero_width_region_skipped(tmp_path: Path) -> None:
@@ -164,7 +262,6 @@ def test_empty_name_region_skipped(tmp_path: Path) -> None:
 
 def test_non_face_regions_preserved(tmp_path: Path) -> None:
     xmp = tmp_path / "photo.xmp"
-    # Manually write an XMP with a non-face ImageRegion
     raw = (
         "<?xml version='1.0' encoding='UTF-8'?>\n"
         '<x:xmpmeta xmlns:x="adobe:ns:meta/">'
@@ -191,6 +288,52 @@ def test_non_face_regions_preserved(tmp_path: Path) -> None:
     rctypes = [r["rctype"] for r in parsed]
     assert "content-region" in rctypes
     assert "face-identified" in rctypes
+
+
+def test_old_compact_mwgrs_region_info_cleared_on_write(tmp_path: Path) -> None:
+    """Old hand-written mwg-rs:RegionInfo (compact attrs form) is removed; ExifTool writes mwg-rs:Regions."""
+    xmp = tmp_path / "photo.xmp"
+    raw = (
+        "<?xml version='1.0' encoding='UTF-8'?>\n"
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        '<rdf:Description rdf:about=""'
+        ' xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"'
+        ' xmlns:stArea="http://ns.adobe.com/xap/1.0/sType/Area#">'
+        '<mwg-rs:RegionInfo rdf:parseType="Resource">'
+        "<mwg-rs:RegionList><rdf:Bag>"
+        '<rdf:li rdf:parseType="Resource" mwg-rs:Type="Photo" mwg-rs:Name="Existing photo"'
+        ' stArea:x="0.5" stArea:y="0.5" stArea:w="0.4" stArea:h="0.4" stArea:unit="normalized" />'
+        '<rdf:li rdf:parseType="Resource" mwg-rs:Type="Face" mwg-rs:Name="Old face"'
+        ' stArea:x="0.1" stArea:y="0.1" stArea:w="0.1" stArea:h="0.1" stArea:unit="normalized" />'
+        "</rdf:Bag></mwg-rs:RegionList>"
+        "</mwg-rs:RegionInfo>"
+        "</rdf:Description>"
+        "</rdf:RDF>"
+        "</x:xmpmeta>"
+    )
+    xmp.write_text(raw, encoding="utf-8")
+
+    merge_face_regions_xmp(
+        xmp,
+        [{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.2, "rh": 0.2, "image_width": 1000, "image_height": 800}],
+    )
+
+    # Old compact mwg-rs:RegionInfo is cleared (not preserved after migration)
+    tree = ET.parse(str(xmp))
+    root = tree.getroot()
+    rdf_rdf = root.find(f"{{{RDF_NS}}}RDF")
+    assert rdf_rdf is not None
+    for desc in rdf_rdf.findall(f"{{{RDF_NS}}}Description"):
+        assert desc.find(f"{{{MWGRS_NS}}}RegionInfo") is None, "old compact RegionInfo should be gone"
+
+    # ExifTool's mwg-rs:Regions has Alice as Face
+    et_mwgrs = _parse_exiftool_mwgrs_regions(xmp)
+    assert [r["type"] for r in et_mwgrs] == ["Face"]
+    assert [r["name"] for r in et_mwgrs] == ["Alice"]
+
+    # MP has Alice
+    assert _parse_mp_regions(xmp) == [{"name": "Alice", "rectangle": "0.100000, 0.100000, 0.200000, 0.200000"}]
 
 
 def test_corrupt_xmp_creates_new_sidecar(tmp_path: Path) -> None:

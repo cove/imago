@@ -22,7 +22,7 @@ from ._lmstudio_helpers import LMStudioModelResolverMixin, _normalize_model_name
 from .ai_prompt_assets import load_params, load_prompt
 from .image_limits import allow_large_pillow_images
 
-DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 8129
+DEFAULT_LMSTUDIO_MAX_NEW_TOKENS = 5128
 DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:8080/v1"
 DEFAULT_LMSTUDIO_TIMEOUT_SECONDS = 300.0
 DEFAULT_LMSTUDIO_AUTO_MAX_IMAGE_EDGE = 2048
@@ -1157,7 +1157,7 @@ class LMStudioCaptioner(LMStudioModelResolverMixin):
         base_url: str = DEFAULT_LMSTUDIO_BASE_URL,
         timeout_seconds: float = DEFAULT_LMSTUDIO_TIMEOUT_SECONDS,
         max_image_edge: int = 0,
-        stream: bool = False,
+        stream: bool = True,
         thinking: bool = False,
     ):
         self.model_names = _normalize_model_name_candidates(model_name)

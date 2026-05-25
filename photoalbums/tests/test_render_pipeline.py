@@ -109,8 +109,6 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
 
             captured = StringIO()
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(100, 100)),
@@ -174,8 +172,6 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
             mock_regions = []
 
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
@@ -206,8 +202,6 @@ class TestRunRenderPipelineSkipsSteps(unittest.TestCase):
 
             captured = StringIO()
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
@@ -274,8 +268,6 @@ class TestRunRenderPipelineNoRegions(unittest.TestCase):
 
             captured = StringIO()
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
@@ -311,8 +303,6 @@ class TestRunRenderPipelineNoRegions(unittest.TestCase):
 
             captured = StringIO()
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
@@ -388,48 +378,6 @@ class TestRunRenderPipelineProvenance(unittest.TestCase):
             self.assertIn("DocumentID", xml)
 
 
-class TestRunRenderPipelinePageLockRelease(unittest.TestCase):
-    """Page lock is released even when a step raises."""
-
-    def test_lock_released_on_exception(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            _make_test_album(root)
-
-            released = []
-
-            def fake_release(lock):
-                released.append(lock)
-
-            with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=Path("/fake.lock")),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock", side_effect=fake_release),
-                mock.patch(
-                    "photoalbums.stitch_oversized_pages.tif_to_jpg",
-                    side_effect=RuntimeError("render failed"),
-                ),
-                mock.patch(
-                    "photoalbums.stitch_oversized_pages.stitch",
-                    side_effect=RuntimeError("render failed"),
-                ),
-                mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
-                mock.patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
-                redirect_stdout(StringIO()),
-                redirect_stderr(StringIO()),
-            ):
-                result = commands.run_render_pipeline(
-                    album_id="Egypt_1975_B00",
-                    photos_root=str(root),
-                    page=None,
-                    force=False,
-                    skip_crops=True,
-                )
-
-            # Lock must have been released
-            self.assertTrue(len(released) > 0)
-            # Result should be non-zero due to failure
-            self.assertNotEqual(result, 0)
-
 
 class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
     def test_face_refresh_is_limited_to_current_page(self):
@@ -443,8 +391,6 @@ class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
             session.set_files.side_effect = lambda files: refresh_calls.append([path.name for path in files])
 
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=[]),
@@ -487,8 +433,6 @@ class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
             rendered: list[str] = []
 
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=derived_outputs),
@@ -531,8 +475,6 @@ class TestRunRenderPipelinePerPageScoping(unittest.TestCase):
             render_calls: list[tuple[str, str]] = []
 
             with (
-                mock.patch("photoalbums.commands._acquire_page_pipeline_lock", return_value=None),
-                mock.patch("photoalbums.commands._release_page_pipeline_lock"),
                 mock.patch("photoalbums.stitch_oversized_pages.tif_to_jpg", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.stitch", return_value=False),
                 mock.patch("photoalbums.stitch_oversized_pages.list_derived_images", return_value=derived_outputs),
