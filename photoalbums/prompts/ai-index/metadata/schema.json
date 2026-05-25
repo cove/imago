@@ -1,6 +1,10 @@
 {
   "type": "object",
   "properties": {
+    "subjects": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
     "photos": {
       "type": "array",
       "items": {
@@ -20,6 +24,6 @@
       }
     }
   },
-  "required": ["photos"],
+  "required": ["subjects", "photos"],
   "additionalProperties": false
 }

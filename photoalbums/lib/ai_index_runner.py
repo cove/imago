@@ -2905,7 +2905,6 @@ class IndexRunner:
 
             pu_subjects = _dedupe(
                 pu_inputs.existing_object_labels
-                + pu_inputs.existing_ocr_keywords
                 + ([pu_album_title] if pu_album_title else [])
             )
             pu_people_detected = pu_faces_detected > 0 or len(pu_person_names) > 0
