@@ -1477,146 +1477,6 @@ from .metadata_resolver import (
     resolve_crop_locations_shown,
 )
 
-# Processing locks (previously ai_processing_locks.py)
-
-PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
-BATCH_LOCK_SUFFIX = ".photoalbums-ai.batch.lock"
-JOB_ID_ENV = "IMAGO_JOB_ID"
-
-
-def _processing_lock_path(image_path: Path) -> Path:
-    return image_path.with_name(f"{image_path.name}{PROCESSING_LOCK_SUFFIX}")
-
-
-def _pid_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
-
-def _read_processing_lock(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _release_image_processing_lock(lock_path: Path | None) -> None:
-    if lock_path is None:
-        return
-    for attempt in range(5):
-        try:
-            lock_path.unlink()
-            return
-        except FileNotFoundError:
-            log.debug("Lock file already removed: %s", lock_path)
-            return
-        except PermissionError as exc:
-            if getattr(exc, "winerror", None) != 32:
-                raise
-            if attempt == 4:
-                return
-            time.sleep(0.1)
-
-
-def _release_batch_processing_lock(lock_path: Path | None) -> None:
-    _release_image_processing_lock(lock_path)
-
-
-def _clear_stale_processing_lock(lock_path: Path) -> bool:
-    payload = _read_processing_lock(lock_path)
-    pid = payload.get("pid")
-    if isinstance(pid, int) and pid > 0 and not _pid_alive(pid):
-        with contextlib.suppress(FileNotFoundError):
-            lock_path.unlink()
-        return True
-    return False
-
-
-def _cleanup_stale_processing_locks(photos_root: Path) -> list[Path]:
-    cleaned: list[Path] = []
-    if not photos_root.exists():
-        return cleaned
-
-    batch_lock_path = _batch_processing_lock_path(photos_root)
-    if _clear_stale_processing_lock(batch_lock_path):
-        cleaned.append(batch_lock_path)
-
-    for lock_path in photos_root.rglob(f"*{PROCESSING_LOCK_SUFFIX}"):
-        if _clear_stale_processing_lock(lock_path):
-            cleaned.append(lock_path)
-    return cleaned
-
-
-def _acquire_image_processing_lock(image_path: Path) -> Path:
-    lock_path = _processing_lock_path(image_path)
-    payload = {
-        "image_path": str(image_path.resolve()),
-        "pid": os.getpid(),
-        "job_id": str(os.environ.get(JOB_ID_ENV) or "").strip(),
-    }
-    for _ in range(2):
-        try:
-            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if _clear_stale_processing_lock(lock_path):
-                continue
-            current = _read_processing_lock(lock_path)
-            owner_parts = []
-            job_id = str(current.get("job_id") or "").strip()
-            if job_id:
-                owner_parts.append(f"job {job_id}")
-            pid = current.get("pid")
-            if isinstance(pid, int):
-                owner_parts.append(f"pid {pid}")
-            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
-            raise RuntimeError(f"already processing {image_path.name} ({owner})")
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-        return lock_path
-    raise RuntimeError(f"could not acquire processing lock for {image_path.name}")
-
-
-def _batch_processing_lock_path(photos_root: Path) -> Path:
-    return photos_root / BATCH_LOCK_SUFFIX
-
-
-def _acquire_batch_processing_lock(photos_root: Path) -> Path:
-    lock_path = _batch_processing_lock_path(photos_root)
-    payload = {
-        "photos_root": str(photos_root.resolve()),
-        "pid": os.getpid(),
-        "job_id": str(os.environ.get(JOB_ID_ENV) or "").strip(),
-    }
-    for _ in range(2):
-        try:
-            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if _clear_stale_processing_lock(lock_path):
-                continue
-            current = _read_processing_lock(lock_path)
-            owner_parts = []
-            current_root = str(current.get("photos_root") or "").strip()
-            if current_root:
-                owner_parts.append(current_root)
-            job_id = str(current.get("job_id") or "").strip()
-            if job_id:
-                owner_parts.append(f"job {job_id}")
-            pid = current.get("pid")
-            if isinstance(pid, int):
-                owner_parts.append(f"pid {pid}")
-            owner = ", ".join(owner_parts) if owner_parts else str(lock_path)
-            raise RuntimeError(f"another photoalbums ai batch run is already active ({owner})")
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-        return lock_path
-    raise RuntimeError("could not acquire photoalbums ai batch lock")
-
 
 from .ai_prompt_assets import load_params
 from .ai_render_settings import (
@@ -2219,8 +2079,6 @@ class IndexRunner:
         self.completed_times: list[float] = []
 
         self.files: list[Path] = []
-        self.batch_lock_path: Path | None = None
-        self.allow_concurrent_shards = False
 
     def _validate_init_args(self) -> None:
         if not self.photos_root.is_dir():
@@ -2431,14 +2289,6 @@ class IndexRunner:
         if not self.files:
             return 0
 
-        self.allow_concurrent_shards = not self.single_photo and self.shard_count > 1
-        if not self.single_photo and not self.allow_concurrent_shards:
-            try:
-                self.batch_lock_path = _acquire_batch_processing_lock(self.photos_root)
-            except RuntimeError as exc:
-                self.emit_error(str(exc))
-                return 1
-
         return None
 
     def _summarize(self) -> int:
@@ -2451,7 +2301,6 @@ class IndexRunner:
             print(f"- Processed: {self.processed}")
             print(f"- Skipped:   {self.skipped}")
             print(f"- Failed:    {self.failures + stitch_failures}")
-        _release_batch_processing_lock(self.batch_lock_path)
         self.stitch_cap_td.cleanup()
         return 1 if (self.failures or stitch_failures) else 0
 
@@ -2583,7 +2432,7 @@ class IndexRunner:
             return
 
         self._emit_reprocess_status(idx, state)
-        self._dispatch_with_lock(idx, state)
+        self._dispatch_processing(idx, state)
 
     def _emit_skip(self, idx: int, image_path: Path, reason: str) -> None:
         self.skipped += 1
@@ -2694,6 +2543,8 @@ class IndexRunner:
         ):
             state.reprocess_required = True
             state.reprocess_reasons.append("missing_album_title")
+            if _is_album_title_source_candidate(state.image_path):
+                state.extra_forced.add("metadata")
 
     @staticmethod
     def _check_stitched_authority_mismatch(state: _ProcessOneState) -> None:
@@ -2802,20 +2653,6 @@ class IndexRunner:
             print(f"{prefix}  [update: {reason_text}]", flush=True)
         elif state.source_refresh_required or state.date_refresh_required:
             print(f"{prefix}  [refresh: {reason_text}]", flush=True)
-
-    def _dispatch_with_lock(self, idx: int, state: _ProcessOneState) -> None:
-        try:
-            lock_path = _acquire_image_processing_lock(state.image_path)
-        except RuntimeError as exc:
-            if self.allow_concurrent_shards and "already processing" in str(exc):
-                self._emit_skip(idx, state.image_path, str(exc))
-            else:
-                self._record_failure(idx, state.image_path, exc)
-            return
-        try:
-            self._dispatch_processing(idx, state)
-        finally:
-            _release_image_processing_lock(lock_path)
 
     def _dispatch_processing(self, idx: int, state: _ProcessOneState) -> None:
         if not state.needs_full and not state.people_update_only and not state.gps_update_only:
@@ -3540,11 +3377,18 @@ class IndexRunner:
         forced_steps = {s.strip() for s in steps_arg.split(",") if s.strip()} if steps_arg else set()
         if extra_forced_steps:
             forced_steps = forced_steps | extra_forced_steps
+        # Title pages are the authoritative source for album titles. The metadata
+        # step must have written its ocr detection; if the sidecar was incomplete
+        # and that key is absent, treat the step as stale so it re-runs.
+        required_output_keys: dict[str, list[str]] = {}
+        if _is_album_title_source_candidate(image_path):
+            required_output_keys["metadata"] = ["ocr"]
         runner = StepRunner(
             settings=step_settings,
             existing_pipeline_state=existing_pipeline_state,
             existing_detections=existing_detections,
             forced_steps=forced_steps,
+            required_output_keys=required_output_keys,
         )
         return runner, existing_detections
 

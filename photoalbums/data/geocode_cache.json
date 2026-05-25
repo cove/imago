@@ -188,6 +188,40 @@
     "latitude": "52.1367444",
     "longitude": "-0.4620050",
     "query": "12 Castle Road, Bedford, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BDF",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bedford",
+        "house_number": "12",
+        "postcode": "MK40 3NX",
+        "road": "Castle Road",
+        "state": "England",
+        "suburb": "Castle",
+        "town": "Bedford"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "52.1366752",
+        "52.1368281",
+        "-0.4620876",
+        "-0.4618632"
+      ],
+      "category": "building",
+      "display_name": "12, Castle Road, Castle, Bedford, England, MK40 3NX, United Kingdom",
+      "importance": 6.112993057140486e-05,
+      "lat": "52.1367444",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4620050",
+      "name": "",
+      "osm_id": 519426962,
+      "osm_type": "way",
+      "place_id": 279841642,
+      "place_rank": 30,
+      "type": "yes"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -2431,9 +2465,45 @@
     "latitude": "42.6958124",
     "longitude": "23.3327934",
     "query": "Alexander Nevsky Cathedral, Sofia, Bulgaria",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "BG-22",
+        "ISO3166-2-lvl8": "BG-23",
+        "amenity": "Alexander Nevsky Cathedral",
+        "city": "Sofia",
+        "country": "Bulgaria",
+        "country_code": "bg",
+        "county": "Oborishte",
+        "postcode": "1000",
+        "road": "Dunav",
+        "state": "Sofia-City",
+        "state_district": "Sofia City",
+        "suburb": "Centre"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "42.6955519",
+        "42.6960847",
+        "23.3323531",
+        "23.3332377"
+      ],
+      "category": "amenity",
+      "display_name": "Alexander Nevsky Cathedral, Dunav, Centre, Sofia, Oborishte, Sofia City, Sofia-City, 1000, Bulgaria",
+      "importance": 0.43720322864280375,
+      "lat": "42.6958124",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "23.3327934",
+      "name": "Alexander Nevsky Cathedral",
+      "osm_id": 155447771,
+      "osm_type": "way",
+      "place_id": 54162785,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "Sofia-City",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "Dunav"
   },
   "alexandras hotel, athens, greece": {
     "query": "Alexandras Hotel, Athens, Greece",
@@ -3670,12 +3740,41 @@
     "sublocation": ""
   },
   "austria": {
-    "display_name": "Österreich",
+    "city": "",
+    "country": "Austria",
+    "display_name": "Austria",
     "latitude": "47.5939700",
     "longitude": "14.1245600",
     "query": "Austria",
+    "raw": {
+      "address": {
+        "country": "Austria",
+        "country_code": "at"
+      },
+      "addresstype": "country",
+      "boundingbox": [
+        "46.3722987",
+        "49.0205249",
+        "9.5307487",
+        "17.1607728"
+      ],
+      "category": "boundary",
+      "display_name": "Austria",
+      "importance": 0.8855929155245079,
+      "lat": "47.5939700",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "14.1245600",
+      "name": "Austria",
+      "osm_id": 16239,
+      "osm_type": "relation",
+      "place_id": 69844697,
+      "place_rank": 4,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "austria, vienna": {
     "city": "Vienna",
@@ -3893,10 +3992,41 @@
   "balboa island, california, united states": {
     "city": "Newport Beach",
     "country": "United States",
-    "display_name": "Balboa Island, Balboa Peninsula, Newport Beach, Orange County, California, 92662, United States",
-    "latitude": "33.6065642",
-    "longitude": "-117.8943127",
+    "display_name": "Balboa Island, Newport Beach, Orange County, California, 92662, United States",
+    "latitude": "33.6064778",
+    "longitude": "-117.8920810",
     "query": "Balboa Island, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "postcode": "92662",
+        "quarter": "Balboa Island",
+        "state": "California",
+        "town": "Newport Beach"
+      },
+      "addresstype": "quarter",
+      "boundingbox": [
+        "33.6038525",
+        "33.6092070",
+        "-117.9056753",
+        "-117.8850894"
+      ],
+      "category": "boundary",
+      "display_name": "Balboa Island, Newport Beach, Orange County, California, 92662, United States",
+      "importance": 0.31827171020639217,
+      "lat": "33.6064778",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.8920810",
+      "name": "Balboa Island",
+      "osm_id": 10850998,
+      "osm_type": "relation",
+      "place_id": 316930723,
+      "place_rank": 18,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -5282,6 +5412,48 @@
     "query": "Bicycle Parking Lot, Xian, China",
     "status": "miss"
   },
+  "big bear lake, california, united states": {
+    "city": "Big Bear Lake",
+    "country": "United States",
+    "display_name": "Big Bear Lake, San Bernardino County, California, 92315, United States",
+    "latitude": "34.2440587",
+    "longitude": "-116.9101800",
+    "query": "Big Bear Lake, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Bernardino County",
+        "postcode": "92315",
+        "state": "California",
+        "town": "Big Bear Lake"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.2248463",
+        "34.2708133",
+        "-116.9623138",
+        "-116.7702258"
+      ],
+      "category": "boundary",
+      "display_name": "Big Bear Lake, San Bernardino County, California, 92315, United States",
+      "importance": 0.49663093092076543,
+      "lat": "34.2440587",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.9101800",
+      "name": "Big Bear Lake",
+      "osm_id": 253749,
+      "osm_type": "relation",
+      "place_id": 320080088,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "big bear lake, california, usa": {
     "city": "Big Bear Lake",
     "country": "United States",
@@ -5432,6 +5604,47 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Anselm Road"
+  },
+  "biloxi, mississippi, united states": {
+    "city": "Biloxi",
+    "country": "United States",
+    "display_name": "Biloxi, Harrison County, Mississippi, United States",
+    "latitude": "30.4007626",
+    "longitude": "-88.8893818",
+    "query": "Biloxi, Mississippi, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MS",
+        "city": "Biloxi",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Harrison County",
+        "state": "Mississippi"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "30.3604767",
+        "30.4941828",
+        "-89.0341067",
+        "-88.8188170"
+      ],
+      "category": "boundary",
+      "display_name": "Biloxi, Harrison County, Mississippi, United States",
+      "importance": 0.5669144378906594,
+      "lat": "30.4007626",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-88.8893818",
+      "name": "Biloxi",
+      "osm_id": 109956,
+      "osm_type": "relation",
+      "place_id": 302909678,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Mississippi",
+    "status": "ok",
+    "sublocation": ""
   },
   "biloxi, mississippi, usa": {
     "city": "Biloxi",
@@ -5826,12 +6039,46 @@
     "status": "miss"
   },
   "boppard, germany": {
-    "display_name": "Boppard, Rhein-Hunsrück-Kreis, Rheinland-Pfalz, 56154, Deutschland",
+    "city": "Boppard",
+    "country": "Germany",
+    "display_name": "Boppard, Germany, Boppard, Rhineland-Palatinate, Germany",
     "latitude": "50.2312823",
     "longitude": "7.5885884",
     "query": "Boppard, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-RP",
+        "country": "Germany",
+        "country_code": "de",
+        "county": "Rhein-Hunsrück-Kreis",
+        "postcode": "56154",
+        "state": "Rhineland-Palatinate",
+        "town": "Boppard"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "50.1567540",
+        "50.2656396",
+        "7.4590502",
+        "7.6657322"
+      ],
+      "category": "boundary",
+      "display_name": "Boppard, Rhein-Hunsrück-Kreis, Rhineland-Palatinate, 56154, Germany",
+      "importance": 0.5357519256854737,
+      "lat": "50.2312823",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "7.5885884",
+      "name": "Boppard",
+      "osm_id": 593575,
+      "osm_type": "relation",
+      "place_id": 118111625,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Rhineland-Palatinate",
+    "status": "ok",
+    "sublocation": ""
   },
   "border crossing into greece, greece": {
     "query": "Border Crossing into Greece, Greece",
@@ -6140,6 +6387,37 @@
     "latitude": "40.0734041",
     "longitude": "-105.2161216",
     "query": "Boulder Dam, Colorado, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CO",
+        "city": "Boulder",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Boulder County",
+        "dam": "Boulder Reservoir Dam (South)",
+        "postcode": "80301",
+        "state": "Colorado"
+      },
+      "addresstype": "dam",
+      "boundingbox": [
+        "40.0703284",
+        "40.0764798",
+        "-105.2198755",
+        "-105.2123677"
+      ],
+      "category": "waterway",
+      "display_name": "Boulder Reservoir Dam (South), Boulder, Boulder County, Colorado, 80301, United States",
+      "importance": 0.13340006027313647,
+      "lat": "40.0734041",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-105.2161216",
+      "name": "Boulder Reservoir Dam (South)",
+      "osm_id": 685768257,
+      "osm_type": "way",
+      "place_id": 328539486,
+      "place_rank": 20,
+      "type": "dam"
+    },
     "source": "nominatim",
     "state": "Colorado",
     "status": "ok",
@@ -6163,6 +6441,35 @@
     "latitude": "36.0157189",
     "longitude": "-114.7374858",
     "query": "Boulder Dam, Nevada, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-AZ",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mohave County",
+        "dam": "Hoover Dam",
+        "state": "Arizona"
+      },
+      "addresstype": "dam",
+      "boundingbox": [
+        "36.0147392",
+        "36.0166947",
+        "-114.7393896",
+        "-114.7367352"
+      ],
+      "category": "waterway",
+      "display_name": "Hoover Dam, Mohave County, Arizona, United States",
+      "importance": 0.5080414280424921,
+      "lat": "36.0157189",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-114.7374858",
+      "name": "Hoover Dam",
+      "osm_id": 49938932,
+      "osm_type": "way",
+      "place_id": 320852222,
+      "place_rank": 20,
+      "type": "dam"
+    },
     "source": "nominatim",
     "state": "Arizona",
     "status": "ok",
@@ -6515,6 +6822,48 @@
     "latitude": "37.9317766",
     "longitude": "-121.6960260",
     "query": "Brentwood, California",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "brentwood, california, united states": {
+    "city": "Brentwood",
+    "country": "United States",
+    "display_name": "Brentwood, Contra Costa County, California, 94513, United States",
+    "latitude": "37.9317766",
+    "longitude": "-121.6960260",
+    "query": "Brentwood, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Contra Costa County",
+        "postcode": "94513",
+        "state": "California",
+        "town": "Brentwood"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "37.8888313",
+        "37.9712486",
+        "-121.7600321",
+        "-121.6778037"
+      ],
+      "category": "boundary",
+      "display_name": "Brentwood, Contra Costa County, California, 94513, United States",
+      "importance": 0.5048867206423362,
+      "lat": "37.9317766",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-121.6960260",
+      "name": "Brentwood",
+      "osm_id": 112194,
+      "osm_type": "relation",
+      "place_id": 321983677,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -6978,6 +7327,37 @@
     "latitude": "52.0353825",
     "longitude": "-1.8618609",
     "query": "Broadway, Worcestershire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WOR",
+        "city": "Wychavon",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Worcestershire",
+        "state": "England",
+        "village": "Broadway"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "52.0067730",
+        "52.0726162",
+        "-1.8999035",
+        "-1.8250329"
+      ],
+      "category": "boundary",
+      "display_name": "Broadway, Wychavon, Worcestershire, England, United Kingdom",
+      "importance": 0.4162648857824267,
+      "lat": "52.0353825",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.8618609",
+      "name": "Broadway",
+      "osm_id": 1875159,
+      "osm_type": "relation",
+      "place_id": 280256209,
+      "place_rank": 20,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -7021,6 +7401,49 @@
     "source": "nominatim",
     "state": "California",
     "status": "ok"
+  },
+  "brookside park, pasadena, california, united states": {
+    "city": "Pasadena",
+    "country": "United States",
+    "display_name": "Brookside Park, Pasadena Council District 1, Pasadena, Los Angeles County, California, United States",
+    "latitude": "34.1538438",
+    "longitude": "-118.1644952",
+    "query": "Brookside Park, Pasadena, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Pasadena",
+        "city_district": "Pasadena Council District 1",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "park": "Brookside Park",
+        "state": "California"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "34.1504138",
+        "34.1571488",
+        "-118.1662366",
+        "-118.1630909"
+      ],
+      "category": "leisure",
+      "display_name": "Brookside Park, Pasadena Council District 1, Pasadena, Los Angeles County, California, United States",
+      "importance": 0.08007050049591818,
+      "lat": "34.1538438",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.1644952",
+      "name": "Brookside Park",
+      "osm_id": 30929924,
+      "osm_type": "way",
+      "place_id": 320361928,
+      "place_rank": 24,
+      "type": "park"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "brookside park, pasadena, united states": {
     "city": "Pasadena",
@@ -7977,6 +8400,46 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cambridgeshire, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "Cambridgeshire, England, United Kingdom",
+    "latitude": "52.3729017",
+    "longitude": "-0.0449360",
+    "query": "Cambridgeshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ceremonial": "Cambridgeshire",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "England"
+      },
+      "addresstype": "ceremonial",
+      "boundingbox": [
+        "52.0057790",
+        "52.7399783",
+        "-0.4998961",
+        "0.5144550"
+      ],
+      "category": "boundary",
+      "display_name": "Cambridgeshire, England, United Kingdom",
+      "importance": 0.6546656571995115,
+      "lat": "52.3729017",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.0449360",
+      "name": "Cambridgeshire",
+      "osm_id": 87521,
+      "osm_type": "relation",
+      "place_id": 160039856,
+      "place_rank": 25,
+      "type": "ceremonial"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "camp site on the bristol channel": {
     "query": "Camp Site on the Bristol Channel",
     "status": "miss"
@@ -8003,6 +8466,35 @@
     "latitude": "42.0269848",
     "longitude": "-73.3294835",
     "query": "Canaan, Connecticut, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CT",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Northwest Hills Planning Region",
+        "state": "Connecticut",
+        "town": "North Canaan"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "41.9940295",
+        "42.0482995",
+        "-73.3592172",
+        "-73.2329451"
+      ],
+      "category": "boundary",
+      "display_name": "North Canaan, Northwest Hills Planning Region, Connecticut, United States",
+      "importance": 0.4325844890300949,
+      "lat": "42.0269848",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.3294835",
+      "name": "North Canaan",
+      "osm_id": 11052540,
+      "osm_type": "relation",
+      "place_id": 328599304,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Connecticut",
     "status": "ok",
@@ -8142,12 +8634,47 @@
     "city": "Canterbury",
     "country": "United Kingdom",
     "display_name": "Canterbury Cathedral, The Precincts, The King's Mile, Canterbury, Kent, England, CT1 2EE, United Kingdom",
-    "latitude": "51.2797999",
+    "latitude": "51.2798000",
     "longitude": "1.0827660",
     "query": "Canterbury Cathedral, Canterbury, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-KEN",
+        "amenity": "Canterbury Cathedral",
+        "city": "Canterbury",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Kent",
+        "postcode": "CT1 2EE",
+        "road": "The Precincts",
+        "state": "England",
+        "suburb": "The King's Mile"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "51.2795439",
+        "51.2800556",
+        "1.0816630",
+        "1.0840556"
+      ],
+      "category": "amenity",
+      "display_name": "Canterbury Cathedral, The Precincts, The King's Mile, Canterbury, Kent, England, CT1 2EE, United Kingdom",
+      "importance": 0.5650652793212096,
+      "lat": "51.2798000",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "1.0827660",
+      "name": "Canterbury Cathedral",
+      "osm_id": 28021345,
+      "osm_type": "way",
+      "place_id": 101375496,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "England",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "The Precincts"
   },
   "canterbury cathedral, england": {
     "city": "Canterbury",
@@ -8353,6 +8880,35 @@
     "latitude": "40.7985464",
     "longitude": "-81.3749508",
     "query": "Canton, Ohio, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OH",
+        "city": "Canton",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Stark County",
+        "state": "Ohio"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.7436591",
+        "40.8658640",
+        "-81.4292779",
+        "-81.2847360"
+      ],
+      "category": "boundary",
+      "display_name": "Canton, Stark County, Ohio, United States",
+      "importance": 0.5747962973645561,
+      "lat": "40.7985464",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.3749508",
+      "name": "Canton",
+      "osm_id": 182492,
+      "osm_type": "relation",
+      "place_id": 370269296,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Ohio",
     "status": "ok",
@@ -8671,13 +9227,50 @@
   "cardiff castle, cardiff, wales, united kingdom": {
     "city": "Cardiff",
     "country": "United Kingdom",
-    "display_name": "Cardiff Castle, Crown Court, Castle Quarter, Castle, Cardiff, Wales, CF10 1AY, United Kingdom",
+    "display_name": "Cardiff Castle, West Street, Crockherbtown, Castle Quarter, Castle, Cardiff, Wales, CF10 1BT, United Kingdom",
     "latitude": "51.4823315",
     "longitude": "-3.1811710",
     "query": "Cardiff Castle, Cardiff, Wales, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-WLS",
+        "ISO3166-2-lvl6": "GB-CRF",
+        "city": "Cardiff",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Cardiff",
+        "neighbourhood": "Crockherbtown",
+        "postcode": "CF10 1BT",
+        "quarter": "Castle Quarter",
+        "road": "West Street",
+        "state": "Wales",
+        "suburb": "Castle",
+        "tourism": "Cardiff Castle"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.4813003",
+        "51.4834467",
+        "-3.1828342",
+        "-3.1794991"
+      ],
+      "category": "tourism",
+      "display_name": "Cardiff Castle, West Street, Crockherbtown, Castle Quarter, Castle, Cardiff, Wales, CF10 1BT, United Kingdom",
+      "importance": 0.4387538557821415,
+      "lat": "51.4823315",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1811710",
+      "name": "Cardiff Castle",
+      "osm_id": 1093259587,
+      "osm_type": "way",
+      "place_id": 281675887,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "Wales",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "West Street"
   },
   "cardiff civic centre": {
     "city": "Cardiff",
@@ -9230,6 +9823,37 @@
     "latitude": "40.7827725",
     "longitude": "-73.9653627",
     "query": "Central Park, New York City, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "county": "New York County",
+        "park": "Central Park",
+        "postcode": "11025",
+        "state": "New York"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "40.7647275",
+        "40.8003135",
+        "-73.9814075",
+        "-73.9496061"
+      ],
+      "category": "leisure",
+      "display_name": "Central Park, New York County, New York, 11025, United States",
+      "importance": 0.6120006106572555,
+      "lat": "40.7827725",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9653627",
+      "name": "Central Park",
+      "osm_id": 427818536,
+      "osm_type": "way",
+      "place_id": 359968885,
+      "place_rank": 24,
+      "type": "park"
+    },
     "source": "nominatim",
     "state": "New York",
     "status": "ok",
@@ -9942,6 +10566,36 @@
     "latitude": "41.8755616",
     "longitude": "-87.6244212",
     "query": "Chicago, Illinois, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IL",
+        "city": "Chicago",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cook County",
+        "municipality": "South Chicago Township",
+        "state": "Illinois"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "41.6445310",
+        "42.0230529",
+        "-87.9400876",
+        "-87.5240812"
+      ],
+      "category": "boundary",
+      "display_name": "Chicago, South Chicago Township, Cook County, Illinois, United States",
+      "importance": 0.8016380325327707,
+      "lat": "41.8755616",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-87.6244212",
+      "name": "Chicago",
+      "osm_id": 122604,
+      "osm_type": "relation",
+      "place_id": 370737863,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Illinois",
     "status": "ok",
@@ -10739,9 +11393,38 @@
     "city": "Cincinnati",
     "country": "United States",
     "display_name": "Cincinnati, Hamilton County, Ohio, United States",
-    "latitude": "39.1014537",
-    "longitude": "-84.5124602",
+    "latitude": "39.1012809",
+    "longitude": "-84.5127405",
     "query": "Cincinnati, Ohio, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OH",
+        "city": "Cincinnati",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Hamilton County",
+        "state": "Ohio"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.0520565",
+        "39.2210368",
+        "-84.7123900",
+        "-84.3695773"
+      ],
+      "category": "boundary",
+      "display_name": "Cincinnati, Hamilton County, Ohio, United States",
+      "importance": 0.6937808596993696,
+      "lat": "39.1012809",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-84.5127405",
+      "name": "Cincinnati",
+      "osm_id": 183453,
+      "osm_type": "relation",
+      "place_id": 339092124,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Ohio",
     "status": "ok",
@@ -11547,10 +12230,45 @@
   "cologne cathedral, cologne, germany": {
     "city": "Cologne",
     "country": "Germany",
-    "display_name": "Cologne Cathedral, 4, Domkloster, Andreasviertel, Altstadt-Nord, Innenstadt, Cologne, North Rhine-Westphalia, 50667, Germany",
+    "display_name": "Cologne Cathedral, 4, Domkloster, Neumarktviertel, Andreasviertel, Altstadt-Nord, Innenstadt, Cologne, North Rhine-Westphalia, 50667, Germany",
     "latitude": "50.9413035",
     "longitude": "6.9581380",
     "query": "Cologne Cathedral, Cologne, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-NW",
+        "amenity": "Cologne Cathedral",
+        "city": "Cologne",
+        "city_district": "Innenstadt",
+        "country": "Germany",
+        "country_code": "de",
+        "house_number": "4",
+        "neighbourhood": "Neumarktviertel",
+        "postcode": "50667",
+        "road": "Domkloster",
+        "state": "North Rhine-Westphalia",
+        "suburb": "Altstadt-Nord"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "50.9409171",
+        "50.9416969",
+        "6.9570708",
+        "6.9591516"
+      ],
+      "category": "amenity",
+      "display_name": "Cologne Cathedral, 4, Domkloster, Neumarktviertel, Andreasviertel, Altstadt-Nord, Innenstadt, Cologne, North Rhine-Westphalia, 50667, Germany",
+      "importance": 0.5789269064491276,
+      "lat": "50.9413035",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "6.9581380",
+      "name": "Cologne Cathedral",
+      "osm_id": 4532022,
+      "osm_type": "way",
+      "place_id": 105973507,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "North Rhine-Westphalia",
     "status": "ok",
@@ -11647,6 +12365,35 @@
     "latitude": "38.8339578",
     "longitude": "-104.8253480",
     "query": "Colorado Springs, Colorado, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CO",
+        "city": "Colorado Springs",
+        "country": "United States",
+        "country_code": "us",
+        "county": "El Paso County",
+        "state": "Colorado"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "38.7154517",
+        "39.0351247",
+        "-104.9170862",
+        "-104.5999135"
+      ],
+      "category": "boundary",
+      "display_name": "Colorado Springs, El Paso County, Colorado, United States",
+      "importance": 0.6388631434938513,
+      "lat": "38.8339578",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-104.8253480",
+      "name": "Colorado Springs",
+      "osm_id": 113141,
+      "osm_type": "relation",
+      "place_id": 330813741,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Colorado",
     "status": "ok",
@@ -11759,6 +12506,40 @@
     "latitude": "41.8909421",
     "longitude": "12.4919030",
     "query": "Colosseum, Rome, Italy",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "IT-62",
+        "ISO3166-2-lvl6": "IT-RM",
+        "city": "Rome",
+        "country": "Italy",
+        "country_code": "it",
+        "county": "Roma Capitale",
+        "postcode": "00184",
+        "quarter": "Celio",
+        "road": "Colosseum",
+        "state": "Lazio",
+        "suburb": "Municipio Roma I"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "41.8894087",
+        "41.8909705",
+        "12.4910938",
+        "12.4937409"
+      ],
+      "category": "highway",
+      "display_name": "Colosseum, Celio, Municipio Roma I, Rome, Roma Capitale, Lazio, 00184, Italy",
+      "importance": 0.5846893264327375,
+      "lat": "41.8909421",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "12.4919030",
+      "name": "Colosseum",
+      "osm_id": 215801333,
+      "osm_type": "way",
+      "place_id": 80987263,
+      "place_rank": 26,
+      "type": "pedestrian"
+    },
     "source": "nominatim",
     "state": "Lazio",
     "status": "ok",
@@ -12133,6 +12914,35 @@
     "latitude": "32.6915199",
     "longitude": "-117.1766947",
     "query": "Coronado, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Coronado",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Diego County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "32.5855838",
+        "32.7161530",
+        "-117.2265534",
+        "-117.1144807"
+      ],
+      "category": "boundary",
+      "display_name": "Coronado, San Diego County, California, United States",
+      "importance": 0.5015723249274597,
+      "lat": "32.6915199",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.1766947",
+      "name": "Coronado",
+      "osm_id": 2295632,
+      "osm_type": "relation",
+      "place_id": 320958343,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -12241,10 +13051,46 @@
   "cotswolds, united kingdom": {
     "city": "Welwyn Hatfield",
     "country": "United Kingdom",
-    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+    "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welham Green, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
     "latitude": "51.7489426",
     "longitude": "-0.2303335",
     "query": "Cotswolds, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HRT",
+        "city": "Welwyn Hatfield",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hertfordshire",
+        "neighbourhood": "Hilltop",
+        "postcode": "AL10 8JR",
+        "road": "Cotswolds",
+        "state": "England",
+        "suburb": "South Hatfield",
+        "town": "Hatfield",
+        "village": "Welham Green"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.7489422",
+        "51.7489589",
+        "-0.2308589",
+        "-0.2298076"
+      ],
+      "category": "highway",
+      "display_name": "Cotswolds, Hilltop, South Hatfield, Hatfield, Welham Green, Welwyn Hatfield, Hertfordshire, England, AL10 8JR, United Kingdom",
+      "importance": 0.0533882665751125,
+      "lat": "51.7489426",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.2303335",
+      "name": "Cotswolds",
+      "osm_id": 10880492,
+      "osm_type": "way",
+      "place_id": 280135609,
+      "place_rank": 26,
+      "type": "residential"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -12522,6 +13368,35 @@
     "latitude": "34.0877926",
     "longitude": "-117.8891164",
     "query": "Covina, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California",
+        "town": "Covina"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.0679560",
+        "34.1070350",
+        "-117.9272237",
+        "-117.8405490"
+      ],
+      "category": "boundary",
+      "display_name": "Covina, Los Angeles County, California, United States",
+      "importance": 0.5280749206001776,
+      "lat": "34.0877926",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.8891164",
+      "name": "Covina",
+      "osm_id": 112060,
+      "osm_type": "relation",
+      "place_id": 317339342,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -12717,6 +13592,36 @@
     "latitude": "39.3198533",
     "longitude": "-120.5772003",
     "query": "Crystal Lake, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Nevada County",
+        "isolated_dwelling": "Crystal Lake",
+        "postcode": "95729",
+        "state": "California"
+      },
+      "addresstype": "isolated_dwelling",
+      "boundingbox": [
+        "39.3198033",
+        "39.3199033",
+        "-120.5772503",
+        "-120.5771503"
+      ],
+      "category": "place",
+      "display_name": "Crystal Lake, Nevada County, California, 95729, United States",
+      "importance": 0.2702882353650111,
+      "lat": "39.3198533",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.5772003",
+      "name": "Crystal Lake",
+      "osm_id": 141042047,
+      "osm_type": "node",
+      "place_id": 321978187,
+      "place_rank": 22,
+      "type": "isolated_dwelling"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -12827,6 +13732,52 @@
     "state": "England",
     "status": "ok"
   },
+  "cypress gardens, florida, united states": {
+    "city": "Winter Haven",
+    "country": "United States",
+    "display_name": "Legoland Florida, 1, Marshall Drive, Cypress Gardens, Winter Haven, Polk County, Florida, 33884, United States",
+    "latitude": "27.9920627",
+    "longitude": "-81.6919685",
+    "query": "Cypress Gardens, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "city": "Winter Haven",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Polk County",
+        "hamlet": "Cypress Gardens",
+        "house_number": "1",
+        "postcode": "33884",
+        "road": "Marshall Drive",
+        "state": "Florida",
+        "tourism": "Legoland Florida"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "27.9870433",
+        "27.9971283",
+        "-81.6953712",
+        "-81.6893821"
+      ],
+      "category": "tourism",
+      "display_name": "Legoland Florida, 1, Marshall Drive, Cypress Gardens, Winter Haven, Polk County, Florida, 33884, United States",
+      "importance": 0.4491022588632987,
+      "lat": "27.9920627",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.6919685",
+      "name": "Legoland Florida",
+      "osm_id": 384130687,
+      "osm_type": "way",
+      "place_id": 305708719,
+      "place_rank": 30,
+      "type": "theme_park"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": "1 Marshall Drive"
+  },
   "cypress gardens, florida, usa": {
     "city": "Winter Haven",
     "country": "United States",
@@ -12873,6 +13824,50 @@
     "status": "ok",
     "sublocation": "1 Marshall Drive"
   },
+  "cyprus gardens, florida, united states": {
+    "city": "Winter Haven",
+    "country": "United States",
+    "display_name": "Cyprus Campground and RV Park, Cypress Gardens Boulevard, Winter Haven, Polk County, Florida, 33884, United States",
+    "latitude": "27.9773323",
+    "longitude": "-81.6510626",
+    "query": "Cyprus Gardens, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "city": "Winter Haven",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Polk County",
+        "postcode": "33884",
+        "road": "Cypress Gardens Boulevard",
+        "state": "Florida",
+        "tourism": "Cyprus Campground and RV Park"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "27.9772823",
+        "27.9773823",
+        "-81.6511126",
+        "-81.6510126"
+      ],
+      "category": "tourism",
+      "display_name": "Cyprus Campground and RV Park, Cypress Gardens Boulevard, Winter Haven, Polk County, Florida, 33884, United States",
+      "importance": 5.33722438391244e-05,
+      "lat": "27.9773323",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.6510626",
+      "name": "Cyprus Campground and RV Park",
+      "osm_id": 13688427002,
+      "osm_type": "node",
+      "place_id": 304444590,
+      "place_rank": 30,
+      "type": "caravan_site"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": "Cypress Gardens Boulevard"
+  },
   "cyprus gardens, florida, usa": {
     "city": "Winter Haven",
     "country": "United States",
@@ -12916,6 +13911,10 @@
     "state": "Florida",
     "status": "ok",
     "sublocation": "Cypress Gardens Boulevard"
+  },
+  "cyress gardens, florida, united states": {
+    "query": "Cyress Gardens, Florida, United States",
+    "status": "miss"
   },
   "cyress gardens, florida, usa": {
     "query": "Cyress Gardens, Florida, USA",
@@ -12962,6 +13961,35 @@
     "latitude": "32.7762719",
     "longitude": "-96.7968559",
     "query": "Dallas, Texas, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-TX",
+        "city": "Dallas",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Dallas County",
+        "state": "Texas"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "32.6132160",
+        "33.0239366",
+        "-97.0004820",
+        "-96.4636317"
+      ],
+      "category": "boundary",
+      "display_name": "Dallas, Dallas County, Texas, United States",
+      "importance": 0.7208730637207591,
+      "lat": "32.7762719",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-96.7968559",
+      "name": "Dallas",
+      "osm_id": 6571629,
+      "osm_type": "relation",
+      "place_id": 335195815,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Texas",
     "status": "ok",
@@ -13073,6 +14101,47 @@
   "david,sherry, darlene, audrey beth, nina": {
     "query": "DAVID,SHERRY, DARLENE, AUDREY BETH, NINA",
     "status": "miss"
+  },
+  "dayton, ohio, united states": {
+    "city": "Dayton",
+    "country": "United States",
+    "display_name": "Dayton, Montgomery County, Ohio, United States",
+    "latitude": "39.7589478",
+    "longitude": "-84.1916069",
+    "query": "Dayton, Ohio, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OH",
+        "city": "Dayton",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Montgomery County",
+        "state": "Ohio"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.7018500",
+        "39.9208230",
+        "-84.3113770",
+        "-84.0929380"
+      ],
+      "category": "boundary",
+      "display_name": "Dayton, Montgomery County, Ohio, United States",
+      "importance": 0.6365158661681096,
+      "lat": "39.7589478",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-84.1916069",
+      "name": "Dayton",
+      "osm_id": 182954,
+      "osm_type": "relation",
+      "place_id": 339997976,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Ohio",
+    "status": "ok",
+    "sublocation": ""
   },
   "dean & tawnya's home, indiana, indianapolis": {
     "query": "Dean & Tawnya's Home, Indiana, Indianapolis",
@@ -13264,6 +14333,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "detroit lakes, minnesota, united states": {
+    "city": "Detroit Lakes",
+    "country": "United States",
+    "display_name": "Detroit Lakes, Becker County, Minnesota, United States",
+    "latitude": "46.8171810",
+    "longitude": "-95.8453250",
+    "query": "Detroit Lakes, Minnesota, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Becker County",
+        "state": "Minnesota",
+        "town": "Detroit Lakes"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "46.7674231",
+        "46.8570031",
+        "-95.9127108",
+        "-95.7904147"
+      ],
+      "category": "boundary",
+      "display_name": "Detroit Lakes, Becker County, Minnesota, United States",
+      "importance": 0.4916466792136186,
+      "lat": "46.8171810",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-95.8453250",
+      "name": "Detroit Lakes",
+      "osm_id": 137487,
+      "osm_type": "relation",
+      "place_id": 374443793,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": ""
+  },
   "detroit lakes, wisconsin, united states": {
     "query": "Detroit Lakes, Wisconsin, United States",
     "status": "miss"
@@ -13447,6 +14557,10 @@
     "status": "ok",
     "sublocation": "1313 South Harbor Boulevard"
   },
+  "divani zafolia hotel, athens, greece": {
+    "query": "Divani Zafolia Hotel, Athens, Greece",
+    "status": "miss"
+  },
   "divani-zafolia alexandras hotel": {
     "query": "Divani-Zafolia Alexandras Hotel",
     "status": "miss"
@@ -13515,12 +14629,47 @@
     "status": "ok"
   },
   "dolmabahçe palace, istanbul, turkey": {
-    "display_name": "Dolmabahçe Sarayı, Vişnezade Mahallesi, Beşiktaş, İstanbul, Marmara Bölgesi, 34357, Türkiye",
+    "city": "Beşiktaş",
+    "country": "Turkey",
+    "display_name": "Dolmabahce Palace, Istanbul, Turkey, Besiktas, Turkey",
     "latitude": "41.0389605",
     "longitude": "28.9997735",
     "query": "Dolmabahçe Palace, Istanbul, Turkey",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "TR-34",
+        "country": "Turkey",
+        "country_code": "tr",
+        "park": "Dolmabahçe Palace",
+        "province": "Istanbul",
+        "region": "Marmara Region",
+        "suburb": "Vişnezade Mahallesi",
+        "town": "Beşiktaş"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "41.0371211",
+        "41.0409123",
+        "28.9958934",
+        "29.0034047"
+      ],
+      "category": "leisure",
+      "display_name": "Dolmabahçe Palace, Vişnezade Mahallesi, Beşiktaş, Istanbul, Marmara Region, Turkey",
+      "importance": 0.5030694912114784,
+      "lat": "41.0389605",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "28.9997735",
+      "name": "Dolmabahçe Palace",
+      "osm_id": 24826707,
+      "osm_type": "way",
+      "place_id": 59638842,
+      "place_rank": 24,
+      "type": "park"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "dolmabahçe palace, turkey": {
     "city": "Beşiktaş",
@@ -13824,6 +14973,36 @@
     "latitude": "45.1834890",
     "longitude": "-69.2276000",
     "query": "Dover Foxcroft, Maine, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Piscataquis County",
+        "postcode": "04426",
+        "state": "Maine",
+        "town": "Dover-Foxcroft"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "45.0901756",
+        "45.2726420",
+        "-69.2993230",
+        "-69.1094428"
+      ],
+      "category": "boundary",
+      "display_name": "Dover-Foxcroft, Piscataquis County, Maine, 04426, United States",
+      "importance": 0.4238774159986079,
+      "lat": "45.1834890",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-69.2276000",
+      "name": "Dover-Foxcroft",
+      "osm_id": 132615,
+      "osm_type": "relation",
+      "place_id": 362739595,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Maine",
     "status": "ok",
@@ -14575,6 +15754,47 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "edinburgh, scotland, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "City of Edinburgh, Scotland, United Kingdom",
+    "latitude": "55.9533456",
+    "longitude": "-3.1883749",
+    "query": "Edinburgh, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "state": "Scotland"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "55.8187919",
+        "56.0040837",
+        "-3.4495326",
+        "-3.0749528"
+      ],
+      "category": "boundary",
+      "display_name": "City of Edinburgh, Scotland, United Kingdom",
+      "importance": 0.7363481185006193,
+      "lat": "55.9533456",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1883749",
+      "name": "City of Edinburgh",
+      "osm_id": 1920901,
+      "osm_type": "relation",
+      "place_id": 272795348,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": ""
+  },
   "edward vii memorial gates": {
     "query": "Edward VII Memorial Gates",
     "status": "miss"
@@ -14725,6 +15945,43 @@
     "latitude": "48.8582599",
     "longitude": "2.2945006",
     "query": "Eiffel Tower, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "city": "Paris",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "house_number": "5",
+        "man_made": "Eiffel Tower",
+        "postcode": "75007",
+        "quarter": "Quartier du Gros-Caillou",
+        "region": "Metropolitan France",
+        "road": "Avenue Anatole France",
+        "state": "Ile-de-France",
+        "suburb": "7th Arrondissement"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "48.8574753",
+        "48.8590453",
+        "2.2933119",
+        "2.2956897"
+      ],
+      "category": "man_made",
+      "display_name": "Eiffel Tower, 5, Avenue Anatole France, Quartier du Gros-Caillou, 7th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75007, France",
+      "importance": 0.6205937724353116,
+      "lat": "48.8582599",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.2945006",
+      "name": "Eiffel Tower",
+      "osm_id": 5013364,
+      "osm_type": "way",
+      "place_id": 98616190,
+      "place_rank": 30,
+      "type": "tower"
+    },
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok",
@@ -14926,6 +16183,10 @@
   },
   "ely marina, cambridgeshire, england": {
     "query": "Ely Marina, Cambridgeshire, England",
+    "status": "miss"
+  },
+  "ely marina, cambridgeshire, united kingdom": {
+    "query": "Ely Marina, Cambridgeshire, United Kingdom",
     "status": "miss"
   },
   "ely marina, ely, cambridgeshire, england": {
@@ -15419,6 +16680,47 @@
   "eugene's house, indiana, indiana, united states": {
     "query": "Eugene's House, Indiana, Indiana, United States",
     "status": "miss"
+  },
+  "eureka, california, united states": {
+    "city": "Eureka",
+    "country": "United States",
+    "display_name": "Eureka, Humboldt County, California, United States",
+    "latitude": "40.8018746",
+    "longitude": "-124.1707558",
+    "query": "Eureka, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Eureka",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Humboldt County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.7449140",
+        "40.8312950",
+        "-124.2083470",
+        "-124.0882930"
+      ],
+      "category": "boundary",
+      "display_name": "Eureka, Humboldt County, California, United States",
+      "importance": 0.5366806267037146,
+      "lat": "40.8018746",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-124.1707558",
+      "name": "Eureka",
+      "osm_id": 7931953,
+      "osm_type": "relation",
+      "place_id": 323532662,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "eureka, california, usa": {
     "city": "Eureka",
@@ -16321,6 +17623,45 @@
     "status": "ok",
     "sublocation": ""
   },
+  "florida, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Florida, United States",
+    "latitude": "27.7567667",
+    "longitude": "-81.4639835",
+    "query": "Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Florida"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "24.3963080",
+        "31.0007620",
+        "-87.6348960",
+        "-79.9743060"
+      ],
+      "category": "boundary",
+      "display_name": "Florida, United States",
+      "importance": 0.8085777143682812,
+      "lat": "27.7567667",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.4639835",
+      "name": "Florida",
+      "osm_id": 162050,
+      "osm_type": "relation",
+      "place_id": 305687911,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
+  },
   "florida, usa": {
     "city": "",
     "country": "United States",
@@ -16658,9 +17999,35 @@
     "latitude": "46.6033540",
     "longitude": "1.8883335",
     "query": "France",
+    "raw": {
+      "address": {
+        "country": "France",
+        "country_code": "fr"
+      },
+      "addresstype": "country",
+      "boundingbox": [
+        "-50.2187169",
+        "51.3055721",
+        "-178.3873749",
+        "172.3057152"
+      ],
+      "category": "boundary",
+      "display_name": "France",
+      "importance": 0.9781609870055644,
+      "lat": "46.6033540",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "1.8883335",
+      "name": "France",
+      "osm_id": 2202162,
+      "osm_type": "relation",
+      "place_id": 301336104,
+      "place_rank": 4,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "france (general), france": {
     "city": "Paris",
@@ -16672,6 +18039,50 @@
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok"
+  },
+  "france-switzerland border": {
+    "city": "Biel-Benken",
+    "country": "Switzerland",
+    "display_name": "Border Switzerland - France, Leymenstrasse, Biel-Benken, Bezirk Arlesheim, Basel-Landschaft, 4105, Switzerland",
+    "latitude": "47.5027088",
+    "longitude": "7.5110139",
+    "query": "France-Switzerland border",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CH-BL",
+        "building": "Border Switzerland - France",
+        "country": "Switzerland",
+        "country_code": "ch",
+        "county": "Bezirk Arlesheim",
+        "postcode": "4105",
+        "road": "Leymenstrasse",
+        "state": "Basel-Landschaft",
+        "village": "Biel-Benken"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "47.5026268",
+        "47.5027892",
+        "7.5108793",
+        "7.5111488"
+      ],
+      "category": "building",
+      "display_name": "Border Switzerland - France, Leymenstrasse, Biel-Benken, Bezirk Arlesheim, Basel-Landschaft, 4105, Switzerland",
+      "importance": 6.233234149686454e-05,
+      "lat": "47.5027088",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "7.5110139",
+      "name": "Border Switzerland - France",
+      "osm_id": 203671469,
+      "osm_type": "way",
+      "place_id": 93690187,
+      "place_rank": 30,
+      "type": "roof"
+    },
+    "source": "nominatim",
+    "state": "Basel-Landschaft",
+    "status": "ok",
+    "sublocation": "Leymenstrasse"
   },
   "franciscan monastery": {
     "city": "Nitra",
@@ -17150,6 +18561,10 @@
     "query": "Gillman Hot Springs, Nevada, United States",
     "status": "miss"
   },
+  "gillman hot springs, united states": {
+    "query": "Gillman Hot Springs, United States",
+    "status": "miss"
+  },
   "gilman hot springs, nevada, united states": {
     "query": "Gilman Hot Springs, Nevada, United States",
     "status": "miss"
@@ -17606,6 +19021,37 @@
     "latitude": "55.8611550",
     "longitude": "-4.2501687",
     "query": "Glasgow, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-GLG",
+        "city": "Glasgow",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Glasgow City",
+        "postcode": "G2 1AL",
+        "state": "Scotland"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "55.7011550",
+        "56.0211550",
+        "-4.4101687",
+        "-4.0901687"
+      ],
+      "category": "place",
+      "display_name": "Glasgow, Glasgow City, Scotland, G2 1AL, United Kingdom",
+      "importance": 0.7520825832994846,
+      "lat": "55.8611550",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-4.2501687",
+      "name": "Glasgow",
+      "osm_id": 11127374,
+      "osm_type": "node",
+      "place_id": 254264611,
+      "place_rank": 16,
+      "type": "city"
+    },
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok",
@@ -17665,6 +19111,35 @@
     "latitude": "34.1469416",
     "longitude": "-118.2478471",
     "query": "Glendale, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Glendale",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "34.1187610",
+        "34.2672349",
+        "-118.3078696",
+        "-118.1816954"
+      ],
+      "category": "boundary",
+      "display_name": "Glendale, Los Angeles County, California, United States",
+      "importance": 0.6235917651655731,
+      "lat": "34.1469416",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.2478471",
+      "name": "Glendale",
+      "osm_id": 2313082,
+      "osm_type": "relation",
+      "place_id": 321329045,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -17771,6 +19246,47 @@
     "latitude": "37.7693681",
     "longitude": "-122.4821837",
     "query": "Golden Gate Park, San Francisco, California, United States of America",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "golden gate park, san francisco, united states": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "Golden Gate Park, San Francisco, California, United States",
+    "latitude": "37.7693681",
+    "longitude": "-122.4821837",
+    "query": "Golden Gate Park, San Francisco, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Francisco",
+        "country": "United States",
+        "country_code": "us",
+        "park": "Golden Gate Park",
+        "state": "California"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "37.7641420",
+        "37.7746518",
+        "-122.5108673",
+        "-122.4531800"
+      ],
+      "category": "leisure",
+      "display_name": "Golden Gate Park, San Francisco, California, United States",
+      "importance": 0.4859384485461709,
+      "lat": "37.7693681",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.4821837",
+      "name": "Golden Gate Park",
+      "osm_id": 158602261,
+      "osm_type": "way",
+      "place_id": 299964144,
+      "place_rank": 24,
+      "type": "park"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -18021,6 +19537,47 @@
       "place_id": 346710161,
       "place_rank": 20,
       "type": "neighbourhood"
+    },
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "grand beach, manitoba, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Grand Beach, Unorganized Division No. 19, Manitoba, Canada",
+    "latitude": "50.5676088",
+    "longitude": "-96.6034150",
+    "query": "Grand Beach, Manitoba, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "beach": "Grand Beach",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Unorganized Division No. 19",
+        "state": "Manitoba"
+      },
+      "addresstype": "beach",
+      "boundingbox": [
+        "50.5620569",
+        "50.5733235",
+        "-96.6145060",
+        "-96.5928979"
+      ],
+      "category": "natural",
+      "display_name": "Grand Beach, Unorganized Division No. 19, Manitoba, Canada",
+      "importance": 0.10671166781109329,
+      "lat": "50.5676088",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-96.6034150",
+      "name": "Grand Beach",
+      "osm_id": 1276217664,
+      "osm_type": "way",
+      "place_id": 375995480,
+      "place_rank": 22,
+      "type": "beach"
     },
     "source": "nominatim",
     "state": "Manitoba",
@@ -18392,6 +19949,47 @@
     "query": "Great Pyramid of Giza, Egypt",
     "source": "nominatim",
     "status": "ok"
+  },
+  "great salt lake, utah, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Great Salt Lake, Box Elder County, Utah, United States",
+    "latitude": "41.1674699",
+    "longitude": "-112.5836575",
+    "query": "Great Salt Lake, Utah, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-UT",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Box Elder County",
+        "lake": "Great Salt Lake",
+        "state": "Utah"
+      },
+      "addresstype": "lake",
+      "boundingbox": [
+        "40.6773759",
+        "41.6576681",
+        "-112.9495548",
+        "-112.1536083"
+      ],
+      "category": "water",
+      "display_name": "Great Salt Lake, Box Elder County, Utah, United States",
+      "importance": 0.534995654248056,
+      "lat": "41.1674699",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-112.5836575",
+      "name": "Great Salt Lake",
+      "osm_id": 1206317,
+      "osm_type": "relation",
+      "place_id": 423160795,
+      "place_rank": 20,
+      "type": "lake"
+    },
+    "source": "nominatim",
+    "state": "Utah",
+    "status": "ok",
+    "sublocation": ""
   },
   "great salt lake, utah, usa": {
     "city": "",
@@ -19297,6 +20895,51 @@
     "query": "Heidelberg Castle Ruins, Heidelberg, Germany",
     "status": "miss"
   },
+  "heidelberg castle, germany": {
+    "city": "Heidelberg",
+    "country": "Germany",
+    "display_name": "Heidelberg Castle, Germany, Heidelberg, Baden-Wurttemberg, Germany",
+    "latitude": "49.4104729",
+    "longitude": "8.7151965",
+    "query": "Heidelberg Castle, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-BW",
+        "city": "Heidelberg",
+        "country": "Germany",
+        "country_code": "de",
+        "hamlet": "Königstuhl",
+        "historic": "Heidelberg Castle",
+        "postcode": "69117",
+        "road": "Schloss-Wolfsbrunnenweg",
+        "state": "Baden-Württemberg",
+        "suburb": "Altstadt"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "49.4092509",
+        "49.4118627",
+        "8.7138454",
+        "8.7167702"
+      ],
+      "category": "historic",
+      "display_name": "Heidelberg Castle, Schloss-Wolfsbrunnenweg, Königstuhl, Altstadt, Heidelberg, Baden-Württemberg, 69117, Germany",
+      "importance": 0.45508699080836246,
+      "lat": "49.4104729",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "8.7151965",
+      "name": "Heidelberg Castle",
+      "osm_id": 254154168,
+      "osm_type": "way",
+      "place_id": 415888080,
+      "place_rank": 30,
+      "type": "castle"
+    },
+    "source": "nominatim",
+    "state": "Baden-Württemberg",
+    "status": "ok",
+    "sublocation": "Schloss-Wolfsbrunnenweg"
+  },
   "heidelberg castle, heidelberg, baden-württemberg, germany": {
     "city": "Heidelberg",
     "country": "Germany",
@@ -19431,6 +21074,35 @@
     "latitude": "33.7475203",
     "longitude": "-116.9719684",
     "query": "Hemet, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Riverside County",
+        "state": "California",
+        "town": "Hemet"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "33.6711737",
+        "33.7803940",
+        "-117.0715750",
+        "-116.9088877"
+      ],
+      "category": "boundary",
+      "display_name": "Hemet, Riverside County, California, United States",
+      "importance": 0.5045627281328381,
+      "lat": "33.7475203",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.9719684",
+      "name": "Hemet",
+      "osm_id": 112014,
+      "osm_type": "relation",
+      "place_id": 315860091,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -20570,6 +22242,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "honolulu, hawaii, united states": {
+    "city": "Honolulu",
+    "country": "United States",
+    "display_name": "Honolulu, Honolulu County, Hawaii, United States",
+    "latitude": "21.3045470",
+    "longitude": "-157.8556760",
+    "query": "Honolulu, Hawaii, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "city": "Honolulu",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Honolulu County",
+        "state": "Hawaii"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "21.2548159",
+        "21.4021936",
+        "-157.9503569",
+        "-157.6486277"
+      ],
+      "category": "place",
+      "display_name": "Honolulu, Honolulu County, Hawaii, United States",
+      "importance": 0.6733709368178348,
+      "lat": "21.3045470",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-157.8556760",
+      "name": "Honolulu",
+      "osm_id": 119231,
+      "osm_type": "relation",
+      "place_id": 376692557,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
+  },
   "honolulu, hawaii, usa": {
     "city": "Honolulu",
     "country": "United States",
@@ -21138,14 +22851,49 @@
   "humber bridge, united kingdom": {
     "city": "Hessle",
     "country": "United Kingdom",
-    "display_name": "Humber Bridge, Cliff Road, Hessle Cliff, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0DF, United Kingdom",
+    "display_name": "Humber Bridge, A15, West Hill, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0EP, United Kingdom",
     "latitude": "53.7079675",
     "longitude": "-0.4501054",
     "query": "Humber Bridge, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-ERY",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "East Riding of Yorkshire",
+        "man_made": "Humber Bridge",
+        "neighbourhood": "West Hill",
+        "postcode": "HU13 0EP",
+        "road": "A15",
+        "state": "England",
+        "state_district": "Hull and East Yorkshire",
+        "town": "Hessle"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "53.6969089",
+        "53.7167827",
+        "-0.4511366",
+        "-0.4489237"
+      ],
+      "category": "man_made",
+      "display_name": "Humber Bridge, A15, West Hill, Hessle, East Riding of Yorkshire, Hull and East Yorkshire, England, HU13 0EP, United Kingdom",
+      "importance": 0.4810518668891806,
+      "lat": "53.7079675",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4501054",
+      "name": "Humber Bridge",
+      "osm_id": 353065606,
+      "osm_type": "way",
+      "place_id": 278512561,
+      "place_rank": 30,
+      "type": "bridge"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
-    "sublocation": "Cliff Road"
+    "sublocation": "A15"
   },
   "hungarian parliament building, buda castle hill, budapest, hungary": {
     "query": "Hungarian Parliament Building, Buda Castle Hill, Budapest, Hungary",
@@ -21819,6 +23567,47 @@
     },
     "source": "nominatim",
     "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "indio, california, united states": {
+    "city": "Indio",
+    "country": "United States",
+    "display_name": "Indio, Riverside County, California, United States",
+    "latitude": "33.7192808",
+    "longitude": "-116.2188054",
+    "query": "Indio, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Indio",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Riverside County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6710030",
+        "33.8165406",
+        "-116.3012841",
+        "-116.1641752"
+      ],
+      "category": "boundary",
+      "display_name": "Indio, Riverside County, California, United States",
+      "importance": 0.5362088169912365,
+      "lat": "33.7192808",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.2188054",
+      "name": "Indio",
+      "osm_id": 2632192,
+      "osm_type": "relation",
+      "place_id": 317911542,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
     "status": "ok",
     "sublocation": ""
   },
@@ -22574,6 +24363,48 @@
     "query": "Jiuquan, Gansu, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "john f. kennedy space center, florida, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "John F. Kennedy Space Center, Brevard County, Florida, 32899, United States",
+    "latitude": "28.5192310",
+    "longitude": "-80.6432498",
+    "query": "John F. Kennedy Space Center, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "aeroway": "John F. Kennedy Space Center",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Brevard County",
+        "postcode": "32899",
+        "state": "Florida"
+      },
+      "addresstype": "aeroway",
+      "boundingbox": [
+        "28.5081064",
+        "28.6434390",
+        "-80.7128920",
+        "-80.5873566"
+      ],
+      "category": "aeroway",
+      "display_name": "John F. Kennedy Space Center, Brevard County, Florida, 32899, United States",
+      "importance": 5.3262378881468184e-05,
+      "lat": "28.5192310",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-80.6432498",
+      "name": "John F. Kennedy Space Center",
+      "osm_id": 8013130,
+      "osm_type": "relation",
+      "place_id": 301754841,
+      "place_rank": 30,
+      "type": "spaceport"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
   },
   "john f. kennedy space center, florida, usa": {
     "city": "",
@@ -23607,6 +25438,10 @@
     "query": "Keswick, Lake District, England",
     "status": "miss"
   },
+  "keswick, lake district, united kingdom": {
+    "query": "Keswick, Lake District, United Kingdom",
+    "status": "miss"
+  },
   "keswick, the lake district": {
     "city": "Los Angeles",
     "country": "United States",
@@ -24056,6 +25891,50 @@
     "status": "ok",
     "sublocation": ""
   },
+  "king's lynn, united kingdom": {
+    "city": "King's Lynn and West Norfolk",
+    "country": "United Kingdom",
+    "display_name": "King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 1BJ, United Kingdom",
+    "latitude": "52.7538673",
+    "longitude": "0.3954774",
+    "query": "King's Lynn, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-NFK",
+        "city": "King's Lynn and West Norfolk",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Norfolk",
+        "postcode": "PE30 1BJ",
+        "state": "England",
+        "town": "King's Lynn"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "52.7138673",
+        "52.7938673",
+        "0.3554774",
+        "0.4354774"
+      ],
+      "category": "place",
+      "display_name": "King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 1BJ, United Kingdom",
+      "importance": 0.5493342895214941,
+      "lat": "52.7538673",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "0.3954774",
+      "name": "King's Lynn",
+      "osm_id": 26701172,
+      "osm_type": "node",
+      "place_id": 157345204,
+      "place_rank": 18,
+      "type": "town"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "king's parade, cambridge": {
     "city": "Cambridge",
     "country": "United Kingdom",
@@ -24280,6 +26159,10 @@
     "query": "Kom Ombo, Egypt",
     "source": "nominatim",
     "status": "ok"
+  },
+  "kosanica, kosovo": {
+    "query": "Kosanica, Kosovo",
+    "status": "miss"
   },
   "kowloon, hong kong": {
     "city": "Hong Kong",
@@ -24612,6 +26495,36 @@
     "latitude": "32.8458529",
     "longitude": "-117.2575702",
     "query": "La Jolla, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Diego",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Diego County",
+        "local_authority": "La Jolla",
+        "state": "California"
+      },
+      "addresstype": "local_authority",
+      "boundingbox": [
+        "32.8055892",
+        "32.8861249",
+        "-117.2822650",
+        "-117.2264849"
+      ],
+      "category": "boundary",
+      "display_name": "La Jolla, San Diego, San Diego County, California, United States",
+      "importance": 0.5582783771415976,
+      "lat": "32.8458529",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.2575702",
+      "name": "La Jolla",
+      "osm_id": 19563190,
+      "osm_type": "relation",
+      "place_id": 318316836,
+      "place_rank": 25,
+      "type": "local_authority"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -24653,6 +26566,47 @@
       "place_id": 418333240,
       "place_rank": 25,
       "type": "local_authority"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "laguna beach, california, united states": {
+    "city": "Laguna Beach",
+    "country": "United States",
+    "display_name": "Laguna Beach, Orange County, California, United States",
+    "latitude": "33.5426975",
+    "longitude": "-117.7853660",
+    "query": "Laguna Beach, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "state": "California",
+        "town": "Laguna Beach"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "33.4427421",
+        "33.6102985",
+        "-117.8645581",
+        "-117.7311832"
+      ],
+      "category": "boundary",
+      "display_name": "Laguna Beach, Orange County, California, United States",
+      "importance": 0.5211427200459763,
+      "lat": "33.5426975",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.7853660",
+      "name": "Laguna Beach",
+      "osm_id": 5972857,
+      "osm_type": "relation",
+      "place_id": 317384434,
+      "place_rank": 16,
+      "type": "administrative"
     },
     "source": "nominatim",
     "state": "California",
@@ -24833,12 +26787,42 @@
     "sublocation": ""
   },
   "lake arrowhead, california, united states": {
-    "city": "Lake Arrowhead",
+    "city": "Agua Fria",
     "country": "United States",
-    "display_name": "Lake Arrowhead, San Bernardino County, California, 92352, United States",
-    "latitude": "34.2489684",
-    "longitude": "-117.1913321",
+    "display_name": "Lake Arrowhead, Agua Fria, San Bernardino County, California, United States",
+    "latitude": "34.2571715",
+    "longitude": "-117.1908912",
     "query": "Lake Arrowhead, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "census": "Lake Arrowhead",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Bernardino County",
+        "state": "California",
+        "village": "Agua Fria"
+      },
+      "addresstype": "census",
+      "boundingbox": [
+        "34.2225490",
+        "34.2918050",
+        "-117.2429110",
+        "-117.1372590"
+      ],
+      "category": "boundary",
+      "display_name": "Lake Arrowhead, Agua Fria, San Bernardino County, California, United States",
+      "importance": 0.4545822443087463,
+      "lat": "34.2571715",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.1908912",
+      "name": "Lake Arrowhead",
+      "osm_id": 18404837,
+      "osm_type": "relation",
+      "place_id": 317751871,
+      "place_rank": 25,
+      "type": "census"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -24992,8 +26976,79 @@
     "latitude": "38.8563024",
     "longitude": "-85.0351845",
     "query": "Lake Geneva, Switzerland",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Switzerland County",
+        "reservoir": "Lake Geneva",
+        "state": "Indiana"
+      },
+      "addresstype": "reservoir",
+      "boundingbox": [
+        "38.8540841",
+        "38.8585706",
+        "-85.0380423",
+        "-85.0305213"
+      ],
+      "category": "water",
+      "display_name": "Lake Geneva, Switzerland County, Indiana, United States",
+      "importance": 0.1333433333333333,
+      "lat": "38.8563024",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-85.0351845",
+      "name": "Lake Geneva",
+      "osm_id": 103900074,
+      "osm_type": "way",
+      "place_id": 339790834,
+      "place_rank": 20,
+      "type": "reservoir"
+    },
     "source": "nominatim",
     "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lake havasu, arizona, united states": {
+    "city": "Desert Hills",
+    "country": "United States",
+    "display_name": "Lake Havasu, Desert Hills, Mohave County, Arizona, United States",
+    "latitude": "34.4105067",
+    "longitude": "-114.2908721",
+    "query": "Lake Havasu, Arizona, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-AZ",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mohave County",
+        "reservoir": "Lake Havasu",
+        "state": "Arizona",
+        "village": "Desert Hills"
+      },
+      "addresstype": "reservoir",
+      "boundingbox": [
+        "34.2885892",
+        "34.5323974",
+        "-114.4052428",
+        "-114.0967941"
+      ],
+      "category": "water",
+      "display_name": "Lake Havasu, Desert Hills, Mohave County, Arizona, United States",
+      "importance": 0.39122798236215983,
+      "lat": "34.4105067",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-114.2908721",
+      "name": "Lake Havasu",
+      "osm_id": 374012,
+      "osm_type": "relation",
+      "place_id": 316872822,
+      "place_rank": 20,
+      "type": "reservoir"
+    },
+    "source": "nominatim",
+    "state": "Arizona",
     "status": "ok",
     "sublocation": ""
   },
@@ -25292,6 +27347,51 @@
     "query": "Lake Windermere, The Lake District, England",
     "status": "miss"
   },
+  "lake windermere, united kingdom": {
+    "city": "Bowness-on-Windermere",
+    "country": "United Kingdom",
+    "display_name": "Windermere Lake Cruises Pier 1, Promenade, Windermere, Bowness-on-Windermere, Westmorland and Furness, England, LA23 3HQ, United Kingdom",
+    "latitude": "54.3629458",
+    "longitude": "-2.9232947",
+    "query": "Lake Windermere, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Westmorland and Furness",
+        "man_made": "Windermere Lake Cruises Pier 1",
+        "postcode": "LA23 3HQ",
+        "road": "Promenade",
+        "state": "England",
+        "suburb": "Windermere",
+        "town": "Bowness-on-Windermere"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "54.3628234",
+        "54.3630530",
+        "-2.9236922",
+        "-2.9229121"
+      ],
+      "category": "man_made",
+      "display_name": "Windermere Lake Cruises Pier 1, Promenade, Windermere, Bowness-on-Windermere, Westmorland and Furness, England, LA23 3HQ, United Kingdom",
+      "importance": 5.243076218809823e-05,
+      "lat": "54.3629458",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.9232947",
+      "name": "Windermere Lake Cruises Pier 1",
+      "osm_id": 100017075,
+      "osm_type": "way",
+      "place_id": 274941741,
+      "place_rank": 30,
+      "type": "pier"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Promenade"
+  },
   "landmark, city, country": {
     "query": "Landmark, City, Country",
     "status": "miss"
@@ -25376,6 +27476,88 @@
     "query": "lanzhou,china",
     "source": "nominatim",
     "state": "Gansu",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "las cruces, new mexico, united states": {
+    "city": "Las Cruces",
+    "country": "United States",
+    "display_name": "Las Cruces, New Mexico, United States, Las Cruces, New Mexico, United States",
+    "latitude": "32.3140354",
+    "longitude": "-106.7798070",
+    "query": "Las Cruces, New Mexico, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NM",
+        "city": "Las Cruces",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Doña Ana County",
+        "state": "New Mexico"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "32.2422850",
+        "32.4318690",
+        "-106.9732860",
+        "-106.6656710"
+      ],
+      "category": "boundary",
+      "display_name": "Las Cruces, Doña Ana County, New Mexico, United States",
+      "importance": 0.5556114235393724,
+      "lat": "32.3140354",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-106.7798070",
+      "name": "Las Cruces",
+      "osm_id": 171260,
+      "osm_type": "relation",
+      "place_id": 333939981,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "New Mexico",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "las vegas, nevada, united states": {
+    "city": "Las Vegas",
+    "country": "United States",
+    "display_name": "Las Vegas, Clark County, Nevada, United States",
+    "latitude": "36.1674263",
+    "longitude": "-115.1484131",
+    "query": "Las Vegas, Nevada, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NV",
+        "city": "Las Vegas",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Clark County",
+        "state": "Nevada"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "36.1295540",
+        "36.4014810",
+        "-115.4065750",
+        "-115.0620660"
+      ],
+      "category": "boundary",
+      "display_name": "Las Vegas, Clark County, Nevada, United States",
+      "importance": 0.7237796065136439,
+      "lat": "36.1674263",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-115.1484131",
+      "name": "Las Vegas",
+      "osm_id": 170117,
+      "osm_type": "relation",
+      "place_id": 320826586,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Nevada",
     "status": "ok",
     "sublocation": ""
   },
@@ -25594,6 +27776,40 @@
     "latitude": "46.0562886",
     "longitude": "14.5025135",
     "query": "Lev Hotel, Ljubljana, Slovenia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl8": "SI-061",
+        "city": "Ljubljana",
+        "country": "Slovenia",
+        "country_code": "si",
+        "house_number": "1",
+        "municipality": "Ljubljana",
+        "postcode": "1000",
+        "quarter": "Grajski grič",
+        "road": "Vošnjakova ulica",
+        "suburb": "Četrtna skupnost Center",
+        "tourism": "Exe Lev"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "46.0559819",
+        "46.0564622",
+        "14.5022188",
+        "14.5027105"
+      ],
+      "category": "tourism",
+      "display_name": "Exe Lev, 1, Vošnjakova ulica, Grajski grič, Četrtna skupnost Center, Ljubljana, Upravna Enota Ljubljana, 1000, Slovenia",
+      "importance": 0.17283327415591612,
+      "lat": "46.0562886",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "14.5025135",
+      "name": "Exe Lev",
+      "osm_id": 24786528,
+      "osm_type": "way",
+      "place_id": 68984216,
+      "place_rank": 30,
+      "type": "hotel"
+    },
     "source": "nominatim",
     "state": "",
     "status": "ok",
@@ -26401,6 +28617,36 @@
     "latitude": "34.6391501",
     "longitude": "-120.4579009",
     "query": "Lompoc, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Santa Barbara County",
+        "postcode": "93436",
+        "state": "California",
+        "town": "Lompoc"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.5991501",
+        "34.6791501",
+        "-120.4979009",
+        "-120.4179009"
+      ],
+      "category": "place",
+      "display_name": "Lompoc, Santa Barbara County, California, 93436, United States",
+      "importance": 0.4775790568334427,
+      "lat": "34.6391501",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.4579009",
+      "name": "Lompoc",
+      "osm_id": 150960972,
+      "osm_type": "node",
+      "place_id": 316427009,
+      "place_rank": 18,
+      "type": "town"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -26595,6 +28841,35 @@
     "latitude": "33.7690164",
     "longitude": "-118.1916040",
     "query": "Long Beach, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Long Beach",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6905847",
+        "33.8855595",
+        "-118.2489660",
+        "-118.0632873"
+      ],
+      "category": "boundary",
+      "display_name": "Long Beach, Los Angeles County, California, United States",
+      "importance": 0.6715032591964711,
+      "lat": "33.7690164",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.1916040",
+      "name": "Long Beach",
+      "osm_id": 112100,
+      "osm_type": "relation",
+      "place_id": 313315556,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -26700,6 +28975,36 @@
     "latitude": "43.9730520",
     "longitude": "-74.4210430",
     "query": "Long Lake, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Hamilton County",
+        "hamlet": "Town of Long Lake",
+        "postcode": "13436",
+        "state": "New York"
+      },
+      "addresstype": "hamlet",
+      "boundingbox": [
+        "43.7309770",
+        "44.1204100",
+        "-74.8541170",
+        "-74.2556680"
+      ],
+      "category": "boundary",
+      "display_name": "Town of Long Lake, Hamilton County, New York, 13436, United States",
+      "importance": 0.4345916844899323,
+      "lat": "43.9730520",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.4210430",
+      "name": "Town of Long Lake",
+      "osm_id": 3157119,
+      "osm_type": "relation",
+      "place_id": 353557201,
+      "place_rank": 14,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New York",
     "status": "ok",
@@ -27014,6 +29319,52 @@
     "query": "Lord Street Gardens, Southport, United Kingdom",
     "status": "miss"
   },
+  "lord street, southport, united kingdom": {
+    "city": "Southport",
+    "country": "United Kingdom",
+    "display_name": "Lord Street, Meols Cop, Southport, Sefton, Liverpool City Region, England, PR8 1NY, United Kingdom",
+    "latitude": "53.6480334",
+    "longitude": "-3.0060159",
+    "query": "Lord Street, Southport, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-SFT",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "PR8 1NY",
+        "road": "Lord Street",
+        "state": "England",
+        "state_district": "Liverpool City Region",
+        "suburb": "Meols Cop",
+        "town": "Southport",
+        "village": "Sefton"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "53.6473138",
+        "53.6487619",
+        "-3.0073233",
+        "-3.0047133"
+      ],
+      "category": "highway",
+      "display_name": "Lord Street, Meols Cop, Southport, Sefton, Liverpool City Region, England, PR8 1NY, United Kingdom",
+      "importance": 0.19619210675062,
+      "lat": "53.6480334",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.0060159",
+      "name": "Lord Street",
+      "osm_id": 23085553,
+      "osm_type": "way",
+      "place_id": 277027879,
+      "place_rank": 26,
+      "type": "trunk"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Lord Street"
+  },
   "los angeles": {
     "city": "Los Angeles",
     "country": "United States",
@@ -27088,9 +29439,39 @@
     "latitude": "34.0536909",
     "longitude": "-118.2427660",
     "query": "Los Angeles, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6595410",
+        "34.3373060",
+        "-118.6681798",
+        "-118.1552983"
+      ],
+      "category": "boundary",
+      "display_name": "Los Angeles, Los Angeles County, California, United States",
+      "importance": 0.8410828881088647,
+      "lat": "34.0536909",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.2427660",
+      "name": "Los Angeles",
+      "osm_id": 207359,
+      "osm_type": "relation",
+      "place_id": 317975934,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "los angeles, california, united states of america": {
     "city": "Los Angeles",
@@ -27655,6 +30036,10 @@
     "state": "Virginia",
     "status": "ok",
     "sublocation": ""
+  },
+  "lynchesburg, virginia, united states": {
+    "query": "Lynchesburg, Virginia, United States",
+    "status": "miss"
   },
   "lynn, norfolk, england": {
     "display_name": "King's Lynn, King's Lynn and West Norfolk, Norfolk, England, PE30 1BJ, United Kingdom",
@@ -28501,6 +30886,47 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "maui, hawaii, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Maui, Maui County, Hawaii, United States",
+    "latitude": "20.8029568",
+    "longitude": "-156.3106833",
+    "query": "Maui, Hawaii, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Maui County",
+        "island": "Maui",
+        "state": "Hawaii"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "20.5744337",
+        "21.0315610",
+        "-156.6972445",
+        "-155.9790919"
+      ],
+      "category": "place",
+      "display_name": "Maui, Maui County, Hawaii, United States",
+      "importance": 0.5978005512146745,
+      "lat": "20.8029568",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-156.3106833",
+      "name": "Maui",
+      "osm_id": 3403431,
+      "osm_type": "relation",
+      "place_id": 377708792,
+      "place_rank": 17,
+      "type": "island"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
   },
   "maui, hawaii, usa": {
     "city": "",
@@ -29531,9 +31957,39 @@
     "latitude": "46.4310831",
     "longitude": "6.9129921",
     "query": "Montreux, Switzerland",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CH-VD",
+        "country": "Switzerland",
+        "country_code": "ch",
+        "county": "District de la Riviera-Pays-d’Enhaut",
+        "state": "Vaud",
+        "town": "Montreux"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "46.4099984",
+        "46.4864423",
+        "6.8593315",
+        "6.9921162"
+      ],
+      "category": "boundary",
+      "display_name": "Montreux, District de la Riviera-Pays-d’Enhaut, Vaud, Switzerland",
+      "importance": 0.5924309854911062,
+      "lat": "46.4310831",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "6.9129921",
+      "name": "Montreux",
+      "osm_id": 1685062,
+      "osm_type": "relation",
+      "place_id": 91382174,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Vaud",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "montréal, canada": {
     "city": "Montreal",
@@ -29801,6 +32257,55 @@
   "mother and child statue, lanzhou, china": {
     "query": "Mother and Child Statue, Lanzhou, China",
     "status": "miss"
+  },
+  "moulin rouge, paris, france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Moulin Rouge, Paris, France, Paris, Ile-de-France, France",
+    "latitude": "48.8841094",
+    "longitude": "2.3323564",
+    "query": "Moulin Rouge, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "amenity": "Moulin Rouge",
+        "city": "Paris",
+        "city_block": "Quartier des Grandes-Carrières",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "house_number": "82",
+        "postcode": "75018",
+        "region": "Metropolitan France",
+        "road": "Boulevard de Clichy",
+        "state": "Ile-de-France",
+        "suburb": "18th Arrondissement"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.8840594",
+        "48.8841594",
+        "2.3323064",
+        "2.3324064"
+      ],
+      "category": "amenity",
+      "display_name": "Moulin Rouge, 82, Boulevard de Clichy, Quartier des Grandes-Carrières, 18th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75018, France",
+      "importance": 0.5376141698617072,
+      "lat": "48.8841094",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3323564",
+      "name": "Moulin Rouge",
+      "osm_id": 252969214,
+      "osm_type": "node",
+      "place_id": 98242980,
+      "place_rank": 30,
+      "type": "theatre"
+    },
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok",
+    "sublocation": "82 Boulevard de Clichy"
   },
   "mount fuji, japan": {
     "city": "Oyama",
@@ -30180,6 +32685,53 @@
     "status": "ok",
     "sublocation": "Romney Road"
   },
+  "national museum cardiff, cardiff, wales, united kingdom": {
+    "city": "Cardiff",
+    "country": "United Kingdom",
+    "display_name": "National Museum Cardiff, Museum Avenue, Crockherbtown, Civic Centre, Castle, Cardiff, Wales, CF10 3NP, United Kingdom",
+    "latitude": "51.4859660",
+    "longitude": "-3.1776109",
+    "query": "National Museum Cardiff, Cardiff, Wales, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-WLS",
+        "ISO3166-2-lvl6": "GB-CRF",
+        "city": "Cardiff",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Cardiff",
+        "neighbourhood": "Crockherbtown",
+        "postcode": "CF10 3NP",
+        "road": "Museum Avenue",
+        "state": "Wales",
+        "suburb": "Civic Centre",
+        "tourism": "National Museum Cardiff"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "51.4853515",
+        "51.4865808",
+        "-3.1785413",
+        "-3.1766681"
+      ],
+      "category": "tourism",
+      "display_name": "National Museum Cardiff, Museum Avenue, Crockherbtown, Civic Centre, Castle, Cardiff, Wales, CF10 3NP, United Kingdom",
+      "importance": 0.4546455507749083,
+      "lat": "51.4859660",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1776109",
+      "name": "National Museum Cardiff",
+      "osm_id": 11230494,
+      "osm_type": "relation",
+      "place_id": 283008121,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "Wales",
+    "status": "ok",
+    "sublocation": "Museum Avenue"
+  },
   "national museum cardiff, wales, uk": {
     "city": "Cardiff",
     "country": "United Kingdom",
@@ -30367,6 +32919,35 @@
     "latitude": "41.6612104",
     "longitude": "-72.7795419",
     "query": "New Britain, Connecticut, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CT",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Capitol Planning Region",
+        "state": "Connecticut",
+        "town": "New Britain"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "41.6450168",
+        "41.7158149",
+        "-72.8256258",
+        "-72.7503613"
+      ],
+      "category": "boundary",
+      "display_name": "New Britain, Capitol Planning Region, Connecticut, United States",
+      "importance": 0.5356968839109955,
+      "lat": "41.6612104",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-72.7795419",
+      "name": "New Britain",
+      "osm_id": 5963846,
+      "osm_type": "relation",
+      "place_id": 355728002,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Connecticut",
     "status": "ok",
@@ -30475,6 +33056,47 @@
     "state": "",
     "status": "ok",
     "sublocation": "New Mosque Yard"
+  },
+  "new orleans, louisiana, united states": {
+    "city": "New Orleans",
+    "country": "United States",
+    "display_name": "New Orleans, Orleans Parish, Louisiana, United States",
+    "latitude": "29.9561422",
+    "longitude": "-90.0733934",
+    "query": "New Orleans, Louisiana, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-LA",
+        "city": "New Orleans",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orleans Parish",
+        "state": "Louisiana"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "29.8654809",
+        "30.1994687",
+        "-90.1399307",
+        "-89.6251763"
+      ],
+      "category": "boundary",
+      "display_name": "New Orleans, Orleans Parish, Louisiana, United States",
+      "importance": 0.7240046227015887,
+      "lat": "29.9561422",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-90.0733934",
+      "name": "New Orleans",
+      "osm_id": 131885,
+      "osm_type": "relation",
+      "place_id": 303337481,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Louisiana",
+    "status": "ok",
+    "sublocation": ""
   },
   "new orleans, louisiana, usa": {
     "city": "New Orleans",
@@ -30635,6 +33257,34 @@
     "latitude": "40.7127281",
     "longitude": "-74.0060152",
     "query": "New York City, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "state": "New York"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.4765780",
+        "40.9176300",
+        "-74.2588430",
+        "-73.7002330"
+      ],
+      "category": "boundary",
+      "display_name": "New York, United States",
+      "importance": 0.8817923363604117,
+      "lat": "40.7127281",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0060152",
+      "name": "New York",
+      "osm_id": 175905,
+      "osm_type": "relation",
+      "place_id": 359971500,
+      "place_rank": 10,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New York",
     "status": "ok",
@@ -30742,6 +33392,46 @@
     "source": "nominatim",
     "state": "New York",
     "status": "ok"
+  },
+  "new york, new york, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "New York, United States",
+    "latitude": "40.7127281",
+    "longitude": "-74.0060152",
+    "query": "New York, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "state": "New York"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.4765780",
+        "40.9176300",
+        "-74.2588430",
+        "-73.7002330"
+      ],
+      "category": "boundary",
+      "display_name": "New York, United States",
+      "importance": 0.8817923363604117,
+      "lat": "40.7127281",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-74.0060152",
+      "name": "New York",
+      "osm_id": 175905,
+      "osm_type": "relation",
+      "place_id": 359692631,
+      "place_rank": 10,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
   },
   "new york, new york, usa": {
     "city": "New York",
@@ -31153,6 +33843,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "niagara falls, new york, united states": {
+    "city": "City of Niagara Falls",
+    "country": "United States",
+    "display_name": "Niagara Falls, City of Niagara Falls, Niagara County, New York, United States",
+    "latitude": "43.0848410",
+    "longitude": "-79.0701786",
+    "query": "Niagara Falls, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "City of Niagara Falls",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Niagara County",
+        "state": "New York",
+        "waterfall": "Niagara Falls"
+      },
+      "addresstype": "waterfall",
+      "boundingbox": [
+        "43.0768247",
+        "43.0859538",
+        "-79.0784358",
+        "-79.0688195"
+      ],
+      "category": "waterway",
+      "display_name": "Niagara Falls, City of Niagara Falls, Niagara County, New York, United States",
+      "importance": 0.5633070385760139,
+      "lat": "43.0848410",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.0701786",
+      "name": "Niagara Falls",
+      "osm_id": 3126920,
+      "osm_type": "relation",
+      "place_id": 351782513,
+      "place_rank": 20,
+      "type": "waterfall"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "niagara falls, u.s.a.": {
     "query": "Niagara Falls, U.S.A.",
     "status": "miss"
@@ -31384,10 +34116,47 @@
     "latitude": "48.8529371",
     "longitude": "2.3500501",
     "query": "Notre Dame Cathedral, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "amenity": "Cathedral of Notre Dame",
+        "city": "Paris",
+        "city_block": "Quartier Les Îles",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "house_number": "6",
+        "postcode": "75004",
+        "region": "Metropolitan France",
+        "road": "Parvis Notre-Dame - Place Jean-Paul II",
+        "state": "Ile-de-France",
+        "suburb": "4th Arrondissement"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.8524230",
+        "48.8534513",
+        "2.3489587",
+        "2.3507815"
+      ],
+      "category": "amenity",
+      "display_name": "Cathedral of Notre Dame, 6, Parvis Notre-Dame - Place Jean-Paul II, Quartier Les Îles, 4th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75004, France",
+      "importance": 0.6112868730397327,
+      "lat": "48.8529371",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3500501",
+      "name": "Cathedral of Notre Dame",
+      "osm_id": 201611261,
+      "osm_type": "way",
+      "place_id": 96731818,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok",
-    "sublocation": "6 Notre-Dame Forecourt - John Paul II Square"
+    "sublocation": "6 Parvis Notre-Dame - Place Jean-Paul II"
   },
   "notre-dame basilica, montreal, canada": {
     "city": "Montreal",
@@ -31623,6 +34392,47 @@
     "status": "ok",
     "sublocation": "1 Chevauleger Brücke"
   },
+  "oahu, hawaii, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Oahu, Hawaii, United States, Hawaii, United States",
+    "latitude": "21.4834365",
+    "longitude": "-158.0365105",
+    "query": "Oahu, Hawaii, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Honolulu County",
+        "island": "Oʻahu",
+        "state": "Hawaii"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "21.2548159",
+        "21.7120060",
+        "-158.2805762",
+        "-157.6486277"
+      ],
+      "category": "place",
+      "display_name": "Oʻahu, Honolulu County, Hawaii, United States",
+      "importance": 0.5803159810298222,
+      "lat": "21.4834365",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-158.0365105",
+      "name": "Oʻahu",
+      "osm_id": 3489649,
+      "osm_type": "relation",
+      "place_id": 348015154,
+      "place_rank": 17,
+      "type": "island"
+    },
+    "source": "nominatim",
+    "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
+  },
   "oahu, hawaii, usa": {
     "city": "",
     "country": "United States",
@@ -31787,6 +34597,36 @@
     "latitude": "43.2489755",
     "longitude": "-70.5992201",
     "query": "Ogunquit, Maine, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "York County",
+        "postcode": "03907",
+        "state": "Maine",
+        "village": "Ogunquit"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "43.2081356",
+        "43.2717529",
+        "-70.6511912",
+        "-70.5023012"
+      ],
+      "category": "boundary",
+      "display_name": "Ogunquit, York County, Maine, 03907, United States",
+      "importance": 0.4114290048959136,
+      "lat": "43.2489755",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.5992201",
+      "name": "Ogunquit",
+      "osm_id": 2021457,
+      "osm_type": "relation",
+      "place_id": 362066176,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Maine",
     "status": "ok",
@@ -32059,6 +34899,49 @@
     "state": "",
     "status": "ok",
     "sublocation": "2 Opernring"
+  },
+  "or georgia, united states": {
+    "city": "Tallulah Falls",
+    "country": "United States",
+    "display_name": "L'Eau d'Or Falls, Tallulah Falls, Rabun County, Georgia, 30573, United States",
+    "latitude": "34.7398480",
+    "longitude": "-83.3937836",
+    "query": "or Georgia, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-GA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Rabun County",
+        "postcode": "30573",
+        "state": "Georgia",
+        "village": "Tallulah Falls",
+        "waterfall": "L'Eau d'Or Falls"
+      },
+      "addresstype": "waterfall",
+      "boundingbox": [
+        "34.7397980",
+        "34.7398980",
+        "-83.3938336",
+        "-83.3937336"
+      ],
+      "category": "waterway",
+      "display_name": "L'Eau d'Or Falls, Tallulah Falls, Rabun County, Georgia, 30573, United States",
+      "importance": 0.13337083466849772,
+      "lat": "34.7398480",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-83.3937836",
+      "name": "L'Eau d'Or Falls",
+      "osm_id": 331962593,
+      "osm_type": "node",
+      "place_id": 313329208,
+      "place_rank": 20,
+      "type": "waterfall"
+    },
+    "source": "nominatim",
+    "state": "Georgia",
+    "status": "ok",
+    "sublocation": ""
   },
   "ordway music theatre, st. paul, minnesota, usa": {
     "query": "Ordway Music Theatre, St. Paul, Minnesota, USA",
@@ -32666,21 +35549,90 @@
   "palace of holyroodhouse, edinburgh, scotland, united kingdom": {
     "city": "City of Edinburgh",
     "country": "United Kingdom",
-    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
     "longitude": "-3.1716130",
     "query": "Palace of Holyroodhouse, Edinburgh, Scotland, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "neighbourhood": "Holyrood",
+        "postcode": "EH8 8DX",
+        "road": "Canongate",
+        "state": "Scotland",
+        "suburb": "Abbeyhill",
+        "tourism": "Palace of Holyroodhouse"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "55.9523510",
+        "55.9530545",
+        "-3.1727373",
+        "-3.1713952"
+      ],
+      "category": "tourism",
+      "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+      "importance": 0.5122173217277122,
+      "lat": "55.9526948",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1716130",
+      "name": "Palace of Holyroodhouse",
+      "osm_id": 16769442,
+      "osm_type": "relation",
+      "place_id": 277008624,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "Scotland",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": "Canongate"
   },
   "palace of holyroodhouse, edinburgh, united kingdom": {
     "city": "City of Edinburgh",
     "country": "United Kingdom",
-    "display_name": "Palace of Holyroodhouse, Canongate, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+    "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
     "latitude": "55.9526948",
     "longitude": "-3.1716130",
     "query": "Palace of Holyroodhouse, Edinburgh, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "neighbourhood": "Holyrood",
+        "postcode": "EH8 8DX",
+        "road": "Canongate",
+        "state": "Scotland",
+        "suburb": "Abbeyhill",
+        "tourism": "Palace of Holyroodhouse"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "55.9523510",
+        "55.9530545",
+        "-3.1727373",
+        "-3.1713952"
+      ],
+      "category": "tourism",
+      "display_name": "Palace of Holyroodhouse, Canongate, Holyrood, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH8 8DX, United Kingdom",
+      "importance": 0.5122173217277122,
+      "lat": "55.9526948",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1716130",
+      "name": "Palace of Holyroodhouse",
+      "osm_id": 16769442,
+      "osm_type": "relation",
+      "place_id": 277008624,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "Scotland",
     "status": "ok",
@@ -32816,6 +35768,54 @@
     "status": "ok",
     "sublocation": "Royal Staircase"
   },
+  "palais garnier, paris, france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Palais Garnier, Paris, France, Paris, Ile-de-France, France",
+    "latitude": "48.8720949",
+    "longitude": "2.3323339",
+    "query": "Palais Garnier, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "amenity": "L'Opéra Restaurant",
+        "city": "Paris",
+        "city_block": "Quartier de la Chaussée-d'Antin",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "postcode": "75009",
+        "region": "Metropolitan France",
+        "road": "Place Jacques Rouché",
+        "state": "Ile-de-France",
+        "suburb": "9th Arrondissement"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "48.8720449",
+        "48.8721449",
+        "2.3322839",
+        "2.3323839"
+      ],
+      "category": "amenity",
+      "display_name": "L'Opéra Restaurant, Place Jacques Rouché, Quartier de la Chaussée-d'Antin, 9th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75009, France",
+      "importance": 0.2659205816262254,
+      "lat": "48.8720949",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3323339",
+      "name": "L'Opéra Restaurant",
+      "osm_id": 1393155090,
+      "osm_type": "node",
+      "place_id": 97574898,
+      "place_rank": 30,
+      "type": "restaurant"
+    },
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok",
+    "sublocation": "Place Jacques Rouché"
+  },
   "palm springs": {
     "city": "Palm Springs",
     "country": "United States",
@@ -32856,6 +35856,35 @@
     "latitude": "33.8246269",
     "longitude": "-116.5403030",
     "query": "Palm Springs, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Palm Springs",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Riverside County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.6125492",
+        "33.9320788",
+        "-116.6847380",
+        "-116.4428260"
+      ],
+      "category": "boundary",
+      "display_name": "Palm Springs, Riverside County, California, United States",
+      "importance": 0.590868823551088,
+      "lat": "33.8246269",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.5403030",
+      "name": "Palm Springs",
+      "osm_id": 2866485,
+      "osm_type": "relation",
+      "place_id": 317883694,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -33709,6 +36738,47 @@
     "status": "ok",
     "sublocation": "September Drive"
   },
+  "pensacola, florida, united states": {
+    "city": "Pensacola",
+    "country": "United States",
+    "display_name": "Pensacola, Escambia County, Florida, United States",
+    "latitude": "30.4213090",
+    "longitude": "-87.2169149",
+    "query": "Pensacola, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "city": "Pensacola",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Escambia County",
+        "state": "Florida"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "30.3955428",
+        "30.5104858",
+        "-87.2588885",
+        "-87.1497213"
+      ],
+      "category": "boundary",
+      "display_name": "Pensacola, Escambia County, Florida, United States",
+      "importance": 0.6027300648340661,
+      "lat": "30.4213090",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-87.2169149",
+      "name": "Pensacola",
+      "osm_id": 119016,
+      "osm_type": "relation",
+      "place_id": 302369583,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
+  },
   "pensacola, florida, usa": {
     "city": "Pensacola",
     "country": "United States",
@@ -34330,6 +37400,35 @@
     "latitude": "33.4484367",
     "longitude": "-112.0741410",
     "query": "Phoenix, Arizona, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-AZ",
+        "city": "Phoenix",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Maricopa County",
+        "state": "Arizona"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.2904827",
+        "33.9183794",
+        "-112.3240289",
+        "-111.9255304"
+      ],
+      "category": "boundary",
+      "display_name": "Phoenix, Maricopa County, Arizona, United States",
+      "importance": 0.6881276585301686,
+      "lat": "33.4484367",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-112.0741410",
+      "name": "Phoenix",
+      "osm_id": 111257,
+      "osm_type": "relation",
+      "place_id": 319274422,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Arizona",
     "status": "ok",
@@ -35257,6 +38356,35 @@
     "latitude": "34.0553813",
     "longitude": "-117.7517496",
     "query": "Pomona, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Pomona",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "34.0186653",
+        "34.1126148",
+        "-117.8286722",
+        "-117.7111169"
+      ],
+      "category": "boundary",
+      "display_name": "Pomona, Los Angeles County, California, United States",
+      "importance": 0.5665487595557226,
+      "lat": "34.0553813",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.7517496",
+      "name": "Pomona",
+      "osm_id": 1532363,
+      "osm_type": "relation",
+      "place_id": 318219726,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -35452,6 +38580,36 @@
     "latitude": "48.1181460",
     "longitude": "-123.4307410",
     "query": "Port Angeles, Washington, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WA",
+        "city": "Port Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Clallam County",
+        "postcode": "98362",
+        "state": "Washington"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "48.0835720",
+        "48.2527972",
+        "-123.5590978",
+        "-123.3916200"
+      ],
+      "category": "boundary",
+      "display_name": "Port Angeles, Clallam County, Washington, 98362, United States",
+      "importance": 0.4901920822911105,
+      "lat": "48.1181460",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.4307410",
+      "name": "Port Angeles",
+      "osm_id": 237310,
+      "osm_type": "relation",
+      "place_id": 377216357,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Washington",
     "status": "ok",
@@ -35558,6 +38716,35 @@
     "latitude": "45.5202471",
     "longitude": "-122.6741940",
     "query": "Portland, Oregon, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OR",
+        "city": "Portland",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Multnomah County",
+        "state": "Oregon"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "45.4325360",
+        "45.6528812",
+        "-122.8367489",
+        "-122.4720252"
+      ],
+      "category": "boundary",
+      "display_name": "Portland, Multnomah County, Oregon, United States",
+      "importance": 0.7099002160354798,
+      "lat": "45.5202471",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.6741940",
+      "name": "Portland",
+      "osm_id": 186579,
+      "osm_type": "relation",
+      "place_id": 325947990,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Oregon",
     "status": "ok",
@@ -36047,10 +39234,42 @@
   "preston, united kingdom": {
     "city": "Preston",
     "country": "United Kingdom",
-    "display_name": "Preston, Lancashire, England, United Kingdom",
+    "display_name": "Preston, Lancashire, England, PR1 2AR, United Kingdom",
     "latitude": "53.7593363",
     "longitude": "-2.6992717",
     "query": "Preston, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-LAN",
+        "city": "Preston",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Lancashire",
+        "postcode": "PR1 2AR",
+        "state": "England",
+        "state_district": "Lancashire"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "53.5993363",
+        "53.9193363",
+        "-2.8592717",
+        "-2.5392717"
+      ],
+      "category": "place",
+      "display_name": "Preston, Lancashire, England, PR1 2AR, United Kingdom",
+      "importance": 0.5990472226758173,
+      "lat": "53.7593363",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-2.6992717",
+      "name": "Preston",
+      "osm_id": 21436318,
+      "osm_type": "node",
+      "place_id": 276749028,
+      "place_rank": 16,
+      "type": "city"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -36863,6 +40082,48 @@
     "query": "Rediffusion, St. Ives, Cornwall, England",
     "status": "miss"
   },
+  "redwood valley, california, united states": {
+    "city": "Redwood Valley",
+    "country": "United States",
+    "display_name": "Redwood Valley, Mendocino County, California, United States",
+    "latitude": "39.2683315",
+    "longitude": "-123.1993752",
+    "query": "Redwood Valley, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "census": "Redwood Valley",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mendocino County",
+        "state": "California",
+        "village": "Redwood Valley"
+      },
+      "addresstype": "census",
+      "boundingbox": [
+        "39.2487470",
+        "39.2880450",
+        "-123.2211570",
+        "-123.1817900"
+      ],
+      "category": "boundary",
+      "display_name": "Redwood Valley, Mendocino County, California, United States",
+      "importance": 0.406866891643569,
+      "lat": "39.2683315",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.1993752",
+      "name": "Redwood Valley",
+      "osm_id": 10330988,
+      "osm_type": "relation",
+      "place_id": 319515607,
+      "place_rank": 25,
+      "type": "census"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "redwoods, united states": {
     "city": "",
     "country": "United States",
@@ -36987,6 +40248,35 @@
     "latitude": "36.3548586",
     "longitude": "-79.6644748",
     "query": "Reidsville, North Carolina, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NC",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Rockingham County",
+        "state": "North Carolina",
+        "town": "Reidsville"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "36.2772320",
+        "36.3967061",
+        "-79.7374310",
+        "-79.6161004"
+      ],
+      "category": "boundary",
+      "display_name": "Reidsville, Rockingham County, North Carolina, United States",
+      "importance": 0.4908870456116165,
+      "lat": "36.3548586",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.6644748",
+      "name": "Reidsville",
+      "osm_id": 179995,
+      "osm_type": "relation",
+      "place_id": 347644675,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "North Carolina",
     "status": "ok",
@@ -37022,6 +40312,35 @@
     "latitude": "39.5261788",
     "longitude": "-119.8126580",
     "query": "Reno, Nevada, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NV",
+        "city": "Reno",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Washoe County",
+        "state": "Nevada"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.3924260",
+        "39.7234360",
+        "-120.0023170",
+        "-119.6912347"
+      ],
+      "category": "boundary",
+      "display_name": "Reno, Washoe County, Nevada, United States",
+      "importance": 0.61651822736575,
+      "lat": "39.5261788",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-119.8126580",
+      "name": "Reno",
+      "osm_id": 170120,
+      "osm_type": "relation",
+      "place_id": 322366322,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Nevada",
     "status": "ok",
@@ -38881,6 +42200,35 @@
     "latitude": "40.7596198",
     "longitude": "-111.8867970",
     "query": "Salt Lake City, Utah, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-UT",
+        "city": "Salt Lake City",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Salt Lake County",
+        "state": "Utah"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.6999263",
+        "40.8533905",
+        "-112.1013916",
+        "-111.7404843"
+      ],
+      "category": "boundary",
+      "display_name": "Salt Lake City, Salt Lake County, Utah, United States",
+      "importance": 0.6958864719365697,
+      "lat": "40.7596198",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-111.8867970",
+      "name": "Salt Lake City",
+      "osm_id": 198770,
+      "osm_type": "relation",
+      "place_id": 328532164,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Utah",
     "status": "ok",
@@ -39166,6 +42514,52 @@
     "status": "ok",
     "sublocation": ""
   },
+  "san diego zoo, san diego, usa": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "San Diego Zoo, 2920, Zoo Drive, Banker's Hill, San Diego, San Diego County, California, 92101, United States",
+    "latitude": "32.7359874",
+    "longitude": "-117.1506542",
+    "query": "San Diego Zoo, San Diego, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Diego",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Diego County",
+        "house_number": "2920",
+        "postcode": "92101",
+        "road": "Zoo Drive",
+        "state": "California",
+        "suburb": "Banker's Hill",
+        "tourism": "San Diego Zoo"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "32.7323883",
+        "32.7395572",
+        "-117.1555548",
+        "-117.1458640"
+      ],
+      "category": "tourism",
+      "display_name": "San Diego Zoo, 2920, Zoo Drive, Banker's Hill, San Diego, San Diego County, California, 92101, United States",
+      "importance": 0.468661830424943,
+      "lat": "32.7359874",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.1506542",
+      "name": "San Diego Zoo",
+      "osm_id": 31274621,
+      "osm_type": "way",
+      "place_id": 318386712,
+      "place_rank": 30,
+      "type": "zoo"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "2920 Zoo Drive"
+  },
   "san diego zoo, usa": {
     "city": "San Diego",
     "country": "United States",
@@ -39234,6 +42628,35 @@
     "latitude": "32.7174202",
     "longitude": "-117.1627720",
     "query": "San Diego, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Diego",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Diego County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "32.5347979",
+        "33.1141940",
+        "-117.3098161",
+        "-116.9057417"
+      ],
+      "category": "boundary",
+      "display_name": "San Diego, San Diego County, California, United States",
+      "importance": 0.731977951818745,
+      "lat": "32.7174202",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.1627720",
+      "name": "San Diego",
+      "osm_id": 253832,
+      "osm_type": "relation",
+      "place_id": 318952187,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -40194,6 +43617,35 @@
     "latitude": "34.0194704",
     "longitude": "-118.4912270",
     "query": "Santa Monica, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Santa Monica",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.9666583",
+        "34.0505825",
+        "-118.5534678",
+        "-118.4435336"
+      ],
+      "category": "boundary",
+      "display_name": "Santa Monica, Los Angeles County, California, United States",
+      "importance": 0.660878808948466,
+      "lat": "34.0194704",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.4912270",
+      "name": "Santa Monica",
+      "osm_id": 3353288,
+      "osm_type": "relation",
+      "place_id": 318144327,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -40217,9 +43669,40 @@
     "latitude": "34.9386700",
     "longitude": "-104.6824890",
     "query": "Santa Rosa, New Mexico, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NM",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Guadalupe County",
+        "postcode": "88435",
+        "state": "New Mexico",
+        "town": "Santa Rosa"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.9053720",
+        "34.9558920",
+        "-104.7147570",
+        "-104.6295280"
+      ],
+      "category": "boundary",
+      "display_name": "Santa Rosa, Guadalupe County, New Mexico, 88435, United States",
+      "importance": 0.4093142170089203,
+      "lat": "34.9386700",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-104.6824890",
+      "name": "Santa Rosa",
+      "osm_id": 171244,
+      "osm_type": "relation",
+      "place_id": 334481560,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New Mexico",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "santa rosa, new mexico, united states of america": {
     "city": "Santa Rosa",
@@ -40512,6 +43995,50 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "schloss nymphenburg, munich, germany": {
+    "city": "Munich",
+    "country": "Germany",
+    "display_name": "Schloss Nymphenburg, Munich, Germany, Munich, Bavaria, Germany",
+    "latitude": "48.1583251",
+    "longitude": "11.5032919",
+    "query": "Schloss Nymphenburg, Munich, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-BY",
+        "building": "Schloss Nymphenburg",
+        "city": "Munich",
+        "country": "Germany",
+        "country_code": "de",
+        "postcode": "80638",
+        "road": "Nördliches Schloßrondell",
+        "state": "Bavaria",
+        "suburb": "Nymphenburg"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "48.1554217",
+        "48.1611840",
+        "11.5030873",
+        "11.5057269"
+      ],
+      "category": "building",
+      "display_name": "Schloss Nymphenburg, Nördliches Schloßrondell, Nymphenburg, Neuhausen-Nymphenburg, Munich, Bavaria, 80638, Germany",
+      "importance": 0.4821835714801994,
+      "lat": "48.1583251",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "11.5032919",
+      "name": "Schloss Nymphenburg",
+      "osm_id": 2144986,
+      "osm_type": "relation",
+      "place_id": 128135522,
+      "place_rank": 30,
+      "type": "yes"
+    },
+    "source": "nominatim",
+    "state": "Bavaria",
+    "status": "ok",
+    "sublocation": "Nördliches Schloßrondell"
+  },
   "schonbrunn palace": {
     "city": "Vienna",
     "country": "Austria",
@@ -40731,6 +44258,40 @@
     "latitude": "48.8622608",
     "longitude": "2.3235032",
     "query": "Seine River, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "city": "Paris",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "postcode": "75001",
+        "region": "Metropolitan France",
+        "river": "La Seine",
+        "state": "Ile-de-France",
+        "suburb": "7th Arrondissement"
+      },
+      "addresstype": "river",
+      "boundingbox": [
+        "48.8614751",
+        "48.8630569",
+        "2.3209018",
+        "2.3261078"
+      ],
+      "category": "waterway",
+      "display_name": "La Seine, 7th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75001, France",
+      "importance": 0.14675983901731895,
+      "lat": "48.8622608",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.3235032",
+      "name": "La Seine",
+      "osm_id": 164034916,
+      "osm_type": "way",
+      "place_id": 97676072,
+      "place_rank": 19,
+      "type": "river"
+    },
     "source": "nominatim",
     "state": "Ile-de-France",
     "status": "ok",
@@ -40788,6 +44349,49 @@
     "status": "ok",
     "sublocation": ""
   },
+  "seminole hot springs, california, united states": {
+    "city": "Unincorporated Santa Monica Mountains",
+    "country": "United States",
+    "display_name": "Seminole Hot Springs, Unincorporated Santa Monica Mountains, Los Angeles County, California, 91301, United States",
+    "latitude": "34.1088794",
+    "longitude": "-118.7890119",
+    "query": "Seminole Hot Springs, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Unincorporated Santa Monica Mountains",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "hamlet": "Seminole Hot Springs",
+        "postcode": "91301",
+        "state": "California"
+      },
+      "addresstype": "hamlet",
+      "boundingbox": [
+        "34.0888794",
+        "34.1288794",
+        "-118.8090119",
+        "-118.7690119"
+      ],
+      "category": "place",
+      "display_name": "Seminole Hot Springs, Unincorporated Santa Monica Mountains, Los Angeles County, California, 91301, United States",
+      "importance": 0.391726011637857,
+      "lat": "34.1088794",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.7890119",
+      "name": "Seminole Hot Springs",
+      "osm_id": 150950658,
+      "osm_type": "node",
+      "place_id": 320269047,
+      "place_rank": 20,
+      "type": "hamlet"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "senate square, helsinki, finland": {
     "city": "Helsinki",
     "country": "Finland",
@@ -40811,6 +44415,10 @@
     "state": "",
     "status": "ok",
     "sublocation": ""
+  },
+  "sequoia & yosemite national parks, usa": {
+    "query": "Sequoia & Yosemite National Parks, USA",
+    "status": "miss"
   },
   "sequoia national park, usa": {
     "city": "",
@@ -41206,6 +44814,49 @@
     "status": "ok",
     "sublocation": ""
   },
+  "shelter island, san diego, california, united states": {
+    "city": "San Diego",
+    "country": "United States",
+    "display_name": "Shelter Island, San Diego, San Diego County, California, 92147, United States",
+    "latitude": "32.7113133",
+    "longitude": "-117.2300319",
+    "query": "Shelter Island, San Diego, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Diego",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Diego County",
+        "island": "Shelter Island",
+        "postcode": "92147",
+        "state": "California"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "32.3913133",
+        "33.0313133",
+        "-117.5500319",
+        "-116.9100319"
+      ],
+      "category": "place",
+      "display_name": "Shelter Island, San Diego, San Diego County, California, 92147, United States",
+      "importance": 0.17341061341268024,
+      "lat": "32.7113133",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.2300319",
+      "name": "Shelter Island",
+      "osm_id": 358792532,
+      "osm_type": "node",
+      "place_id": 318436512,
+      "place_rank": 17,
+      "type": "island"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "shigatse, tibet, china": {
     "display_name": "日喀则市 གཞིས་ཀ་རྩེ་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
     "latitude": "29.1058406",
@@ -41353,6 +45004,36 @@
     "latitude": "43.5476008",
     "longitude": "-96.7293629",
     "query": "Sioux Falls, South Dakota, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-SD",
+        "city": "Sioux Falls",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Minnehaha County",
+        "municipality": "Sioux Falls Township",
+        "state": "South Dakota"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "43.4642858",
+        "43.6452357",
+        "-96.8491709",
+        "-96.5979637"
+      ],
+      "category": "boundary",
+      "display_name": "Sioux Falls, Sioux Falls Township, Minnehaha County, South Dakota, United States",
+      "importance": 0.5720731490153892,
+      "lat": "43.5476008",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-96.7293629",
+      "name": "Sioux Falls",
+      "osm_id": 194968,
+      "osm_type": "relation",
+      "place_id": 327058447,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "South Dakota",
     "status": "ok",
@@ -41460,6 +45141,10 @@
   },
   "skelmearsdale, england": {
     "query": "Skelmearsdale, England",
+    "status": "miss"
+  },
+  "skelmearsdale, united kingdom": {
+    "query": "Skelmearsdale, United Kingdom",
     "status": "miss"
   },
   "skelmereadale, england": {
@@ -41634,6 +45319,47 @@
     },
     "source": "nominatim",
     "state": "Sofia-City",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "solvang, california, united states": {
+    "city": "Solvang",
+    "country": "United States",
+    "display_name": "Solvang, Santa Barbara County, California, United States",
+    "latitude": "34.5960743",
+    "longitude": "-120.1383736",
+    "query": "Solvang, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Santa Barbara County",
+        "state": "California",
+        "village": "Solvang"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "34.5588880",
+        "34.6107670",
+        "-120.1549110",
+        "-120.1199210"
+      ],
+      "category": "boundary",
+      "display_name": "Solvang, Santa Barbara County, California, United States",
+      "importance": 0.4619996762105012,
+      "lat": "34.5960743",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.1383736",
+      "name": "Solvang",
+      "osm_id": 18154990,
+      "osm_type": "relation",
+      "place_id": 314687634,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
     "status": "ok",
     "sublocation": ""
   },
@@ -42588,6 +46314,48 @@
   "st. alexander nevsky patriarchal cathedral, sofia, bulgaria": {
     "query": "St. Alexander Nevsky Patriarchal Cathedral, Sofia, Bulgaria",
     "status": "miss"
+  },
+  "st. augustine, florida, united states": {
+    "city": "Saint Augustine",
+    "country": "United States",
+    "display_name": "Saint Augustine, Saint Johns County, Florida, 32084, United States",
+    "latitude": "29.8946952",
+    "longitude": "-81.3145395",
+    "query": "St. Augustine, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Saint Johns County",
+        "postcode": "32084",
+        "state": "Florida",
+        "town": "Saint Augustine"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "29.8463226",
+        "29.9555444",
+        "-81.3445902",
+        "-81.2657081"
+      ],
+      "category": "boundary",
+      "display_name": "Saint Augustine, Saint Johns County, Florida, 32084, United States",
+      "importance": 0.5608159507405109,
+      "lat": "29.8946952",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.3145395",
+      "name": "Saint Augustine",
+      "osm_id": 117524,
+      "osm_type": "relation",
+      "place_id": 311580306,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
   },
   "st. augustine, florida, usa": {
     "city": "Saint Augustine",
@@ -44222,6 +47990,50 @@
     "source": "nominatim",
     "status": "ok"
   },
+  "stow-on-the-wold, united kingdom": {
+    "city": "Cotswold District",
+    "country": "United Kingdom",
+    "display_name": "Stow-on-the-Wold, Cotswold District, Gloucestershire, England, GL54 1AE, United Kingdom",
+    "latitude": "51.9303426",
+    "longitude": "-1.7230154",
+    "query": "Stow-on-the-Wold, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-GLS",
+        "city": "Cotswold District",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Gloucestershire",
+        "postcode": "GL54 1AE",
+        "state": "England",
+        "town": "Stow-on-the-Wold"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "51.8903426",
+        "51.9703426",
+        "-1.7630154",
+        "-1.6830154"
+      ],
+      "category": "place",
+      "display_name": "Stow-on-the-Wold, Cotswold District, Gloucestershire, England, GL54 1AE, United Kingdom",
+      "importance": 0.43249580853699826,
+      "lat": "51.9303426",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.7230154",
+      "name": "Stow-on-the-Wold",
+      "osm_id": 13797337,
+      "osm_type": "node",
+      "place_id": 281682848,
+      "place_rank": 18,
+      "type": "town"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "strait of gibraltar, andalusia, spain": {
     "query": "Strait of Gibraltar, Andalusia, Spain",
     "status": "miss"
@@ -45167,6 +48979,10 @@
   },
   "temples of king ramesses & queen nefertari, egypt": {
     "query": "Temples of King Ramesses & Queen Nefertari, Egypt",
+    "status": "miss"
+  },
+  "tennessee, north carolina, south carolina, or georgia, united states": {
+    "query": "Tennessee, North Carolina, South Carolina, or Georgia, United States",
     "status": "miss"
   },
   "terra cotta army, china": {
@@ -47497,6 +51313,52 @@
     "status": "ok",
     "sublocation": "Princes Street"
   },
+  "the scott monument, edinburgh, united kingdom": {
+    "city": "City of Edinburgh",
+    "country": "United Kingdom",
+    "display_name": "Scott Monument, Princes Street, The Mound, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH2 2DQ, United Kingdom",
+    "latitude": "55.9523603",
+    "longitude": "-3.1932563",
+    "query": "The Scott Monument, Edinburgh, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-SCT",
+        "ISO3166-2-lvl6": "GB-EDH",
+        "city": "City of Edinburgh",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "man_made": "Scott Monument",
+        "neighbourhood": "The Mound",
+        "postcode": "EH2 2DQ",
+        "road": "Princes Street",
+        "state": "Scotland",
+        "suburb": "Abbeyhill"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "55.9522682",
+        "55.9524535",
+        "-3.1934226",
+        "-3.1930920"
+      ],
+      "category": "man_made",
+      "display_name": "Scott Monument, Princes Street, The Mound, Abbeyhill, Old Town, City of Edinburgh, Scotland, EH2 2DQ, United Kingdom",
+      "importance": 0.39416088441914005,
+      "lat": "55.9523603",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.1932563",
+      "name": "Scott Monument",
+      "osm_id": 39044819,
+      "osm_type": "way",
+      "place_id": 275910372,
+      "place_rank": 30,
+      "type": "tower"
+    },
+    "source": "nominatim",
+    "state": "Scotland",
+    "status": "ok",
+    "sublocation": "Princes Street"
+  },
   "the scott monument, edinburgh; palace of holyroodhouse, edinburgh": {
     "query": "The Scott Monument, Edinburgh; Palace of Holyroodhouse, Edinburgh",
     "status": "miss"
@@ -47930,6 +51792,51 @@
       "osm_id": 19761182,
       "osm_type": "relation",
       "place_id": 421264291,
+      "place_rank": 30,
+      "type": "government"
+    },
+    "source": "nominatim",
+    "state": "District of Columbia",
+    "status": "ok",
+    "sublocation": "1600 Pennsylvania Avenue Northwest"
+  },
+  "the white house, washington, d.c., united states": {
+    "city": "Washington",
+    "country": "United States",
+    "display_name": "White House, 1600, Pennsylvania Avenue Northwest, Ward 2, Washington, District of Columbia, 20500, United States",
+    "latitude": "38.8976387",
+    "longitude": "-77.0365528",
+    "query": "The White House, Washington, D.C., United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-DC",
+        "borough": "Ward 2",
+        "city": "Washington",
+        "country": "United States",
+        "country_code": "us",
+        "house_number": "1600",
+        "office": "White House",
+        "postcode": "20500",
+        "road": "Pennsylvania Avenue Northwest",
+        "state": "District of Columbia"
+      },
+      "addresstype": "office",
+      "boundingbox": [
+        "38.8974904",
+        "38.8977959",
+        "-77.0368541",
+        "-77.0362517"
+      ],
+      "category": "office",
+      "display_name": "White House, 1600, Pennsylvania Avenue Northwest, Ward 2, Washington, District of Columbia, 20500, United States",
+      "importance": 0.6958339719610435,
+      "lat": "38.8976387",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-77.0365528",
+      "name": "White House",
+      "osm_id": 19761182,
+      "osm_type": "relation",
+      "place_id": 347527726,
       "place_rank": 30,
       "type": "government"
     },
@@ -49172,6 +53079,36 @@
     "latitude": "49.8987957",
     "longitude": "-97.0103126",
     "query": "Transcona, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "city": "Winnipeg",
+        "country": "Canada",
+        "country_code": "ca",
+        "postcode": "R2C 1B6",
+        "state": "Manitoba",
+        "suburb": "Transcona"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "49.8787957",
+        "49.9187957",
+        "-97.0303126",
+        "-96.9903126"
+      ],
+      "category": "place",
+      "display_name": "Transcona, Victoria West, Winnipeg, Manitoba, R2C 1B6, Canada",
+      "importance": 0.22489365626900393,
+      "lat": "49.8987957",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.0103126",
+      "name": "Transcona",
+      "osm_id": 52562636,
+      "osm_type": "node",
+      "place_id": 374609078,
+      "place_rank": 19,
+      "type": "suburb"
+    },
     "source": "nominatim",
     "state": "Manitoba",
     "status": "ok",
@@ -49365,6 +53302,40 @@
     "latitude": "51.5615216",
     "longitude": "-3.0283389",
     "query": "Tredegar House, Newport, Wales, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-WLS",
+        "ISO3166-2-lvl6": "GB-NWP",
+        "building": "Tredegar House",
+        "city": "Newport",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Newport",
+        "postcode": "NP10 8YW",
+        "road": "Pencarn Way",
+        "state": "Wales",
+        "suburb": "Duffryn"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "51.5612199",
+        "51.5618253",
+        "-3.0285656",
+        "-3.0275894"
+      ],
+      "category": "building",
+      "display_name": "Tredegar House, Pencarn Way, Duffryn, Tredegar Park, Newport, Wales, NP10 8YW, United Kingdom",
+      "importance": 0.37526729549138227,
+      "lat": "51.5615216",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.0283389",
+      "name": "Tredegar House",
+      "osm_id": 1963832,
+      "osm_type": "relation",
+      "place_id": 281748630,
+      "place_rank": 30,
+      "type": "yes"
+    },
     "source": "nominatim",
     "state": "Wales",
     "status": "ok",
@@ -50406,6 +54377,35 @@
     "latitude": "49.2608724",
     "longitude": "-123.1139520",
     "query": "Vancouver, British Columbia, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-BC",
+        "city": "Vancouver",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Metro Vancouver Regional District",
+        "state": "British Columbia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "49.1989306",
+        "49.3161714",
+        "-123.2249611",
+        "-123.0232419"
+      ],
+      "category": "boundary",
+      "display_name": "Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+      "importance": 0.7420155970406932,
+      "lat": "49.2608724",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.1139520",
+      "name": "Vancouver",
+      "osm_id": 1852574,
+      "osm_type": "relation",
+      "place_id": 374150216,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok",
@@ -51298,9 +55298,39 @@
     "latitude": "48.4283182",
     "longitude": "-123.3649530",
     "query": "Victoria, British Columbia, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-BC",
+        "city": "Victoria",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Capital Regional District",
+        "state": "British Columbia"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "48.4028294",
+        "48.4504995",
+        "-123.3980750",
+        "-123.3224223"
+      ],
+      "category": "boundary",
+      "display_name": "Victoria, Capital Regional District, British Columbia, Canada",
+      "importance": 0.6351834588140912,
+      "lat": "48.4283182",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.3649530",
+      "name": "Victoria",
+      "osm_id": 2221062,
+      "osm_type": "relation",
+      "place_id": 378456095,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "British Columbia",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "victoria, british columbia, victoria, british columbia, canada": {
     "city": "Juan de Fuca Electoral Area",
@@ -52512,6 +56542,34 @@
     "latitude": "49.6651238",
     "longitude": "-103.8540340",
     "query": "Weyburn, Saskatchewan, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-SK",
+        "city": "Weyburn",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Saskatchewan"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "49.6390927",
+        "49.6900860",
+        "-103.8863586",
+        "-103.8131658"
+      ],
+      "category": "boundary",
+      "display_name": "Weyburn, Saskatchewan, Canada",
+      "importance": 0.4977871620598456,
+      "lat": "49.6651238",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-103.8540340",
+      "name": "Weyburn",
+      "osm_id": 9628650,
+      "osm_type": "relation",
+      "place_id": 376639384,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Saskatchewan",
     "status": "ok",
@@ -53656,6 +57714,35 @@
     "latitude": "46.6015570",
     "longitude": "-120.5108420",
     "query": "Yakima, Washington, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WA",
+        "city": "Yakima",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Yakima County",
+        "state": "Washington"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "46.5572920",
+        "46.6307770",
+        "-120.6444942",
+        "-120.4603350"
+      ],
+      "category": "boundary",
+      "display_name": "Yakima, Yakima County, Washington, United States",
+      "importance": 0.5370052843816984,
+      "lat": "46.6015570",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.5108420",
+      "name": "Yakima",
+      "osm_id": 237752,
+      "osm_type": "relation",
+      "place_id": 325591401,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Washington",
     "status": "ok",

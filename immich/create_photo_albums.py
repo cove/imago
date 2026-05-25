@@ -33,8 +33,10 @@ DEFAULT_IMMICH_URL = "http://192.168.4.26:2283"
 MANAGED_DESCRIPTION = "Managed by imago immich/create_photo_albums.py. Recreated from Photo Albums directories."
 ASSET_SEARCH_PAGE_SIZE = 1000
 ADD_ASSETS_CHUNK_SIZE = 500
+ASSET_BULK_UPDATE_CHUNK_SIZE = 500
 LIBRARY_SCAN_POLL_SECONDS = 5
 LIBRARY_SCAN_TIMEOUT_SECONDS = 45 * 60
+ALBUM_YEAR_PATTERN = re.compile(r"_(\d{4})(?:-(\d{4}))?_")
 
 
 @dataclass(frozen=True)
@@ -137,6 +139,16 @@ class ImmichClient:
             return
         self.request("PUT", f"/api/albums/{album_id}/assets", payload={"ids": list(asset_ids)})
 
+    def bulk_update_assets(self, asset_ids: Sequence[str], *, date_time_original: str) -> None:
+        if not asset_ids:
+            return
+        self.request(
+            "PUT",
+            "/api/assets",
+            payload={"ids": list(asset_ids), "dateTimeOriginal": date_time_original},
+            expected=(200, 204),
+        )
+
     def search_assets_by_original_filename(self, original_filename: str, *, visibility: str | None = None) -> list[dict[str, Any]]:
         assets: list[dict[str, Any]] = []
         page = 1
@@ -177,13 +189,17 @@ def _album_base_name(album_name: str) -> str:
     return album_name
 
 
-def _legacy_immich_album_name(album_name: str) -> str:
-    return album_name.replace("_", " ")
-
-
 def _immich_album_name(album_name: str) -> str:
     spaced = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", album_name)
     return spaced.replace("_", " ")
+
+
+def _album_date_iso(album_name: str) -> str | None:
+    match = ALBUM_YEAR_PATTERN.search(album_name)
+    if not match:
+        return None
+    year = int(match.group(1))
+    return f"{year:04d}-01-01T00:00:00.000Z"
 
 
 def _media_files(directory: Path, extensions: set[str]) -> list[Path]:
@@ -350,30 +366,17 @@ def rescan_immich_library(
         time.sleep(poll_seconds)
 
 
-def recreate_album(
+def create_album_with_assets(
     client: ImmichClient,
     album: LocalAlbum,
     asset_ids: Sequence[str],
     *,
-    existing_albums: Sequence[dict[str, Any]],
     dry_run: bool,
 ) -> str | None:
     immich_name = _immich_album_name(album.name)
-    replace_names = {album.name, _legacy_immich_album_name(album.name), immich_name}
-    matches = [item for item in existing_albums if item.get("albumName") in replace_names]
     if dry_run:
-        sys.stdout.write(
-            f"DRY RUN {immich_name}: would delete {len(matches)} existing album(s), "
-            f"create with {len(asset_ids)} asset(s)\n"
-        )
+        sys.stdout.write(f"DRY RUN {immich_name}: would create with {len(asset_ids)} asset(s)\n")
         return None
-
-    for match in matches:
-        album_id = str(match.get("id") or "").strip()
-        if not album_id:
-            _exit_runtime(f"Existing Immich album named {album.name} did not include an id")
-        client.delete_album(album_id)
-
     created = client.create_album(immich_name)
     album_id = str(created.get("id") or "").strip()
     if not album_id:
@@ -383,26 +386,40 @@ def recreate_album(
     return album_id
 
 
-def delete_obsolete_grouped_albums(
+def set_album_asset_dates(
     client: ImmichClient,
-    albums: Sequence[LocalAlbum],
+    album: LocalAlbum,
+    asset_ids: Sequence[str],
+    *,
+    dry_run: bool,
+) -> str | None:
+    if not asset_ids:
+        return None
+    date_iso = _album_date_iso(album.name)
+    if date_iso is None:
+        sys.stdout.write(f"{_immich_album_name(album.name)}: no year in name, skipping date update\n")
+        return None
+    if dry_run:
+        sys.stdout.write(
+            f"DRY RUN {_immich_album_name(album.name)}: would set dateTimeOriginal={date_iso} on {len(asset_ids)} asset(s)\n"
+        )
+        return date_iso
+    for chunk in _chunked(list(asset_ids), ASSET_BULK_UPDATE_CHUNK_SIZE):
+        client.bulk_update_assets(chunk, date_time_original=date_iso)
+    return date_iso
+
+
+def delete_all_albums(
+    client: ImmichClient,
     *,
     existing_albums: Sequence[dict[str, Any]],
     dry_run: bool,
 ) -> list[str]:
-    grouped_names: set[str] = set()
-    for album in albums:
-        base_name = _album_base_name(album.name)
-        if base_name != album.name:
-            grouped_names.update({base_name, _legacy_immich_album_name(base_name), _immich_album_name(base_name)})
-
     deleted_ids: list[str] = []
     for match in existing_albums:
-        if match.get("albumName") not in grouped_names:
-            continue
         album_id = str(match.get("id") or "").strip()
         if not album_id:
-            _exit_runtime(f"Existing Immich grouped album named {match.get('albumName')} did not include an id")
+            _exit_runtime(f"Existing Immich album named {match.get('albumName')} did not include an id")
         deleted_ids.append(album_id)
         if dry_run:
             continue
@@ -424,6 +441,12 @@ def sync_photo_albums(
         albums = [album for album in albums if album.name in album_filter or _album_base_name(album.name) in album_filter]
     if not albums:
         _exit_runtime("No matching *_Archive, *_Pages, or *_Photos album directories found")
+
+    # Delete all existing albums before resolving assets so stale albums are
+    # always cleaned out even if asset resolution later fails.
+    existing_albums = client.get_albums()
+    wiped = delete_all_albums(client, existing_albums=existing_albums, dry_run=dry_run)
+    sys.stdout.write(f"Deleted {len(wiped)} existing album(s)\n")
 
     resolved_albums: list[tuple[LocalAlbum, list[str], list[Path]]] = []
     for index, album in enumerate(albums, start=1):
@@ -449,33 +472,17 @@ def sync_photo_albums(
             suffix = "" if len(missing) <= 5 else f", and {len(missing) - 5} more"
             lines.append(f"{album.name}: {len(missing)} local file(s) did not match Immich assets: {examples}{suffix}")
         suffix = "" if len(missing_albums) <= 5 else f"\n... and {len(missing_albums) - 5} more album(s)"
-        _exit_runtime("Missing Immich assets; no albums were deleted or created:\n" + "\n".join(lines) + suffix)
+        _exit_runtime("Missing Immich assets; albums were deleted but not recreated:\n" + "\n".join(lines) + suffix)
 
-    existing_albums = client.get_albums()
-    deleted_grouped_ids = set(
-        delete_obsolete_grouped_albums(
-            client,
-            albums,
-            existing_albums=existing_albums,
-            dry_run=dry_run,
-        )
-    )
-    existing_albums = [
-        album
-        for album in existing_albums
-        if str(album.get("id") or "").strip() not in deleted_grouped_ids
-    ]
     for album, asset_ids, missing in resolved_albums:
-        recreated_id = recreate_album(
-            client,
-            album,
-            asset_ids,
-            existing_albums=existing_albums,
-            dry_run=dry_run,
-        )
+        date_iso = set_album_asset_dates(client, album, asset_ids, dry_run=dry_run)
+        created_id = create_album_with_assets(client, album, asset_ids, dry_run=dry_run)
         missing_note = f", {len(missing)} missing" if missing else ""
-        id_note = "" if recreated_id is None else f" ({recreated_id})"
-        sys.stdout.write(f"{_immich_album_name(album.name)}: {len(asset_ids)} asset(s){missing_note}{id_note}\n")
+        id_note = "" if created_id is None else f" ({created_id})"
+        date_note = f" date={date_iso[:10]}" if date_iso else ""
+        sys.stdout.write(
+            f"{_immich_album_name(album.name)}: {len(asset_ids)} asset(s){missing_note}{date_note}{id_note}\n"
+        )
     return 0
 
 

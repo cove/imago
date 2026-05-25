@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from immich.create_photo_albums import LocalAlbum, discover_local_albums, recreate_album, resolve_album_asset_ids
+from immich.create_photo_albums import (
+    LocalAlbum,
+    _album_date_iso,
+    create_album_with_assets,
+    delete_all_albums,
+    discover_local_albums,
+    resolve_album_asset_ids,
+    set_album_asset_dates,
+)
 
 
 class FakeImmichClient:
@@ -11,6 +19,7 @@ class FakeImmichClient:
         self.deleted: list[str] = []
         self.created: list[str] = []
         self.added: list[tuple[str, tuple[str, ...]]] = []
+        self.bulk_updates: list[tuple[tuple[str, ...], str]] = []
         self.search_results: dict[str, list[dict]] = {}
 
     def search_assets_by_original_filename(self, original_filename: str) -> list[dict]:
@@ -26,6 +35,9 @@ class FakeImmichClient:
 
     def add_assets_to_album(self, album_id: str, asset_ids: list[str]) -> None:
         self.added.append((album_id, tuple(asset_ids)))
+
+    def bulk_update_assets(self, asset_ids, *, date_time_original: str) -> None:
+        self.bulk_updates.append((tuple(asset_ids), date_time_original))
 
 
 def test_discovers_logical_albums_from_archive_pages_and_photos_dirs(tmp_path: Path) -> None:
@@ -108,23 +120,61 @@ def test_resolve_assets_caches_original_filename_searches(tmp_path: Path) -> Non
     assert client.searches == ["duplicate.jpg"]
 
 
-def test_recreate_album_deletes_legacy_and_spaced_existing_albums_then_adds_assets() -> None:
+def test_delete_all_albums_deletes_every_existing_album() -> None:
     client = FakeImmichClient()
-    album = LocalAlbum("Family_1975_B01", (), ())
 
-    album_id = recreate_album(
+    deleted_ids = delete_all_albums(
         client,
-        album,
-        ["asset-1", "asset-2"],
         existing_albums=[
             {"id": "old-1", "albumName": "Family_1975_B01"},
             {"id": "old-2", "albumName": "Family 1975 B01"},
-            {"id": "other", "albumName": "Other"},
+            {"id": "other", "albumName": "Unrelated"},
         ],
         dry_run=False,
     )
 
+    assert deleted_ids == ["old-1", "old-2", "other"]
+    assert client.deleted == ["old-1", "old-2", "other"]
+
+
+def test_create_album_with_assets_creates_then_adds_assets() -> None:
+    client = FakeImmichClient()
+    album = LocalAlbum("Family_1975_B01", (), ())
+
+    album_id = create_album_with_assets(
+        client,
+        album,
+        ["asset-1", "asset-2"],
+        dry_run=False,
+    )
+
     assert album_id == "album-Family 1975 B01"
-    assert client.deleted == ["old-1", "old-2"]
     assert client.created == ["Family 1975 B01"]
     assert client.added == [("album-Family 1975 B01", ("asset-1", "asset-2"))]
+    assert client.deleted == []
+
+
+def test_album_date_iso_extracts_first_year_from_name() -> None:
+    assert _album_date_iso("Egypt_1975_B00") == "1975-01-01T00:00:00.000Z"
+    assert _album_date_iso("Family_1907-1946_B01") == "1907-01-01T00:00:00.000Z"
+    assert _album_date_iso("NoYearHere") is None
+
+
+def test_set_album_asset_dates_bulk_updates_with_album_year() -> None:
+    client = FakeImmichClient()
+    album = LocalAlbum("Family_1907-1946_B01", (), ())
+
+    date_iso = set_album_asset_dates(client, album, ["a1", "a2"], dry_run=False)
+
+    assert date_iso == "1907-01-01T00:00:00.000Z"
+    assert client.bulk_updates == [(("a1", "a2"), "1907-01-01T00:00:00.000Z")]
+
+
+def test_set_album_asset_dates_skips_when_name_has_no_year() -> None:
+    client = FakeImmichClient()
+    album = LocalAlbum("Misc_Photos_NoDate", (), ())
+
+    date_iso = set_album_asset_dates(client, album, ["a1"], dry_run=False)
+
+    assert date_iso is None
+    assert client.bulk_updates == []

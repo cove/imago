@@ -84,6 +84,12 @@ def _get_default_onedrive_dir(env_name: str, subpath: Path) -> Path:
 
 
 def get_photo_albums_dir() -> Path:
+    configured = str(os.environ.get(PHOTO_ALBUMS_DIR_ENV, "") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    home_default = Path.home() / "Photo Albums"
+    if home_default.exists():
+        return home_default
     return _get_default_onedrive_dir(PHOTO_ALBUMS_DIR_ENV, PHOTO_ALBUMS_SUBPATH)
 
 
@@ -91,7 +97,10 @@ PHOTO_ALBUMS_DIR = get_photo_albums_dir()
 
 
 def get_photo_scanning_dir() -> Path:
-    return _get_default_onedrive_dir(PHOTO_SCANNING_DIR_ENV, PHOTO_SCANNING_SUBPATH)
+    configured = str(os.environ.get(PHOTO_SCANNING_DIR_ENV, "") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return get_photo_albums_dir()
 
 
 PHOTO_SCANNING_DIR = get_photo_scanning_dir()

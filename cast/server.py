@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import sys
-import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -44,9 +43,6 @@ DEFAULT_MIN_SAMPLE_COUNT = 2
 DEFAULT_CLUSTER_EPS = 1.0 - DEFAULT_MIN_SIMILARITY
 DEFAULT_CLUSTER_MIN_SAMPLES = 3
 ACTIVE_EMBEDDING_MODELS = {CURRENT_FACE_EMBEDDING_MODEL}
-PHOTOALBUMS_PROCESSING_LOCK_SUFFIX = ".photoalbums-ai.lock"
-PHOTOALBUMS_LOCK_WAIT_TIMEOUT_SECONDS = 120.0
-PHOTOALBUMS_LOCK_POLL_SECONDS = 0.25
 read_xmp_description = _read_xmp_description
 
 
@@ -92,26 +88,6 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
         return False
     return bool(default)
 
-
-def _photoalbums_processing_lock_path(image_path: Path) -> Path:
-    return image_path.with_name(f"{image_path.name}{PHOTOALBUMS_PROCESSING_LOCK_SUFFIX}")
-
-
-def _wait_for_photoalbums_processing_lock(
-    image_path: Path,
-    *,
-    timeout_seconds: float = PHOTOALBUMS_LOCK_WAIT_TIMEOUT_SECONDS,
-    poll_seconds: float = PHOTOALBUMS_LOCK_POLL_SECONDS,
-) -> bool:
-    lock_path = _photoalbums_processing_lock_path(image_path)
-    if not lock_path.exists():
-        return False
-    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
-    while lock_path.exists():
-        if time.monotonic() >= deadline:
-            raise TimeoutError(f"Timed out waiting for photoalbums lock to clear: {lock_path}")
-        time.sleep(max(0.01, float(poll_seconds)))
-    return True
 
 
 class CastHTTPServer(ThreadingHTTPServer):
@@ -1460,31 +1436,6 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         finally:
             cap.release()
 
-    def _log_xmp_lock_wait_completed(
-        self,
-        *,
-        review_id: str,
-        face: dict[str, Any],
-        source_path: str,
-        xmp_path: Path,
-        img_path: Path,
-    ) -> None:
-        print(
-            "[cast] "
-            + json.dumps(
-                {
-                    "event": "photoalbums_lock_wait_completed",
-                    "review_id": str(review_id or "").strip(),
-                    "face_id": str(face.get("face_id") or "").strip(),
-                    "source_path": source_path,
-                    "xmp_path": str(xmp_path),
-                    "lock_path": str(_photoalbums_processing_lock_path(img_path)),
-                },
-                ensure_ascii=True,
-            ),
-            file=sys.stderr,
-        )
-
     def _merge_person_into_xmp(
         self,
         *,
@@ -1530,15 +1481,6 @@ class CastHandler(_CastHandlerFaceMixin, _CastHandlerReviewMixin, BaseHTTPReques
         img_path = Path(source_path)
         xmp_path = img_path.with_suffix(".xmp")
         try:
-            waited_for_lock = _wait_for_photoalbums_processing_lock(img_path)
-            if waited_for_lock:
-                self._log_xmp_lock_wait_completed(
-                    review_id=review_id,
-                    face=face,
-                    source_path=source_path,
-                    xmp_path=xmp_path,
-                    img_path=img_path,
-                )
             self._merge_person_into_xmp(
                 review_id=review_id,
                 face=face,

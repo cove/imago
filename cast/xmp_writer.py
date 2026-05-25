@@ -9,11 +9,23 @@ X_NS = "adobe:ns:meta/"
 RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 DC_NS = "http://purl.org/dc/elements/1.1/"
+MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
+STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
+STDIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
+MP_NS = "http://ns.microsoft.com/photo/1.2/"
+MPRI_NS = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#"
+MPREG_NS = "http://ns.microsoft.com/photo/1.2/t/Region#"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
 ET.register_namespace("Iptc4xmpExt", IPTC_EXT_NS)
 ET.register_namespace("dc", DC_NS)
+ET.register_namespace("mwg-rs", MWGRS_NS)
+ET.register_namespace("stArea", STAREA_NS)
+ET.register_namespace("stDim", STDIM_NS)
+ET.register_namespace("MP", MP_NS)
+ET.register_namespace("MPRI", MPRI_NS)
+ET.register_namespace("MPReg", MPREG_NS)
 
 _PERSON_TAG = f"{{{IPTC_EXT_NS}}}PersonInImage"
 _DC_DESC_TAG = f"{{{DC_NS}}}description"
@@ -35,6 +47,27 @@ _IPTC_RB_X_TAG = f"{{{IPTC_EXT_NS}}}rbX"
 _IPTC_RB_Y_TAG = f"{{{IPTC_EXT_NS}}}rbY"
 _IPTC_RB_W_TAG = f"{{{IPTC_EXT_NS}}}rbW"
 _IPTC_RB_H_TAG = f"{{{IPTC_EXT_NS}}}rbH"
+_MWGRS_REGION_INFO_TAG = f"{{{MWGRS_NS}}}RegionInfo"
+_MWGRS_REGIONS_TAG = f"{{{MWGRS_NS}}}Regions"
+_MWGRS_APPLIED_TO_DIMENSIONS_TAG = f"{{{MWGRS_NS}}}AppliedToDimensions"
+_MWGRS_REGION_LIST_TAG = f"{{{MWGRS_NS}}}RegionList"
+_MWGRS_AREA_TAG = f"{{{MWGRS_NS}}}Area"
+_MWGRS_TYPE_TAG = f"{{{MWGRS_NS}}}Type"
+_MWGRS_NAME_TAG = f"{{{MWGRS_NS}}}Name"
+_MWGRS_TYPE_ATTR = f"{{{MWGRS_NS}}}Type"
+_MWGRS_NAME_ATTR = f"{{{MWGRS_NS}}}Name"
+_STAREA_X_ATTR = f"{{{STAREA_NS}}}x"
+_STAREA_Y_ATTR = f"{{{STAREA_NS}}}y"
+_STAREA_W_ATTR = f"{{{STAREA_NS}}}w"
+_STAREA_H_ATTR = f"{{{STAREA_NS}}}h"
+_STAREA_UNIT_ATTR = f"{{{STAREA_NS}}}unit"
+_STDIM_W_ATTR = f"{{{STDIM_NS}}}w"
+_STDIM_H_ATTR = f"{{{STDIM_NS}}}h"
+_STDIM_UNIT_ATTR = f"{{{STDIM_NS}}}unit"
+_MP_REGION_INFO_TAG = f"{{{MP_NS}}}RegionInfo"
+_MPRI_REGIONS_TAG = f"{{{MPRI_NS}}}Regions"
+_MPREG_PERSON_DISPLAY_NAME_ATTR = f"{{{MPREG_NS}}}PersonDisplayName"
+_MPREG_RECTANGLE_ATTR = f"{{{MPREG_NS}}}Rectangle"
 
 
 def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:  # type: ignore[type-arg]
@@ -317,7 +350,6 @@ def _set_face_regions_in_desc(
     desc: ET.Element,  # type: ignore[type-arg]
     regions: list[dict[str, Any]],
 ) -> None:
-    """Replace all face-identified ImageRegion items with *regions* (relative coords)."""
     ir_elem = desc.find(_IPTC_IMAGE_REGION_TAG)
     if ir_elem is not None:
         ir_elem = _remove_face_regions(ir_elem, desc)
@@ -336,17 +368,174 @@ def _set_face_regions_in_desc(
         _build_face_region_li(bag, n, region)
 
 
+def _region_image_dimensions(regions: list[dict[str, Any]]) -> tuple[int, int]:
+    for region in regions:
+        image_width = int(region.get("image_width") or 0)
+        image_height = int(region.get("image_height") or 0)
+        if image_width > 0 and image_height > 0:
+            return image_width, image_height
+    return 0, 0
+
+
+_MINIMAL_XMP = (
+    "<?xml version='1.0' encoding='UTF-8'?>"
+    "<x:xmpmeta xmlns:x='adobe:ns:meta/'>"
+    "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+    "<rdf:Description rdf:about=''/>"
+    "</rdf:RDF>"
+    "</x:xmpmeta>"
+)
+
+
+def write_face_regions_exiftool(
+    sidecar_path: Path,
+    regions: list[dict[str, Any]],
+) -> None:
+    """Write MWG-RS and MP face regions via ExifTool (canonical format).
+
+    Replaces XMP-mwg-rs:RegionInfo (mwg-rs:Regions in XMP) and XMP-MP:RegionInfoMP
+    entirely. Pass an empty list to clear existing regions.
+
+    regions: list of {"name", "rx", "ry", "rw", "rh", "image_width", "image_height"}
+      where coordinates are normalized (0.0-1.0), origin at top-left.
+
+    ExifTool is run on a fresh temp XMP file (not the main sidecar) to avoid
+    ExifTool restructuring the sidecar's RDF into multiple rdf:Description blocks.
+    The face-region elements are then injected into the main sidecar's primary
+    description via Python's ElementTree.
+    """
+    import json
+    import subprocess
+    import tempfile
+
+    valid = _valid_face_regions(regions)
+    image_width, image_height = _region_image_dimensions(valid)
+
+    entry: dict[str, Any] = {}
+
+    if valid and image_width > 0 and image_height > 0:
+        region_list = []
+        mp_regions = []
+        for r in valid:
+            rx = float(r.get("rx") or 0)
+            ry = float(r.get("ry") or 0)
+            rw = float(r.get("rw") or 0)
+            rh = float(r.get("rh") or 0)
+            name = str(r.get("name") or "").strip()
+            region_list.append({
+                "Name": name,
+                "Type": "Face",
+                "Area": {
+                    "X": round(rx + rw / 2.0, 6),
+                    "Y": round(ry + rh / 2.0, 6),
+                    "W": round(rw, 6),
+                    "H": round(rh, 6),
+                    "Unit": "normalized",
+                },
+            })
+            mp_regions.append({
+                "PersonDisplayName": name,
+                "Rectangle": f"{rx:.6f}, {ry:.6f}, {rw:.6f}, {rh:.6f}",
+            })
+        entry["XMP-mwg-rs:RegionInfo"] = {
+            "AppliedToDimensions": {"W": image_width, "H": image_height, "Unit": "pixel"},
+            "RegionList": region_list,
+        }
+        entry["XMP-MP:RegionInfoMP"] = {"Regions": mp_regions}
+    else:
+        entry["XMP-mwg-rs:RegionInfo"] = ""
+        entry["XMP-MP:RegionInfoMP"] = ""
+
+    # Run ExifTool on a minimal temp XMP so ExifTool doesn't restructure the main
+    # sidecar into multiple rdf:Description blocks (which breaks read_ai_sidecar_state).
+    with tempfile.NamedTemporaryFile(suffix=".xmp", mode="w", encoding="utf-8", delete=False) as tf:
+        tf.write(_MINIMAL_XMP)
+        temp_xmp = Path(tf.name)
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False, encoding="utf-8"
+    ) as f:
+        json_path = Path(f.name)
+        json.dump([entry], f, ensure_ascii=False)
+
+    try:
+        result = subprocess.run(
+            ["exiftool", "-struct", "-overwrite_original", f"-json={json_path}", str(temp_xmp)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"ExifTool failed writing face regions for {sidecar_path}: {result.stderr.strip()}"
+            )
+        _inject_face_region_elements(sidecar_path, temp_xmp)
+    finally:
+        json_path.unlink(missing_ok=True)
+        temp_xmp.unlink(missing_ok=True)
+
+
+def _extract_exiftool_face_elements(
+    exiftool_xmp: Path,
+) -> tuple[ET.Element | None, ET.Element | None]:
+    """Return (mwg-rs:Regions, MP:RegionInfo) from an ExifTool-written XMP, or (None, None)."""
+    et_rdf = ET.parse(str(exiftool_xmp)).getroot().find(f"{{{RDF_NS}}}RDF")
+    if et_rdf is None:
+        return None, None
+    mwgrs_el: ET.Element | None = None
+    mp_el: ET.Element | None = None
+    for desc in et_rdf.findall(f"{{{RDF_NS}}}Description"):
+        if mwgrs_el is None:
+            mwgrs_el = desc.find(f"{{{MWGRS_NS}}}Regions")
+        if mp_el is None:
+            mp_el = desc.find(f"{{{MP_NS}}}RegionInfo")
+    return mwgrs_el, mp_el
+
+
+def _inject_face_region_elements(sidecar_path: Path, exiftool_xmp: Path) -> None:
+    """Inject mwg-rs:Regions and MP:RegionInfo from ExifTool-written XMP into the
+    primary rdf:Description of the main sidecar (preserves all other properties)."""
+    mwgrs_el, mp_el = _extract_exiftool_face_elements(exiftool_xmp)
+
+    if not sidecar_path.exists():
+        return
+    main_tree = ET.parse(str(sidecar_path))
+    main_rdf = main_tree.getroot().find(f"{{{RDF_NS}}}RDF")
+    if main_rdf is None:
+        return
+    main_desc = main_rdf.find(f"{{{RDF_NS}}}Description")
+    if main_desc is None:
+        return
+
+    # Remove existing face-region elements from all descriptions
+    for tag in (f"{{{MWGRS_NS}}}Regions", f"{{{MP_NS}}}RegionInfo"):
+        for d in main_rdf.findall(f"{{{RDF_NS}}}Description"):
+            old = d.find(tag)
+            if old is not None:
+                d.remove(old)
+
+    # Only inject populated (non-empty) elements
+    if mwgrs_el is not None and len(mwgrs_el) > 0:
+        main_desc.append(mwgrs_el)
+    if mp_el is not None and len(mp_el) > 0:
+        main_desc.append(mp_el)
+
+    ET.indent(main_tree, space="  ")
+    main_tree.write(str(sidecar_path), encoding="utf-8", xml_declaration=True)
+
+
 def merge_face_regions_xmp(
     sidecar_path: Path,
     regions: list[dict[str, Any]],
 ) -> Path:
-    """Write face bounding box regions to an XMP sidecar (IPTC4xmpExt:ImageRegion).
+    """Write face bounding box regions to an XMP sidecar.
 
-    Replaces existing face-identified regions; preserves all other XMP fields and
-    non-face region types.  Creates a minimal sidecar if none exists.
+    Writes IPTC4xmpExt:ImageRegion via XML and MWG-RS / MP regions via
+    ExifTool (canonical format). Replaces existing face regions; preserves
+    all other XMP fields and non-face IPTC region types. Creates a minimal
+    sidecar if none exists.
 
-    regions: list of {"name": str, "rx": float, "ry": float, "rw": float, "rh": float}
-      where coordinates are relative (0.0-1.0), origin at top-left.
+    regions: list of {"name", "rx", "ry", "rw", "rh", "image_width", "image_height"}
+      where coordinates are normalized (0.0-1.0), origin at top-left.
 
     Returns the path written.
     """
@@ -369,7 +558,12 @@ def merge_face_regions_xmp(
             if desc is None:
                 desc = ET.SubElement(rdf_rdf, _RDF_DESC)
             _set_face_regions_in_desc(desc, regions)
+            # Remove old compact mwg-rs:RegionInfo (superseded by ExifTool's mwg-rs:Regions)
+            old_ri = desc.find(_MWGRS_REGION_INFO_TAG)
+            if old_ri is not None:
+                desc.remove(old_ri)
             tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
+            write_face_regions_exiftool(sidecar_path, regions)
             return sidecar_path
 
     sidecar_path.parent.mkdir(parents=True, exist_ok=True)
@@ -380,4 +574,5 @@ def merge_face_regions_xmp(
     desc.set(f"{{{RDF_NS}}}about", "")
     _set_face_regions_in_desc(desc, regions)
     ET.ElementTree(xmpmeta).write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
+    write_face_regions_exiftool(sidecar_path, regions)
     return sidecar_path

@@ -17,7 +17,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib import ai_ocr
-from photoalbums.tests.conftest import FakeLMStudioResponse
+from photoalbums.tests.conftest import FakeIterableResponse, FakeLMStudioResponse
 
 
 class TestAIOcr(unittest.TestCase):
@@ -162,7 +162,7 @@ class TestAIOcr(unittest.TestCase):
                     return_value=FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8")),
                 ),
             ):
-                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl")
+                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl", stream=False)
                 text = ocr.read_text(
                     image_path,
                     debug_recorder=lambda **row: records.append(row),
@@ -210,7 +210,7 @@ class TestAIOcr(unittest.TestCase):
                     return_value=FakeLMStudioResponse(json.dumps(response_payload).encode("utf-8")),
                 ),
             ):
-                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl")
+                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl", stream=False)
                 ocr.read_text(
                     image_path,
                     source_path=source_path,
@@ -281,7 +281,7 @@ class TestAIOcr(unittest.TestCase):
                 mock.patch.object(ai_ocr, "_lmstudio_ocr_select_model", return_value="qwen2.5-vl"),
                 mock.patch.object(ai_ocr.urllib.request, "urlopen", side_effect=fake_urlopen),
             ):
-                ocr = ai_ocr.OCREngine(engine="lmstudio", base_url="http://127.0.0.1:1234")
+                ocr = ai_ocr.OCREngine(engine="lmstudio", base_url="http://127.0.0.1:1234", stream=False)
                 text = ocr.read_text(image_path)
 
         self.assertEqual(text, "MAINLAND CHINA\n1986\nBOOK 11")
@@ -318,6 +318,7 @@ class TestAIOcr(unittest.TestCase):
                     engine="lmstudio",
                     model_name="qwen2.5-vl-instruct",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 text = ocr.read_text(image_path)
 
@@ -365,6 +366,7 @@ class TestAIOcr(unittest.TestCase):
                 ocr = ai_ocr.OCREngine(
                     engine="lmstudio",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 text = ocr.read_text(image_path)
 
@@ -399,6 +401,48 @@ class TestAIOcr(unittest.TestCase):
             flush=True,
         )
         sleep_mock.assert_called_once()
+
+    def test_lmstudio_ocr_streaming(self):
+        sse_chunks = [
+            b'data: {"choices":[{"delta":{"content":"{\\"text\\": \\"MAINLAND "}}]}\n',
+            b'data: {"choices":[{"delta":{"content":"CHINA\\\\n1986\\\\nBOOK 11\\\"}"}}]}\n',
+            b"data: [DONE]\n",
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "sample.jpg"
+            Image.new("RGB", (320, 240), color="white").save(image_path)
+            records = []
+
+            with (
+                mock.patch.object(
+                    ai_ocr,
+                    "_build_ocr_data_url",
+                    return_value="data:image/jpeg;base64,abc123",
+                ),
+                mock.patch.object(
+                    ai_ocr,
+                    "_lmstudio_ocr_select_model",
+                    return_value="qwen2.5-vl",
+                ),
+                mock.patch.object(
+                    ai_ocr.urllib.request,
+                    "urlopen",
+                    return_value=FakeIterableResponse(sse_chunks),
+                ),
+                mock.patch("builtins.print") as print_mock,
+            ):
+                ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl", stream=True)
+                text = ocr.read_text(
+                    image_path,
+                    debug_recorder=lambda **row: records.append(row),
+                    debug_step="ocr",
+                )
+
+        self.assertEqual(text, "MAINLAND CHINA\n1986\nBOOK 11")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["step"], "ocr")
+        self.assertEqual(records[0]["response"], '{"text": "MAINLAND CHINA\\n1986\\nBOOK 11"}')
 
 
 if __name__ == "__main__":
