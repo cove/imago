@@ -15,10 +15,12 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 from ._caption_lmstudio import (
+    _LMSTUDIO_RETRY_DELAY_SECONDS,
     _decode_lmstudio_text,
     _extract_structured_json_payload,
     _format_lmstudio_debug_response,
     _lanczos_resize,
+    _lmstudio_stream_tokens,
     _normalize_model_name_candidates,
 )
 from ._lmstudio_helpers import emit_prompt_debug as _emit_prompt_debug
@@ -154,6 +156,16 @@ def _lmstudio_ocr_post(base_url: str, payload: dict, timeout: float) -> dict:
             reason = getattr(exc, "reason", str(exc))
             print(f"LM Studio is unreachable at {base_url}: {reason}", flush=True)
         time.sleep(_LMSTUDIO_OCR_RETRY_DELAY_SECONDS)
+
+
+def _lmstudio_ocr_stream_tokens(url: str, payload: dict, timeout: float) -> list[str]:
+    while True:
+        try:
+            return list(_lmstudio_stream_tokens(url, payload, timeout))
+        except (RuntimeError, urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            reason = getattr(exc, "reason", str(exc))
+            print(f"LM Studio OCR streaming failed: {reason}", flush=True)
+            time.sleep(_LMSTUDIO_OCR_RETRY_DELAY_SECONDS)
 
 
 def _lmstudio_ocr_select_model(base_url: str, timeout: float, requested_model: str = "") -> str:
@@ -458,7 +470,9 @@ class OCREngine:
         language: str = "eng",
         model_name: str = "",
         base_url: str = "",
+        stream: bool = True,
     ):
+        self.stream = stream
         self.engine = _normalize_ocr_engine(engine)
         self.language = str(language or "eng").strip() or "eng"
         self.base_url = _normalize_lmstudio_ocr_base_url(base_url) if self.engine == "lmstudio" else ""
@@ -560,25 +574,41 @@ class OCREngine:
             "response_format": _lmstudio_ocr_response_format(),
             "max_tokens": int(params.get("max_new_tokens", DEFAULT_LOCAL_OCR_MAX_NEW_TOKENS)),
             "temperature": float(params.get("temperature", 0.0)),
-            "stream": False,
+            "stream": self.stream,
         }
         raw_response = ""
         finish_reason = ""
         error_text = ""
         try:
-            response = _lmstudio_ocr_post(self.base_url, payload, timeout_seconds)
-            choices = list(response.get("choices") or [])
-            if not choices:
-                raise RuntimeError("LM Studio returned no choices.")
-            message = dict(choices[0].get("message") or {})
-            finish_reason = str(choices[0].get("finish_reason") or "")
-            raw_response = _format_lmstudio_debug_response(message.get("content"))
-            if not raw_response:
-                raw_response = _format_lmstudio_debug_response(message)
-            return _parse_lmstudio_structured_ocr(
-                message.get("content"),
-                finish_reason=finish_reason,
-            )
+            if self.stream:
+                print(
+                    f"  Running LM Studio OCR model ({self.effective_model_name})...",
+                    end="",
+                    flush=True,
+                )
+                tokens = _lmstudio_ocr_stream_tokens(
+                    f"{self.base_url}/chat/completions", payload, timeout_seconds
+                )
+                print("\r\033[K", end="", flush=True)
+                raw_response = "".join(tokens)
+                return _parse_lmstudio_structured_ocr(
+                    raw_response,
+                    finish_reason=finish_reason,
+                )
+            else:
+                response = _lmstudio_ocr_post(self.base_url, payload, timeout_seconds)
+                choices = list(response.get("choices") or [])
+                if not choices:
+                    raise RuntimeError("LM Studio returned no choices.")
+                message = dict(choices[0].get("message") or {})
+                finish_reason = str(choices[0].get("finish_reason") or "")
+                raw_response = _format_lmstudio_debug_response(message.get("content"))
+                if not raw_response:
+                    raw_response = _format_lmstudio_debug_response(message)
+                return _parse_lmstudio_structured_ocr(
+                    message.get("content"),
+                    finish_reason=finish_reason,
+                )
         except Exception as exc:
             error_text = str(exc)
             raise

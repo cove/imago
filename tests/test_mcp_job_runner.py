@@ -210,51 +210,6 @@ class TestJobRunnerPersistence(unittest.TestCase):
         finally:
             runner_a.cancel(job_a)
 
-    def test_shutdown_cleans_stale_photoalbums_lock_files(self):
-        runner = mcp_job_runner.JobRunner()
-        photos_root = self.jobs_dir / "photos"
-        image_path = photos_root / "Album_A" / "Photo_01.jpg"
-        image_path.parent.mkdir(parents=True)
-        image_path.touch()
-
-        lock_path = image_path.with_name(f"{image_path.name}.photoalbums-ai.lock")
-        batch_lock_path = photos_root / ".photoalbums-ai.batch.lock"
-        payload = json.dumps({"pid": 999999, "job_id": "job123"})
-        lock_path.write_text(payload, encoding="utf-8")
-        batch_lock_path.write_text(payload, encoding="utf-8")
-
-        proc = mock.Mock()
-        proc.pid = 999999
-        proc.returncode = -15
-        job = {
-            "id": "job123",
-            "name": "photoalbums_ai_index:cordell",
-            "command": "...",
-            "status": "running",
-            "started_at": "2026-03-16T00:00:00+00:00",
-            "ended_at": None,
-            "exit_code": None,
-            "log_file": str(self.jobs_dir / "job123.log"),
-            "artifact_file": str(self.jobs_dir / "job123.artifacts.jsonl"),
-            "pid": 999999,
-            "cleanup": {
-                "kind": "photoalbums_ai_locks",
-                "photos_root": str(photos_root),
-            },
-        }
-        runner._jobs["job123"] = job
-        runner._processes["job123"] = proc
-        runner._save_state()
-
-        runner.shutdown()
-
-        proc.terminate.assert_called_once()
-        proc.wait.assert_called_once()
-        self.assertFalse(lock_path.exists())
-        self.assertFalse(batch_lock_path.exists())
-        saved = self._read_disk_jobs()
-        self.assertEqual(saved["job123"]["status"], "interrupted")
-
     # ── Console visibility ─────────────────────────────────────────────────────
 
     def test_console_reads_jobs_written_by_runner(self):

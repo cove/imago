@@ -29,28 +29,6 @@ def _get_json(url: str) -> tuple[int, dict]:
         return int(response.status), json.loads(response.read().decode("utf-8"))
 
 
-def test_wait_for_photoalbums_processing_lock_waits_for_release(tmp_path):
-    image_path = tmp_path / "photo.jpg"
-    image_path.write_bytes(b"jpg")
-    lock_path = cast_server._photoalbums_processing_lock_path(image_path)
-    lock_path.write_text("{}", encoding="utf-8")
-
-    def release_lock():
-        time.sleep(0.1)
-        lock_path.unlink()
-
-    thread = threading.Thread(target=release_lock, daemon=True)
-    thread.start()
-    try:
-        waited = cast_server._wait_for_photoalbums_processing_lock(
-            image_path,
-            timeout_seconds=2.0,
-            poll_seconds=0.02,
-        )
-        assert waited is True
-    finally:
-        thread.join(timeout=2)
-
 
 def test_review_skip_keeps_item_pending_and_moves_it_to_end(tmp_path):
     store = TextFaceStore(tmp_path / "cast_data")
@@ -650,70 +628,6 @@ def test_bulk_review_assign_stops_when_xmp_write_fails(tmp_path, monkeypatch):
         server.server_close()
         thread.join(timeout=2)
 
-
-def test_review_accept_waits_for_photoalbums_lock_before_xmp_write(tmp_path, monkeypatch):
-    store = TextFaceStore(tmp_path / "cast_data")
-    store.ensure_files()
-
-    person = store.add_person(name="Audrey")
-    image_path = tmp_path / "photo.jpg"
-    image_path.write_bytes(b"jpg")
-    face = store.add_face(
-        embedding=[0.1, 0.2, 0.3],
-        source_type="photo",
-        source_path=str(image_path),
-        bbox=[10, 20, 30, 40],
-    )
-    review = store.add_review_item(
-        face_id=face["face_id"],
-        candidates=[],
-        suggested_person_id=person["person_id"],
-        suggested_score=0.95,
-        status="pending",
-    )
-
-    waited_paths = []
-
-    def fake_wait(path, **kwargs):
-        waited_paths.append((path, kwargs))
-        return True
-
-    read_calls = {"count": 0}
-
-    def fake_read_person_in_image(path):
-        read_calls["count"] += 1
-        if read_calls["count"] == 1:
-            return []
-        return ["Audrey"]
-
-    monkeypatch.setattr(cast_server, "_wait_for_photoalbums_processing_lock", fake_wait)
-    monkeypatch.setattr(cast_server, "read_person_in_image", fake_read_person_in_image)
-    monkeypatch.setattr(cast_server, "read_xmp_description", lambda path: "")
-    monkeypatch.setattr(cast_server, "merge_persons_xmp", lambda *args, **kwargs: image_path.with_suffix(".xmp"))
-
-    server = CastHTTPServer("127.0.0.1", 0, store)
-    port = int(server.server_address[1])
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    time.sleep(0.2)
-    try:
-        status, payload = _post_json(
-            f"http://127.0.0.1:{port}/api/review/resolve",
-            {
-                "review_id": review["review_id"],
-                "status": "accepted",
-                "person_id": person["person_id"],
-            },
-        )
-        assert status == 200
-        assert payload["ok"] is True
-        assert payload["review"]["status"] == "accepted"
-        assert waited_paths
-        assert waited_paths[0][0] == image_path
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=2)
 
 
 def test_review_accept_keeps_item_pending_when_person_in_image_verification_fails(tmp_path, monkeypatch):

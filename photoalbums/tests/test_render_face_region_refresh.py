@@ -16,6 +16,9 @@ if str(MODULE_ROOT) not in sys.path:
 from photoalbums.lib import ai_index, ai_index_runner, ai_render_face_refresh, xmp_sidecar
 from photoalbums.lib.ai_sidecar_state import _effective_sidecar_album_title
 
+# ExifTool uses a different stArea namespace URI than the hand-written code
+EXIFTOOL_STAREA_NS = "http://ns.adobe.com/xmp/sType/Area#"
+
 
 def _image_region_ids(xmp_path: Path) -> list[str]:
     root = ET.parse(xmp_path).getroot()
@@ -45,6 +48,108 @@ def _image_region_types(xmp_path: Path) -> list[str]:
         )
         if str(item.text or "").strip()
     ]
+
+
+def _compact_mwgrs_region_types(xmp_path: Path) -> list[str]:
+    root = ET.parse(xmp_path).getroot()
+    return [
+        str(item.get(f"{{{xmp_sidecar.MWGRS_NS}}}Type") or "").strip()
+        for item in root.findall(
+            ".//"
+            f"{{{xmp_sidecar.MWGRS_NS}}}RegionList/"
+            f"{{{xmp_sidecar.RDF_NS}}}Bag/"
+            f"{{{xmp_sidecar.RDF_NS}}}li"
+        )
+        if str(item.get(f"{{{xmp_sidecar.MWGRS_NS}}}Type") or "").strip()
+    ]
+
+
+def _compact_mwgrs_region_names(xmp_path: Path) -> list[str]:
+    root = ET.parse(xmp_path).getroot()
+    return [
+        str(item.get(f"{{{xmp_sidecar.MWGRS_NS}}}Name") or "").strip()
+        for item in root.findall(
+            ".//"
+            f"{{{xmp_sidecar.MWGRS_NS}}}RegionList/"
+            f"{{{xmp_sidecar.RDF_NS}}}Bag/"
+            f"{{{xmp_sidecar.RDF_NS}}}li"
+        )
+        if str(item.get(f"{{{xmp_sidecar.MWGRS_NS}}}Name") or "").strip()
+    ]
+
+
+def _digikam_mwgrs_region_names(xmp_path: Path) -> list[str]:
+    """Read face region names from ExifTool's mwg-rs:Regions (child text elements)."""
+    root = ET.parse(xmp_path).getroot()
+    rdf_rdf = root.find(f"{{{xmp_sidecar.RDF_NS}}}RDF")
+    if rdf_rdf is None:
+        return []
+    names = []
+    for desc in rdf_rdf.findall(f"{{{xmp_sidecar.RDF_NS}}}Description"):
+        region_info = desc.find(f"{{{xmp_sidecar.MWGRS_NS}}}Regions")
+        if region_info is None:
+            continue
+        region_list = region_info.find(f"{{{xmp_sidecar.MWGRS_NS}}}RegionList")
+        if region_list is None:
+            continue
+        bag = region_list.find(f"{{{xmp_sidecar.RDF_NS}}}Bag")
+        if bag is None:
+            continue
+        for li in bag.findall(f"{{{xmp_sidecar.RDF_NS}}}li"):
+            name = str(li.findtext(f"{{{xmp_sidecar.MWGRS_NS}}}Name") or "").strip()
+            if name:
+                names.append(name)
+    return names
+
+
+def _digikam_mwgrs_region_area_x(xmp_path: Path) -> list[str]:
+    """Read face region center-X values from ExifTool's mwg-rs:Regions (child text elements)."""
+    root = ET.parse(xmp_path).getroot()
+    rdf_rdf = root.find(f"{{{xmp_sidecar.RDF_NS}}}RDF")
+    if rdf_rdf is None:
+        return []
+    values = []
+    for desc in rdf_rdf.findall(f"{{{xmp_sidecar.RDF_NS}}}Description"):
+        region_info = desc.find(f"{{{xmp_sidecar.MWGRS_NS}}}Regions")
+        if region_info is None:
+            continue
+        region_list = region_info.find(f"{{{xmp_sidecar.MWGRS_NS}}}RegionList")
+        if region_list is None:
+            continue
+        bag = region_list.find(f"{{{xmp_sidecar.RDF_NS}}}Bag")
+        if bag is None:
+            continue
+        for li in bag.findall(f"{{{xmp_sidecar.RDF_NS}}}li"):
+            area = li.find(f"{{{xmp_sidecar.MWGRS_NS}}}Area")
+            if area is not None:
+                value = str(area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}x") or "").strip()
+                if value:
+                    values.append(value)
+    return values
+
+
+def _mp_region_rectangles(xmp_path: Path) -> list[str]:
+    """Read MP face rectangle strings from ExifTool's MP:RegionInfo (child text elements)."""
+    root = ET.parse(xmp_path).getroot()
+    rdf_rdf = root.find(f"{{{xmp_sidecar.RDF_NS}}}RDF")
+    if rdf_rdf is None:
+        return []
+    for desc in rdf_rdf.findall(f"{{{xmp_sidecar.RDF_NS}}}Description"):
+        region_info = desc.find(f"{{{xmp_sidecar.MP_NS}}}RegionInfo")
+        if region_info is None:
+            continue
+        regions = region_info.find(f"{{{xmp_sidecar.MPRI_NS}}}Regions")
+        if regions is None:
+            return []
+        bag = regions.find(f"{{{xmp_sidecar.RDF_NS}}}Bag")
+        if bag is None:
+            return []
+        return [
+            str(li.findtext(f"{{{xmp_sidecar.MPREG_NS}}}Rectangle") or "").strip()
+            for li in bag.findall(f"{{{xmp_sidecar.RDF_NS}}}li")
+            if str(li.findtext(f"{{{xmp_sidecar.MPREG_NS}}}Rectangle") or "").strip()
+        ]
+    return []
 
 
 class TestRenderFaceRegionRefresh(unittest.TestCase):
@@ -149,7 +254,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             out = Path(tmp) / "Egypt_1975_B00_P09_V.xmp"
             out.write_text(
                 f"""<?xml version="1.0" encoding="utf-8"?>
-<x:xmpmeta xmlns:x="{xmp_sidecar.X_NS}" xmlns:rdf="{xmp_sidecar.RDF_NS}" xmlns:Iptc4xmpExt="{xmp_sidecar.IPTC_EXT_NS}">
+<x:xmpmeta xmlns:x="{xmp_sidecar.X_NS}" xmlns:rdf="{xmp_sidecar.RDF_NS}" xmlns:Iptc4xmpExt="{xmp_sidecar.IPTC_EXT_NS}" xmlns:mwg-rs="{xmp_sidecar.MWGRS_NS}" xmlns:stArea="{xmp_sidecar.STAREA_NS}">
   <rdf:RDF>
     <rdf:Description rdf:about="">
       <Iptc4xmpExt:ImageRegion>
@@ -205,13 +310,69 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             self.assertIn("New Name", xml)
             self.assertEqual(_image_region_ids(out), ["photo-1", "face-1"])
             self.assertEqual(_image_region_types(out), ["photo-region", "face-identified"])
+            # ExifTool writes mwg-rs:Regions (child text); old compact mwg-rs:RegionInfo is gone
+            self.assertEqual(_compact_mwgrs_region_types(out), [])
+            self.assertEqual(_compact_mwgrs_region_names(out), [])
+            self.assertEqual(_digikam_mwgrs_region_names(out), ["New Name"])
+            area_x = _digikam_mwgrs_region_area_x(out)
+            self.assertEqual(len(area_x), 1)
+            self.assertAlmostEqual(float(area_x[0]), 0.2, places=5)  # center X = rx + rw/2
+            self.assertEqual(_mp_region_rectangles(out), ["0.100000, 0.100000, 0.200000, 0.300000"])
+
+    def test_write_xmp_sidecar_clears_old_compact_mwgrs_and_writes_exiftool_face_regions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "Egypt_1975_B00_P09_V.xmp"
+            out.write_text(
+                f"""<?xml version="1.0" encoding="utf-8"?>
+<x:xmpmeta xmlns:x="{xmp_sidecar.X_NS}" xmlns:rdf="{xmp_sidecar.RDF_NS}" xmlns:mwg-rs="{xmp_sidecar.MWGRS_NS}" xmlns:stArea="{xmp_sidecar.STAREA_NS}">
+  <rdf:RDF>
+    <rdf:Description rdf:about="">
+      <mwg-rs:RegionInfo rdf:parseType="Resource">
+        <mwg-rs:AppliedToDimensions rdf:parseType="Resource" stArea:w="200" stArea:h="100" stArea:unit="pixel" />
+        <mwg-rs:RegionList>
+          <rdf:Bag>
+            <rdf:li rdf:parseType="Resource" mwg-rs:Type="Photo" mwg-rs:Name="Photo Region" stArea:x="0.500000" stArea:y="0.500000" stArea:w="0.500000" stArea:h="0.500000" stArea:unit="normalized" />
+            <rdf:li rdf:parseType="Resource" mwg-rs:Type="Face" mwg-rs:Name="Old Name" stArea:x="0.100000" stArea:y="0.100000" stArea:w="0.100000" stArea:h="0.100000" stArea:unit="normalized" />
+          </rdf:Bag>
+        </mwg-rs:RegionList>
+      </mwg-rs:RegionInfo>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+""",
+                encoding="utf-8",
+            )
+
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=["New Name"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={
+                    "people": [{"name": "New Name", "bbox": [20, 10, 40, 30]}],
+                    "objects": [],
+                    "ocr": {},
+                    "caption": {},
+                },
+                image_width=200,
+                image_height=100,
+            )
+
+            # Old compact mwg-rs:RegionInfo is cleared entirely (photo regions gone from mwg-rs)
+            self.assertEqual(_compact_mwgrs_region_types(out), [])
+            self.assertEqual(_compact_mwgrs_region_names(out), [])
+            # ExifTool writes New Name face region to mwg-rs:Regions
+            self.assertEqual(_digikam_mwgrs_region_names(out), ["New Name"])
+            self.assertEqual(_mp_region_rectangles(out), ["0.100000, 0.100000, 0.200000, 0.300000"])
 
     def test_write_xmp_sidecar_removes_stale_face_regions_without_touching_non_face_regions(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "Egypt_1975_B00_P09_V.xmp"
             out.write_text(
                 f"""<?xml version="1.0" encoding="utf-8"?>
-<x:xmpmeta xmlns:x="{xmp_sidecar.X_NS}" xmlns:rdf="{xmp_sidecar.RDF_NS}" xmlns:Iptc4xmpExt="{xmp_sidecar.IPTC_EXT_NS}">
+<x:xmpmeta xmlns:x="{xmp_sidecar.X_NS}" xmlns:rdf="{xmp_sidecar.RDF_NS}" xmlns:Iptc4xmpExt="{xmp_sidecar.IPTC_EXT_NS}" xmlns:mwg-rs="{xmp_sidecar.MWGRS_NS}" xmlns:stArea="{xmp_sidecar.STAREA_NS}">
   <rdf:RDF>
     <rdf:Description rdf:about="">
       <Iptc4xmpExt:ImageRegion>
@@ -226,6 +387,15 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
           </rdf:li>
         </rdf:Bag>
       </Iptc4xmpExt:ImageRegion>
+      <mwg-rs:RegionInfo rdf:parseType="Resource">
+        <mwg-rs:AppliedToDimensions rdf:parseType="Resource" stArea:w="200" stArea:h="100" stArea:unit="pixel" />
+        <mwg-rs:RegionList>
+          <rdf:Bag>
+            <rdf:li rdf:parseType="Resource" mwg-rs:Type="Photo" mwg-rs:Name="Photo Region" stArea:x="0.500000" stArea:y="0.500000" stArea:w="0.500000" stArea:h="0.500000" stArea:unit="normalized" />
+            <rdf:li rdf:parseType="Resource" mwg-rs:Type="Face" mwg-rs:Name="Old Name" stArea:x="0.100000" stArea:y="0.100000" stArea:w="0.100000" stArea:h="0.100000" stArea:unit="normalized" />
+          </rdf:Bag>
+        </mwg-rs:RegionList>
+      </mwg-rs:RegionInfo>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
@@ -252,6 +422,11 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
             self.assertEqual(_image_region_ids(out), ["photo-1"])
             self.assertEqual(_image_region_types(out), ["photo-region"])
+            # Old compact mwg-rs:RegionInfo is cleared; ExifTool clears mwg-rs:Regions/MP
+            self.assertEqual(_compact_mwgrs_region_types(out), [])
+            self.assertEqual(_compact_mwgrs_region_names(out), [])
+            self.assertEqual(_digikam_mwgrs_region_names(out), [])
+            self.assertEqual(_mp_region_rectangles(out), [])
 
     def test_write_xmp_sidecar_leaves_all_non_face_regions_unchanged(self):
         with tempfile.TemporaryDirectory() as tmp:

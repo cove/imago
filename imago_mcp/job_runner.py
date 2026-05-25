@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from photoalbums.lib.ai_index_runner import _cleanup_stale_processing_locks
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JOBS_DIR = REPO_ROOT / "mcp" / "jobs"
@@ -52,8 +51,6 @@ class JobRunner:
                             job["status"] = "interrupted"
                             interrupted_jobs.append(job)
                 self._jobs = data
-                for job in interrupted_jobs:
-                    self._cleanup_job_artifacts(job)
             except Exception:
                 self._jobs = {}
         self._save_state()  # always write back: creates file if missing, persists interrupted status
@@ -71,41 +68,6 @@ class JobRunner:
         tmp_path = self._jobs_state.with_suffix(".json.tmp")
         tmp_path.write_text(json.dumps(self._jobs, indent=2), encoding="utf-8")
         os.replace(tmp_path, self._jobs_state)
-
-    @staticmethod
-    def _job_cleanup_metadata(args: list[str]) -> dict[str, str] | None:
-        if len(args) < 5:
-            return None
-        if [str(part) for part in args[1:3]] == ["-m", "photoalbums"]:
-            command_offset = 3
-        elif Path(str(args[1])).name == "photoalbums.py":
-            command_offset = 2
-        else:
-            return None
-        if [str(part) for part in args[command_offset : command_offset + 2]] != ["ai", "index"]:
-            return None
-        try:
-            photos_root = str(args[args.index("--photos-root") + 1]).strip()
-        except (ValueError, IndexError):
-            return None
-        if not photos_root:
-            return None
-        return {
-            "kind": "photoalbums_ai_locks",
-            "photos_root": photos_root,
-        }
-
-    @staticmethod
-    def _cleanup_job_artifacts(job: dict) -> None:
-        cleanup = job.get("cleanup")
-        if not isinstance(cleanup, dict):
-            return
-        if str(cleanup.get("kind") or "").strip() != "photoalbums_ai_locks":
-            return
-        photos_root = Path(str(cleanup.get("photos_root") or "").strip())
-        if not str(photos_root):
-            return
-        _cleanup_stale_processing_locks(photos_root)
 
     @staticmethod
     def _background_popen_kwargs() -> dict:
@@ -145,12 +107,7 @@ class JobRunner:
             "log_file": str(log_path),
             "artifact_file": str(artifact_path),
         }
-        cleanup = self._job_cleanup_metadata(args)
-        if cleanup is not None:
-            job["cleanup"] = cleanup
-
         env = os.environ.copy()
-        env["IMAGO_JOB_ID"] = job_id
         env["IMAGO_JOB_ARTIFACTS"] = str(artifact_path)
         if env_extra:
             env.update(env_extra)
@@ -265,6 +222,3 @@ class JobRunner:
                 self._processes.pop(job_id, None)
             self._save_state()
 
-        for job in jobs.values():
-            if isinstance(job, dict):
-                self._cleanup_job_artifacts(job)

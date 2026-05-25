@@ -25,6 +25,10 @@ XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
 CRS_NS = "http://ns.adobe.com/camera-raw-settings/1.0/"
 MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
 STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
+STDIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
+MP_NS = "http://ns.microsoft.com/photo/1.2/"
+MPRI_NS = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#"
+MPREG_NS = "http://ns.microsoft.com/photo/1.2/t/Region#"
 
 ET.register_namespace("x", X_NS)
 ET.register_namespace("rdf", RDF_NS)
@@ -39,6 +43,10 @@ ET.register_namespace("xmpDM", XMPDM_NS)
 ET.register_namespace("crs", CRS_NS)
 ET.register_namespace("mwg-rs", MWGRS_NS)
 ET.register_namespace("stArea", STAREA_NS)
+ET.register_namespace("stDim", STDIM_NS)
+ET.register_namespace("MP", MP_NS)
+ET.register_namespace("MPRI", MPRI_NS)
+ET.register_namespace("MPReg", MPREG_NS)
 
 
 _RDF_ROOT = f"{{{RDF_NS}}}RDF"
@@ -731,6 +739,13 @@ def _replace_iptc_face_regions(
         if not list(field):
             parent.remove(field)
     _add_iptc_face_regions(parent, people, image_width, image_height)
+
+
+def _clear_old_compact_mwgrs_region_info(parent: ET.Element) -> None:
+    """Remove the old compact mwg-rs:RegionInfo element (superseded by ExifTool's mwg-rs:Regions)."""
+    old_ri = parent.find(f"{{{MWGRS_NS}}}RegionInfo")
+    if old_ri is not None:
+        parent.remove(old_ri)
 
 
 def _add_xmp_date_fields(
@@ -2387,12 +2402,9 @@ def _set_detections_fields(
     else:
         _set_simple_text(desc, f"{{{IMAGO_NS}}}Detections", "")
     if isinstance(merged_detections_payload, dict) and "people" in merged_detections_payload:
-        _replace_iptc_face_regions(
-            desc,
-            [row for row in list(merged_detections_payload.get("people") or []) if isinstance(row, dict)],
-            image_width,
-            image_height,
-        )
+        people = [row for row in list(merged_detections_payload.get("people") or []) if isinstance(row, dict)]
+        _replace_iptc_face_regions(desc, people, image_width, image_height)
+        _clear_old_compact_mwgrs_region_info(desc)
 
 
 def write_xmp_sidecar(
@@ -2527,7 +2539,39 @@ def write_xmp_sidecar(
             locations_shown=locations_shown,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
+    if isinstance(detections_payload, dict) and "people" in detections_payload:
+        _write_exiftool_face_regions(path, detections_payload, image_width, image_height)
     return path
+
+
+def _write_exiftool_face_regions(
+    path: Path,
+    detections_payload: dict,
+    image_width: int,
+    image_height: int,
+) -> None:
+    from cast.xmp_writer import write_face_regions_exiftool
+
+    people = [p for p in (detections_payload.get("people") or []) if isinstance(p, dict)]
+    if people and image_width > 0 and image_height > 0:
+        regions = [
+            {
+                "name": str(p.get("name") or "").strip(),
+                "rx": int(bbox[0]) / image_width,
+                "ry": int(bbox[1]) / image_height,
+                "rw": int(bbox[2]) / image_width,
+                "rh": int(bbox[3]) / image_height,
+                "image_width": image_width,
+                "image_height": image_height,
+            }
+            for p in people
+            if str(p.get("name") or "").strip()
+            and len(bbox := list(p.get("bbox") or [])) >= 4
+            and int(bbox[2]) > 0 and int(bbox[3]) > 0
+        ]
+    else:
+        regions = []
+    write_face_regions_exiftool(path, regions)
 
 
 def _archive_copy_safe_updates(view_xmp: Path, archive_xmp: Path) -> dict[str, object] | None:

@@ -331,17 +331,6 @@ def _is_derived_view(filename: str) -> bool:
     return bool(re.search(r"_D\d{2}-\d{2}_V\b", filename))
 
 
-def _acquire_page_pipeline_lock(page_image_path: Path) -> Path:
-    from .lib.ai_index_runner import _acquire_image_processing_lock
-
-    return _acquire_image_processing_lock(page_image_path)
-
-
-def _release_page_pipeline_lock(lock_path: Path | None) -> None:
-    from .lib.ai_index_runner import _release_image_processing_lock
-
-    _release_image_processing_lock(lock_path)
-
 
 def _write_view_regions_debug_artifact(prompt_debug, *, image_path: Path) -> Path | None:
     if prompt_debug is None or not prompt_debug.has_steps():
@@ -815,10 +804,8 @@ def _run_render_pipeline_page(
     page_label = view_path.name
     summary["pages_seen"] += 1
     print(f"Processing {page_label}...")
-    lock_path: Path | None = None
 
     try:
-        lock_path = _acquire_page_pipeline_lock(view_path)
         _run_render_pipeline_locked_steps(
             group=group,
             primary_scan=primary_scan,
@@ -845,10 +832,8 @@ def _run_render_pipeline_page(
         )
     except Exception as exc:
         _record_render_pipeline_failure(
-            failures=failures, summary=summary, page_label=page_label, step="page-lock", exc=exc
+            failures=failures, summary=summary, page_label=page_label, step="page", exc=exc
         )
-    finally:
-        _release_page_pipeline_lock(lock_path)
 
 
 def run_render_pipeline(
@@ -1139,6 +1124,7 @@ def _dispatch_pipeline_step(
             )
         case "immich-face-refresh":
             _run_pipeline_immich_face_refresh_step(
+                primary_scan=primary_scan,
                 view_dir=view_dir,
                 photos_dir=photos_dir,
                 current_page=current_page,
@@ -1402,6 +1388,7 @@ def _run_pipeline_face_refresh_step(
 
 def _run_pipeline_immich_face_refresh_step(
     *,
+    primary_scan: Path,
     view_dir: Path,
     photos_dir: Path,
     current_page: str,
@@ -1416,7 +1403,7 @@ def _run_pipeline_immich_face_refresh_step(
     if not base_url or not api_key:
         raise RuntimeError("IMMICH_URL and IMMICH_API_KEY are required for immich-face-refresh")
 
-    refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
+    refresh_targets = [primary_scan, *_iter_face_refresh_targets(view_dir, photos_dir, current_page)]
     updated = 0
     unmatched = 0
     for img_path in refresh_targets:
@@ -1437,6 +1424,11 @@ def _run_pipeline_immich_face_refresh_step(
         ]
         names = deps["_dedupe_names"]([str(face["person"]["name"]).strip() for face in named_faces])
         regions = deps["_faces_to_regions"](named_faces)
+        local_width, local_height = deps["_image_dimensions"](img_path)
+        if local_width > 0 and local_height > 0:
+            for region in regions:
+                region["image_width"] = local_width
+                region["image_height"] = local_height
         sidecar_path = img_path.with_suffix(".xmp")
         deps["merge_persons_xmp"](sidecar_path, names)
         deps["merge_face_regions_xmp"](sidecar_path, regions)
