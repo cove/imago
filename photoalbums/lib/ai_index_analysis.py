@@ -911,6 +911,7 @@ def _metadata_step_build_output(
             "estimated_people_count": result.people_count,
             "photos": metadata_photos,
         },
+        "subjects": list(result.subjects or []),
         "location": state["location_payload"],
         "locations_shown": state["locations_shown"],
         "location_shown_ran": state["locations_shown_ran"],
@@ -1597,7 +1598,8 @@ def _run_image_analysis(
         av["ocr_text"], ms["caption_ocr_text"], ocr_text_override, metadata_engine
     )
     ocr_keywords = extract_keywords(ocr_text, max_keywords=15)
-    subjects = _dedupe(ms["object_labels"] + ocr_keywords)
+    llm_subjects = list(av["metadata_output"].get("subjects") or [])
+    subjects = _dedupe(ms["object_labels"] + (llm_subjects if llm_subjects else ocr_keywords))
     payload = _build_analysis_payload(
         step_runner=step_runner,
         existing_detections=existing_detections,

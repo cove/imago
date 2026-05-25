@@ -83,6 +83,7 @@ class MetadataPhotoResult:
 class MetadataResult:
     engine: str = ""
     photos: list[MetadataPhotoResult] = field(default_factory=list)
+    subjects: list[str] = field(default_factory=list)
     fallback: bool = False
     error: str = ""
 
@@ -100,7 +101,10 @@ def _parse_metadata_response(value: object, *, finish_reason: str = "") -> Metad
     payload = _metadata_payload_from_text(text)
     if not isinstance(payload, dict):
         raise RuntimeError(f"LM Studio returned non-dict metadata: {text}")
-    return MetadataResult(photos=_metadata_photos_from_payload(payload))
+    return MetadataResult(
+        photos=_metadata_photos_from_payload(payload),
+        subjects=_metadata_subjects_from_payload(payload),
+    )
 
 
 def _metadata_payload_from_text(text: str) -> object:
@@ -119,6 +123,10 @@ def _metadata_payload_from_text(text: str) -> object:
         if alt is not None:
             payload = alt
     return payload
+
+
+def _metadata_subjects_from_payload(payload: dict) -> list[str]:
+    return [str(s).strip() for s in list(payload.get("subjects") or []) if str(s).strip()]
 
 
 def _metadata_photos_from_payload(payload: dict) -> list[MetadataPhotoResult]:
