@@ -18,7 +18,7 @@ from .ai_lmstudio_structured import run_engine_with_model_fallback, schema_respo
 from .ai_model_settings import default_caption_model, default_caption_models, default_lmstudio_base_url
 from .ai_prompt_assets import load_params, load_prompt
 
-_DEFAULT_MAX_IMAGE_EDGE = 1920
+_DEFAULT_MAX_IMAGE_EDGE = 4096
 _FAMILY_LOCATION_SIGNATURES_PROMPT = "ai-index/metadata/family-location-signatures.md"
 
 

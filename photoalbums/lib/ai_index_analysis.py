@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .ai_album_titles import (
+    _is_album_title_source_candidate,
     _require_album_title_for_title_page,
     _resolve_title_page_album_title,
 )
@@ -15,7 +16,7 @@ from .ai_caption import CaptionEngine
 from .ai_geocode import NominatimGeocoder
 from .ai_index_steps import StepRunner
 from .ai_location import _resolve_location_payload, run_locations_step
-from .ai_metadata import MetadataEngine
+from .ai_metadata import MetadataEngine, MetadataResult
 from .ai_ocr import OCREngine, extract_keywords
 from .ai_sidecar_state import _is_derived_image_path
 from .image_limits import allow_large_pillow_images
@@ -954,6 +955,15 @@ def _run_metadata_analysis_step(
         if _is_derived_image_path(image_path):
             return None
         metadata_image_path = _metadata_image_path_for_step(image_path, caption_source_path, is_page_scan)
+        if _is_album_title_source_candidate(caption_source_path or image_path):
+            # Title pages have no individual photos — the metadata LLM prompt asks about photos
+            # and returns photos:[] for covers. Run OCR directly to capture the cover text.
+            ocr_engine = OCREngine(engine=metadata_engine.engine, base_url=metadata_engine.base_url)
+            state["ocr_text"] = ocr_engine.read_text(
+                metadata_image_path, debug_recorder=debug_recorder, debug_step="cover_ocr"
+            )
+            ran["value"] = True
+            return _metadata_step_build_output(MetadataResult(engine=metadata_engine.engine), state, metadata_engine)
         source = caption_source_path or people_source_path or image_path
         result = metadata_engine.analyze(
             metadata_image_path,

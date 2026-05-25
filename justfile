@@ -9,13 +9,7 @@ llama_install := if os() == "windows" {
 } else {
   "echo \"llama-gemma4 only supports Windows and macOS\" && exit 1"
 }
-llama_start := if os() == "windows" {
-  "pwsh -File llama/start.ps1"
-} else if os() == "macos" {
-  "bash llama/start.sh"
-} else {
-  "echo \"llama-gemma4 only supports Windows and macOS\" && exit 1"
-}
+llama_start := "nu llama/start.nu"
 
 [default]
 default:
@@ -111,7 +105,8 @@ photoalbums-list-render-pipeline-steps:
   {{python}} -m photoalbums process --photos-root "." --list-steps
 
 photoalbums-render-pipeline *args:
-  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
+  mkdir -p logs
+  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}} 2>&1 | tee logs/photoalbums-render.log
 
 photoalbums-list-scan-pipeline-steps:
   {{python}} -m photoalbums watch --list-steps

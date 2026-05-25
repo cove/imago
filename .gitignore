@@ -58,6 +58,9 @@ mcp/jobs/
 skylos_out.json
 .skylos/
 
+# Process log files
+logs/
+
 # Skill eval workspaces
 skills/*-workspace/
 .omx/

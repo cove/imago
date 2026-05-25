@@ -40,14 +40,14 @@ def _make_steps() -> list[PipelineStep]:
             depends_on=["crop-regions"],
         ),
         PipelineStep(
-            id="immich-face-refresh",
-            label="Refresh face region metadata from current Immich assets",
-            depends_on=["crop-regions"],
-        ),
-        PipelineStep(
             id="ai-index",
             label="Run AI pipeline (OCR, caption, GPS, XMP write)",
             depends_on=["face-refresh"],
+        ),
+        PipelineStep(
+            id="immich-face-refresh",
+            label="Refresh face region metadata from current Immich assets",
+            depends_on=["ai-index"],
         ),
         PipelineStep(
             id="verify-crops",
