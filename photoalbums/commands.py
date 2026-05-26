@@ -1134,6 +1134,15 @@ def _dispatch_pipeline_step(
                 stale_dep=stale_dep,
                 deps=deps,
             )
+        case "face-reconcile":
+            _run_pipeline_face_reconcile_step(
+                xmp_path=xmp_path,
+                force_this_step=force_this_step,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
+            )
         case "ai-index":
             ai_page_idx = _run_pipeline_ai_index_step(
                 ai_runner=ai_runner,
@@ -1438,6 +1447,30 @@ def _run_pipeline_immich_face_refresh_step(
     counters["immich-face-refresh"]["detail"].append(f"{updated} updated, {unmatched} unmatched")
     step_just_ran.add("immich-face-refresh")
     deps["write_pipeline_step"](xmp_path, "immich-face-refresh")
+    _print_outcome("done", stale_dep)
+
+
+def _run_pipeline_face_reconcile_step(
+    *,
+    xmp_path: Path,
+    force_this_step: bool,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
+) -> None:
+    if not force_this_step and deps["read_pipeline_step"](xmp_path, "face-reconcile") is not None:
+        counters["face-reconcile"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+        return
+    from .lib.face_region_reconciler import reconcile_page  # pylint: disable=import-outside-toplevel
+
+    result = reconcile_page(xmp_path, dry_run=False)
+    detail = f"{len(result.clusters)} clusters, {len(result.pending_writes)} writes, {len(result.conflicts)} conflicts"
+    counters["face-reconcile"]["run"] += 1
+    counters["face-reconcile"]["detail"].append(detail)
+    step_just_ran.add("face-reconcile")
+    deps["write_pipeline_step"](xmp_path, "face-reconcile")
     _print_outcome("done", stale_dep)
 
 
