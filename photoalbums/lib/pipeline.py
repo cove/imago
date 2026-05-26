@@ -50,6 +50,11 @@ def _make_steps() -> list[PipelineStep]:
             depends_on=["ai-index"],
         ),
         PipelineStep(
+            id="face-reconcile",
+            label="Reconcile and backfill IPTC face boxes across page, scan, and crop XMPs",
+            depends_on=["immich-face-refresh"],
+        ),
+        PipelineStep(
             id="verify-crops",
             label="Review each page's crops against the page image and page/crop XMP context",
             depends_on=["ai-index"],
