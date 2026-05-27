@@ -25,6 +25,7 @@ XMPDM_NS = "http://ns.adobe.com/xmp/1.0/DynamicMedia/"
 CRS_NS = "http://ns.adobe.com/camera-raw-settings/1.0/"
 MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
 STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
+EXIFTOOL_STAREA_NS = "http://ns.adobe.com/xmp/sType/Area#"
 STDIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 MP_NS = "http://ns.microsoft.com/photo/1.2/"
 MPRI_NS = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#"
@@ -739,13 +740,6 @@ def _replace_iptc_face_regions(
         if not list(field):
             parent.remove(field)
     _add_iptc_face_regions(parent, people, image_width, image_height)
-
-
-def _clear_old_compact_mwgrs_region_info(parent: ET.Element) -> None:
-    """Remove the old compact mwg-rs:RegionInfo element (superseded by ExifTool's mwg-rs:Regions)."""
-    old_ri = parent.find(f"{{{MWGRS_NS}}}RegionInfo")
-    if old_ri is not None:
-        parent.remove(old_ri)
 
 
 def _add_xmp_date_fields(
@@ -2404,7 +2398,6 @@ def _set_detections_fields(
     if isinstance(merged_detections_payload, dict) and "people" in merged_detections_payload:
         people = [row for row in list(merged_detections_payload.get("people") or []) if isinstance(row, dict)]
         _replace_iptc_face_regions(desc, people, image_width, image_height)
-        _clear_old_compact_mwgrs_region_info(desc)
 
 
 def write_xmp_sidecar(
@@ -2722,26 +2715,11 @@ def write_region_list(
 
     desc = _get_or_create_rdf_desc(tree)
 
-    # Remove existing RegionInfo block
-    region_info_tag = f"{{{MWGRS_NS}}}RegionInfo"
-    existing = desc.find(region_info_tag)
-    if existing is not None:
-        desc.remove(existing)
+    _remove_mwgrs_region_blocks(desc)
 
     if not regions_with_captions:
         tree.write(str(path), encoding="utf-8", xml_declaration=True)
         return
-
-    # Build mwg-rs:RegionInfo
-    region_info = ET.SubElement(desc, region_info_tag)
-    region_info.set(_RDF_PARSE_TYPE, "Resource")
-
-    # mwg-rs:AppliedToDimensions
-    applied = ET.SubElement(region_info, f"{{{MWGRS_NS}}}AppliedToDimensions")
-    applied.set(_RDF_PARSE_TYPE, "Resource")
-    applied.set(f"{{{STAREA_NS}}}w", str(img_w))
-    applied.set(f"{{{STAREA_NS}}}h", str(img_h))
-    applied.set(f"{{{STAREA_NS}}}unit", "pixel")
 
     # Look up the AI metadata's verbatim per-photo response, if any, so we
     # can fill in mwg-rs:Name even when the caller (e.g. detect-regions)
@@ -2750,27 +2728,38 @@ def write_region_list(
     detections_payload = _read_detections_payload(desc)
     metadata_photos_by_number = _metadata_photos_by_number(detections_payload)
 
-    # mwg-rs:RegionList
-    region_list_el = ET.SubElement(region_info, f"{{{MWGRS_NS}}}RegionList")
-    bag = ET.SubElement(region_list_el, _RDF_BAG)
-
+    region_entries: list[dict] = []
     for rwc in regions_with_captions:
-        _add_mwgrs_region_item(
-            bag,
+        r = rwc.region
+        existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
+        photo_number = int(getattr(r, "photo_number", 0) or 0) or int(existing_region.get("photo_number") or 0)
+        region_caption = _region_caption_text(
             rwc,
-            img_w=img_w,
-            img_h=img_h,
-            existing_regions=existing_regions,
+            photo_number=photo_number,
             metadata_photos_by_number=metadata_photos_by_number,
-            pixel_to_mwgrs=pixel_to_mwgrs,
         )
-
-    # Update modify date
-    desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
+        region_entries.append(
+            _region_entry_for_exiftool(
+                r,
+                region_caption,
+                photo_number,
+                pixel_to_mwgrs=pixel_to_mwgrs,
+                img_w=img_w,
+                img_h=img_h,
+            )
+        )
+    region_entries.extend(_existing_face_region_entries(path))
 
     ET.indent(tree, space="  ")
     tree.write(str(path), encoding="utf-8", xml_declaration=True)
+    _write_mwgrs_regions_exiftool(path, region_entries, img_w, img_h)
+    _apply_region_metadata_to_canonical_items(path, regions_with_captions, existing_regions)
 
+    tree = ET.parse(str(path))  # type: ignore[assignment]
+    desc = _get_or_create_rdf_desc(tree)
+    desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
+    ET.indent(tree, space="  ")
+    tree.write(str(path), encoding="utf-8", xml_declaration=True)
 
 def _read_existing_region_list(path: Path, *, img_w: int, img_h: int) -> list[dict]:
     if not path.is_file():
@@ -2811,53 +2800,12 @@ def _metadata_photos_by_number(detections_payload: dict) -> dict[int, dict]:
     return metadata_photos_by_number
 
 
-def _add_mwgrs_region_item(
-    bag: ET.Element,
-    rwc,
-    *,
-    img_w: int,
-    img_h: int,
-    existing_regions: list[dict],
-    metadata_photos_by_number: dict[int, dict],
-    pixel_to_mwgrs,
-) -> None:
-    r = rwc.region
-    cx, cy, nw, nh = pixel_to_mwgrs(r.x, r.y, r.width, r.height, img_size=(img_w, img_h))
-    existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
-    photo_number = int(getattr(r, "photo_number", 0) or 0) or int(existing_region.get("photo_number") or 0)
-    region_caption = _region_caption_text(
-        rwc, photo_number=photo_number, metadata_photos_by_number=metadata_photos_by_number
-    )
-
-    li = ET.SubElement(bag, _RDF_LI)
-    li.set(_RDF_PARSE_TYPE, "Resource")
-    li.set(f"{{{MWGRS_NS}}}Type", "Photo")
-    li.set(f"{{{MWGRS_NS}}}Name", region_caption)
-    _set_mwgrs_coordinates(li, cx=cx, cy=cy, nw=nw, nh=nh)
-    _set_region_optional_attrs(li, r, photo_number=photo_number)
-    _add_region_person_names(li, getattr(r, "person_names", ()) or ())
-    _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned", dict(getattr(r, "location_payload", {}) or {}))
-    location_override = dict(getattr(r, "location_override", {}) or {}) or dict(
-        existing_region.get("location_override") or {}
-    )
-    _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride", location_override)
-
-
 def _region_caption_text(rwc, *, photo_number: int, metadata_photos_by_number: dict[int, dict]) -> str:
     region_caption = str(rwc.caption or "").strip()
     if region_caption or photo_number <= 0:
         return region_caption
     ai_entry = metadata_photos_by_number.get(photo_number) or {}
     return str(ai_entry.get("corrected_caption") or ai_entry.get("caption") or "").strip()
-
-
-def _set_mwgrs_coordinates(li: ET.Element, *, cx: float, cy: float, nw: float, nh: float) -> None:
-    li.set(f"{{{STAREA_NS}}}x", f"{cx:.6f}")
-    li.set(f"{{{STAREA_NS}}}y", f"{cy:.6f}")
-    li.set(f"{{{STAREA_NS}}}w", f"{nw:.6f}")
-    li.set(f"{{{STAREA_NS}}}h", f"{nh:.6f}")
-    li.set(f"{{{STAREA_NS}}}unit", "normalized")
-
 
 def _set_region_optional_attrs(li: ET.Element, region, *, photo_number: int) -> None:
     caption_hint = str(getattr(region, "caption_hint", "") or "").strip()
@@ -2887,7 +2835,7 @@ def _add_region_person_names(parent: ET.Element, names) -> None:
 
 
 def _read_region_caption(li: ET.Element) -> str:
-    caption = str(li.get(f"{{{MWGRS_NS}}}Name") or "").strip()
+    caption = str(li.get(f"{{{MWGRS_NS}}}Name") or li.findtext(f"{{{MWGRS_NS}}}Name") or "").strip()
     if not caption:
         desc_el = li.find(f".//{{{DC_NS}}}description")
         if desc_el is not None:
@@ -2908,15 +2856,180 @@ def _read_region_person_names(li: ET.Element) -> list[str]:
     return person_names
 
 
-def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]:
-    """Read the mwg-rs:RegionList from an XMP sidecar.
+def _remove_mwgrs_region_blocks(desc: ET.Element) -> None:
+    for tag in (f"{{{MWGRS_NS}}}RegionInfo", f"{{{MWGRS_NS}}}Regions"):
+        existing = desc.find(tag)
+        if existing is not None:
+            desc.remove(existing)
 
-    Returns a list of dicts with keys:
-      index, name, x, y, width, height (pixel, top-left),
-      cx, cy, nw, nh (normalised MWG-RS),
-      caption, type.
-    Returns [] if no region list is present or on parse error.
-    """
+
+def _region_entry_for_exiftool(region, caption: str, photo_number: int, *, pixel_to_mwgrs, img_w: int, img_h: int) -> dict:
+    cx, cy, nw, nh = pixel_to_mwgrs(region.x, region.y, region.width, region.height, img_size=(img_w, img_h))
+    return {
+        "Name": caption,
+        "Type": "Photo",
+        "Area": {
+            "X": round(cx, 6),
+            "Y": round(cy, 6),
+            "W": round(nw, 6),
+            "H": round(nh, 6),
+            "Unit": "normalized",
+        },
+        "_photo_number": photo_number,
+    }
+
+
+def _existing_face_region_entries(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    try:
+        tree = ET.parse(str(path))
+    except ET.ParseError:
+        return []
+    entries: list[dict] = []
+    entries.extend(_face_region_entries_from_tree(tree, canonical=True))
+    entries.extend(_face_region_entries_from_tree(tree, canonical=False))
+    return entries
+
+
+def _face_region_entries_from_tree(tree: ET.ElementTree, *, canonical: bool) -> list[dict]:
+    region_tag = f"{{{MWGRS_NS}}}Regions" if canonical else f"{{{MWGRS_NS}}}RegionInfo"
+    entries: list[dict] = []
+    for region_info in tree.iter(region_tag):
+        region_list = region_info.find(f"{{{MWGRS_NS}}}RegionList")
+        bag = region_list.find(_RDF_BAG) if region_list is not None else None
+        if bag is None:
+            continue
+        for li in bag.findall(_RDF_LI):
+            entry = _face_region_entry_from_item(li, canonical=canonical)
+            if entry is not None:
+                entries.append(entry)
+    return entries
+
+
+def _face_region_entry_from_item(li: ET.Element, *, canonical: bool) -> dict | None:
+    if _read_region_type(li, canonical=canonical) != "Face":
+        return None
+    coords = _read_region_coordinates(li, canonical=canonical)
+    if coords is None:
+        return None
+    cx, cy, nw, nh = coords
+    return {
+        "Name": _read_region_caption(li),
+        "Type": "Face",
+        "Area": {
+            "X": round(cx, 6),
+            "Y": round(cy, 6),
+            "W": round(nw, 6),
+            "H": round(nh, 6),
+            "Unit": "normalized",
+        },
+    }
+
+
+def _write_mwgrs_regions_exiftool(path: Path, region_entries: list[dict], img_w: int, img_h: int) -> None:
+    import subprocess
+    import tempfile
+
+    payload_entries = [
+        {key: value for key, value in entry.items() if not str(key).startswith("_")}
+        for entry in region_entries
+    ]
+    payload = {
+        "XMP-mwg-rs:RegionInfo": {
+            "AppliedToDimensions": {"W": img_w, "H": img_h, "Unit": "pixel"},
+            "RegionList": payload_entries,
+        }
+    }
+    minimal_xmp = (
+        "<?xml version='1.0' encoding='UTF-8'?>"
+        "<x:xmpmeta xmlns:x='adobe:ns:meta/'>"
+        "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>"
+        "<rdf:Description rdf:about=''/>"
+        "</rdf:RDF>"
+        "</x:xmpmeta>"
+    )
+    with tempfile.NamedTemporaryFile(suffix=".xmp", mode="w", encoding="utf-8", delete=False) as tf:
+        tf.write(minimal_xmp)
+        temp_xmp = Path(tf.name)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json_path = Path(f.name)
+        json.dump([payload], f, ensure_ascii=False)
+    try:
+        result = subprocess.run(
+            ["exiftool", "-struct", "-overwrite_original", f"-json={json_path}", str(temp_xmp)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"ExifTool failed writing photo regions for {path}: {result.stderr.strip()}")
+        _inject_mwgrs_regions(path, temp_xmp)
+    finally:
+        json_path.unlink(missing_ok=True)
+        temp_xmp.unlink(missing_ok=True)
+
+
+def _inject_mwgrs_regions(path: Path, exiftool_xmp: Path) -> None:
+    exiftool_rdf = ET.parse(str(exiftool_xmp)).getroot().find(_RDF_ROOT)
+    if exiftool_rdf is None:
+        return
+    mwgrs_regions = None
+    for desc in exiftool_rdf.findall(_RDF_DESC):
+        mwgrs_regions = desc.find(f"{{{MWGRS_NS}}}Regions")
+        if mwgrs_regions is not None:
+            break
+    if mwgrs_regions is None:
+        return
+    tree = _read_or_create_xmp_tree(path)
+    desc = _get_or_create_rdf_desc(tree)
+    _remove_mwgrs_region_blocks(desc)
+    desc.append(mwgrs_regions)
+    ET.indent(tree, space="  ")
+    tree.write(str(path), encoding="utf-8", xml_declaration=True)
+
+
+def _is_canonical_photo_region_item(li: ET.Element) -> bool:
+    region_type = str(li.findtext(f"{{{MWGRS_NS}}}Type") or li.get(f"{{{MWGRS_NS}}}Type") or "").strip()
+    return region_type in {"", "Photo"} and (
+        li.find(f"{{{MWGRS_NS}}}Area") is not None or li.get(f"{{{STAREA_NS}}}x") is not None
+    )
+
+
+def _apply_region_metadata_to_canonical_items(path: Path, regions_with_captions: list, existing_regions: list[dict]) -> None:
+    tree = ET.parse(str(path))
+    rdf = tree.getroot().find(_RDF_ROOT)
+    if rdf is None:
+        return
+    photo_lis: list[ET.Element] = []
+    for desc in rdf.findall(_RDF_DESC):
+        regions = desc.find(f"{{{MWGRS_NS}}}Regions")
+        region_list = regions.find(f"{{{MWGRS_NS}}}RegionList") if regions is not None else None
+        bag = region_list.find(_RDF_BAG) if region_list is not None else None
+        if bag is not None:
+            photo_lis.extend(
+                li
+                for li in bag.findall(_RDF_LI)
+                if _is_canonical_photo_region_item(li)
+            )
+    for li, rwc in zip(photo_lis, regions_with_captions, strict=False):
+        if li.find(f"{{{MWGRS_NS}}}Type") is None:
+            ET.SubElement(li, f"{{{MWGRS_NS}}}Type").text = "Photo"
+        r = rwc.region
+        existing_region = existing_regions[r.index] if 0 <= int(r.index) < len(existing_regions) else {}
+        photo_number = int(getattr(r, "photo_number", 0) or 0) or int(existing_region.get("photo_number") or 0)
+        _set_region_optional_attrs(li, r, photo_number=photo_number)
+        _add_region_person_names(li, getattr(r, "person_names", ()) or ())
+        _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned", dict(getattr(r, "location_payload", {}) or {}))
+        location_override = dict(getattr(r, "location_override", {}) or {}) or dict(
+            existing_region.get("location_override") or {}
+        )
+        _add_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride", location_override)
+    ET.indent(tree, space="  ")
+    tree.write(str(path), encoding="utf-8", xml_declaration=True)
+
+
+def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]:
+    """Read page photo regions from canonical or legacy MWG-RS XMP."""
     path = Path(xmp_path)
     if not path.is_file():
         return []
@@ -2925,63 +3038,107 @@ def read_region_list(xmp_path: str | Path, img_w: int, img_h: int) -> list[dict]
     except ET.ParseError:
         return []
 
+    canonical = _read_region_list_from_tree(tree, img_w, img_h, canonical=True)
+    if canonical:
+        return canonical
+    return _read_region_list_from_tree(tree, img_w, img_h, canonical=False)
+
+
+def _read_region_list_from_tree(tree: ET.ElementTree, img_w: int, img_h: int, *, canonical: bool) -> list[dict]:
     results: list[dict] = []
+    region_tag = f"{{{MWGRS_NS}}}Regions" if canonical else f"{{{MWGRS_NS}}}RegionInfo"
     idx = 0
-    for li in tree.iter(f"{{{RDF_NS}}}li"):
-        rtype = li.get(f"{{{MWGRS_NS}}}Type")
-        if rtype != "Photo":
+    for region_info in tree.iter(region_tag):
+        region_list = region_info.find(f"{{{MWGRS_NS}}}RegionList")
+        bag = region_list.find(_RDF_BAG) if region_list is not None else None
+        if bag is None:
             continue
+        for li in bag.findall(_RDF_LI):
+            item = _read_region_item(li, idx, img_w, img_h, canonical=canonical)
+            if item is not None:
+                results.append(item)
+                idx += 1
+    return results
+
+
+def _read_region_item(li: ET.Element, idx: int, img_w: int, img_h: int, *, canonical: bool) -> dict | None:
+    rtype = _read_region_type(li, canonical=canonical)
+    if rtype != "Photo":
+        return None
+    coords = _read_region_coordinates(li, canonical=canonical)
+    if coords is None:
+        return None
+    cx, cy, nw, nh = coords
+    px = max(0, int(round((cx - nw / 2.0) * img_w)))
+    py = max(0, int(round((cy - nh / 2.0) * img_h)))
+    pw = max(1, int(round(nw * img_w)))
+    ph = max(1, int(round(nh * img_h)))
+    caption = _read_region_caption(li)
+    caption_hint = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
+    photo_number = int(li.get(f"{{{IMAGO_NS}}}PhotoNumber") or 0)
+    person_names = _read_region_person_names(li)
+
+    def _read_optional_attr(xml_name: str, _li: ET.Element = li) -> str | None:
+        raw = _li.get(f"{{{IMAGO_NS}}}{xml_name}")
+        return str(raw).strip() if raw is not None else None
+
+    return {
+        "index": idx,
+        "name": caption or f"photo_{idx + 1}",
+        "x": px,
+        "y": py,
+        "width": pw,
+        "height": ph,
+        "cx": cx,
+        "cy": cy,
+        "nw": nw,
+        "nh": nh,
+        "caption": caption,
+        "caption_hint": caption_hint,
+        "photo_number": photo_number,
+        "location_payload": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned"),
+        "location_override": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride"),
+        "person_names": person_names,
+        "type": rtype,
+        "photo_location": _read_optional_attr("PhotoLocation"),
+        "photo_location_name": _read_optional_attr("PhotoLocationName"),
+        "photo_est_date": _read_optional_attr("PhotoEstDate"),
+    }
+
+
+def _read_region_type(li: ET.Element, *, canonical: bool) -> str:
+    if canonical:
+        region_type = str(li.findtext(f"{{{MWGRS_NS}}}Type") or li.get(f"{{{MWGRS_NS}}}Type") or "").strip()
+        if not region_type and (
+            li.find(f"{{{MWGRS_NS}}}Area") is not None or li.get(f"{{{STAREA_NS}}}x") is not None
+        ):
+            return "Photo"
+        return region_type
+    return str(li.get(f"{{{MWGRS_NS}}}Type") or "").strip()
+
+
+def _read_region_coordinates(li: ET.Element, *, canonical: bool) -> tuple[float, float, float, float] | None:
+    if canonical:
+        area = li.find(f"{{{MWGRS_NS}}}Area")
+        if area is not None:
+            cx_t = area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}x")
+            cy_t = area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}y")
+            nw_t = area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}w")
+            nh_t = area.findtext(f"{{{EXIFTOOL_STAREA_NS}}}h")
+        else:
+            cx_t = li.get(f"{{{STAREA_NS}}}x")
+            cy_t = li.get(f"{{{STAREA_NS}}}y")
+            nw_t = li.get(f"{{{STAREA_NS}}}w")
+            nh_t = li.get(f"{{{STAREA_NS}}}h")
+    else:
         cx_t = li.get(f"{{{STAREA_NS}}}x")
         cy_t = li.get(f"{{{STAREA_NS}}}y")
         nw_t = li.get(f"{{{STAREA_NS}}}w")
         nh_t = li.get(f"{{{STAREA_NS}}}h")
-        if not all((cx_t, cy_t, nw_t, nh_t)):
-            continue
-        try:
-            cx = float(cx_t)
-            cy = float(cy_t)
-            nw = float(nw_t)
-            nh = float(nh_t)
-        except (TypeError, ValueError) as exc:
-            log.debug("Skipping region with invalid coordinate values: %s", exc)
-            continue
-        px = max(0, int(round((cx - nw / 2.0) * img_w)))
-        py = max(0, int(round((cy - nh / 2.0) * img_h)))
-        pw = max(1, int(round(nw * img_w)))
-        ph = max(1, int(round(nh * img_h)))
-
-        caption = _read_region_caption(li)
-        caption_hint = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
-        photo_number = int(li.get(f"{{{IMAGO_NS}}}PhotoNumber") or 0)
-        person_names = _read_region_person_names(li)
-
-        def _read_optional_attr(xml_name: str, _li: ET.Element = li) -> str | None:
-            raw = _li.get(f"{{{IMAGO_NS}}}{xml_name}")
-            return str(raw).strip() if raw is not None else None
-
-        results.append(
-            {
-                "index": idx,
-                "name": caption or f"photo_{idx + 1}",
-                "x": px,
-                "y": py,
-                "width": pw,
-                "height": ph,
-                "cx": cx,
-                "cy": cy,
-                "nw": nw,
-                "nh": nh,
-                "caption": caption,
-                "caption_hint": caption_hint,
-                "photo_number": photo_number,
-                "location_payload": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationAssigned"),
-                "location_override": _read_region_location_struct(li, f"{{{IMAGO_NS}}}LocationOverride"),
-                "person_names": person_names,
-                "type": rtype,
-                "photo_location": _read_optional_attr("PhotoLocation"),
-                "photo_location_name": _read_optional_attr("PhotoLocationName"),
-                "photo_est_date": _read_optional_attr("PhotoEstDate"),
-            }
-        )
-        idx += 1
-    return results
+    if not all((cx_t, cy_t, nw_t, nh_t)):
+        return None
+    try:
+        return float(cx_t), float(cy_t), float(nw_t), float(nh_t)
+    except (TypeError, ValueError) as exc:
+        log.debug("Skipping region with invalid coordinate values: %s", exc)
+        return None

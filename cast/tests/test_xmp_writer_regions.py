@@ -290,8 +290,8 @@ def test_non_face_regions_preserved(tmp_path: Path) -> None:
     assert "face-identified" in rctypes
 
 
-def test_old_compact_mwgrs_region_info_cleared_on_write(tmp_path: Path) -> None:
-    """Old hand-written mwg-rs:RegionInfo (compact attrs form) is removed; ExifTool writes mwg-rs:Regions."""
+def test_old_compact_mwgrs_region_info_migrates_photo_regions_on_write(tmp_path: Path) -> None:
+    """Old hand-written mwg-rs:RegionInfo photos are preserved when ExifTool writes mwg-rs:Regions."""
     xmp = tmp_path / "photo.xmp"
     raw = (
         "<?xml version='1.0' encoding='UTF-8'?>\n"
@@ -327,10 +327,10 @@ def test_old_compact_mwgrs_region_info_cleared_on_write(tmp_path: Path) -> None:
     for desc in rdf_rdf.findall(f"{{{RDF_NS}}}Description"):
         assert desc.find(f"{{{MWGRS_NS}}}RegionInfo") is None, "old compact RegionInfo should be gone"
 
-    # ExifTool's mwg-rs:Regions has Alice as Face
+    # ExifTool's mwg-rs:Regions has the existing Photo and the new Face.
     et_mwgrs = _parse_exiftool_mwgrs_regions(xmp)
-    assert [r["type"] for r in et_mwgrs] == ["Face"]
-    assert [r["name"] for r in et_mwgrs] == ["Alice"]
+    assert [r["type"] for r in et_mwgrs] == ["Photo", "Face"]
+    assert [r["name"] for r in et_mwgrs] == ["Existing photo", "Alice"]
 
     # MP has Alice
     assert _parse_mp_regions(xmp) == [{"name": "Alice", "rectangle": "0.100000, 0.100000, 0.200000, 0.200000"}]

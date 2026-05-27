@@ -1,0 +1,19 @@
+photo_albums_dir = "~/PycharmProjects/Photo Albums"
+
+selected_ocr_model = "pc"
+selected_caption_model = "pc"
+view_region_model = "docling"
+caption_matching_model = "primary"
+lmstudio_base_url = "http://127.0.0.1:8080/v1"
+
+[models]
+pc = [ "mlx-community/gemma-4-e2b-it-4bit"]
+primary = [ "mlx-community/gemma-4-e2b-it-4bit"]
+fallback = [ "mlx-community/gemma-4-e2b-it-4bit"]
+docling = "granite-docling-258m"
+
+[docling_pipeline]
+preset = "granite_docling"
+backend = "auto_inline"
+device = "auto"
+retries = 3

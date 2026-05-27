@@ -11,6 +11,7 @@ IPTC_EXT_NS = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
 DC_NS = "http://purl.org/dc/elements/1.1/"
 MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
 STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
+EXIFTOOL_STAREA_NS = "http://ns.adobe.com/xmp/sType/Area#"
 STDIM_NS = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 MP_NS = "http://ns.microsoft.com/photo/1.2/"
 MPRI_NS = "http://ns.microsoft.com/photo/1.2/t/RegionInfo#"
@@ -61,6 +62,10 @@ _STAREA_Y_ATTR = f"{{{STAREA_NS}}}y"
 _STAREA_W_ATTR = f"{{{STAREA_NS}}}w"
 _STAREA_H_ATTR = f"{{{STAREA_NS}}}h"
 _STAREA_UNIT_ATTR = f"{{{STAREA_NS}}}unit"
+_EXIFTOOL_STAREA_X_TAG = f"{{{EXIFTOOL_STAREA_NS}}}x"
+_EXIFTOOL_STAREA_Y_TAG = f"{{{EXIFTOOL_STAREA_NS}}}y"
+_EXIFTOOL_STAREA_W_TAG = f"{{{EXIFTOOL_STAREA_NS}}}w"
+_EXIFTOOL_STAREA_H_TAG = f"{{{EXIFTOOL_STAREA_NS}}}h"
 _STDIM_W_ATTR = f"{{{STDIM_NS}}}w"
 _STDIM_H_ATTR = f"{{{STDIM_NS}}}h"
 _STDIM_UNIT_ATTR = f"{{{STDIM_NS}}}unit"
@@ -68,6 +73,12 @@ _MP_REGION_INFO_TAG = f"{{{MP_NS}}}RegionInfo"
 _MPRI_REGIONS_TAG = f"{{{MPRI_NS}}}Regions"
 _MPREG_PERSON_DISPLAY_NAME_ATTR = f"{{{MPREG_NS}}}PersonDisplayName"
 _MPREG_RECTANGLE_ATTR = f"{{{MPREG_NS}}}Rectangle"
+
+_MWGRS_STANDARD_REGION_CHILDREN = {
+    _MWGRS_NAME_TAG,
+    _MWGRS_TYPE_TAG,
+    _MWGRS_AREA_TAG,
+}
 
 
 def _get_rdf_desc(tree: ET.ElementTree) -> ET.Element | None:  # type: ignore[type-arg]
@@ -377,6 +388,133 @@ def _region_image_dimensions(regions: list[dict[str, Any]]) -> tuple[int, int]:
     return 0, 0
 
 
+def _parse_float(value: object) -> float:
+    try:
+        return float(str(value or "").strip())
+    except ValueError:
+        return 0.0
+
+
+def _region_info_dimensions(region_info: ET.Element | None) -> tuple[int, int]:
+    if region_info is None:
+        return 0, 0
+    applied = region_info.find(_MWGRS_APPLIED_TO_DIMENSIONS_TAG)
+    if applied is None:
+        return 0, 0
+    width = int(_parse_float(applied.get(_STAREA_W_ATTR) or applied.findtext(f"{{{STDIM_NS}}}w")))
+    height = int(_parse_float(applied.get(_STAREA_H_ATTR) or applied.findtext(f"{{{STDIM_NS}}}h")))
+    return width, height
+
+
+def _photo_region_entry_from_compact(li: ET.Element) -> dict[str, Any] | None:
+    if str(li.get(_MWGRS_TYPE_ATTR) or "").strip() != "Photo":
+        return None
+    x = _parse_float(li.get(_STAREA_X_ATTR))
+    y = _parse_float(li.get(_STAREA_Y_ATTR))
+    w = _parse_float(li.get(_STAREA_W_ATTR))
+    h = _parse_float(li.get(_STAREA_H_ATTR))
+    if w <= 0 or h <= 0:
+        return None
+    return {
+        "Name": str(li.get(_MWGRS_NAME_ATTR) or "").strip(),
+        "Type": "Photo",
+        "Area": {"X": x, "Y": y, "W": w, "H": h, "Unit": "normalized"},
+        "_extras": _region_extras(li),
+    }
+
+
+def _photo_region_entry_from_exiftool(li: ET.Element) -> dict[str, Any] | None:
+    region_type = str(li.findtext(_MWGRS_TYPE_TAG) or "").strip()
+    if region_type not in {"", "Photo"}:
+        return None
+    area = li.find(_MWGRS_AREA_TAG)
+    if area is None:
+        return None
+    x = _parse_float(area.findtext(_EXIFTOOL_STAREA_X_TAG))
+    y = _parse_float(area.findtext(_EXIFTOOL_STAREA_Y_TAG))
+    w = _parse_float(area.findtext(_EXIFTOOL_STAREA_W_TAG))
+    h = _parse_float(area.findtext(_EXIFTOOL_STAREA_H_TAG))
+    if w <= 0 or h <= 0:
+        return None
+    return {
+        "Name": str(li.findtext(_MWGRS_NAME_TAG) or "").strip(),
+        "Type": "Photo",
+        "Area": {"X": x, "Y": y, "W": w, "H": h, "Unit": "normalized"},
+        "_extras": _region_extras(li),
+    }
+
+
+def _region_extras(li: ET.Element) -> dict[str, Any]:
+    attrs = {
+        key: value
+        for key, value in li.attrib.items()
+        if key not in {_RDF_PARSE_TYPE, _MWGRS_TYPE_ATTR, _MWGRS_NAME_ATTR, _STAREA_X_ATTR, _STAREA_Y_ATTR, _STAREA_W_ATTR, _STAREA_H_ATTR, _STAREA_UNIT_ATTR}
+    }
+    children = [child for child in list(li) if child.tag not in _MWGRS_STANDARD_REGION_CHILDREN]
+    return {"attrs": attrs, "children": children}
+
+
+def _existing_photo_region_entries(sidecar_path: Path) -> tuple[list[dict[str, Any]], tuple[int, int]]:
+    if not sidecar_path.exists():
+        return [], (0, 0)
+    try:
+        tree = ET.parse(str(sidecar_path))
+    except ET.ParseError:
+        return [], (0, 0)
+    root = tree.getroot()
+    rdf_rdf = root.find(_RDF_ROOT)
+    if rdf_rdf is None:
+        return [], (0, 0)
+    entries: list[dict[str, Any]] = []
+    dimensions = (0, 0)
+    for desc in rdf_rdf.findall(_RDF_DESC):
+        found_entries, found_dimensions = _photo_entries_from_desc(desc, canonical=True)
+        if not found_entries:
+            found_entries, found_dimensions = _photo_entries_from_desc(desc, canonical=False)
+        entries.extend(found_entries)
+        if dimensions == (0, 0):
+            dimensions = found_dimensions
+    return entries, dimensions
+
+
+def _photo_entries_from_desc(desc: ET.Element, *, canonical: bool) -> tuple[list[dict[str, Any]], tuple[int, int]]:
+    region_info = desc.find(_MWGRS_REGIONS_TAG if canonical else _MWGRS_REGION_INFO_TAG)
+    if region_info is None:
+        return [], (0, 0)
+    region_list = region_info.find(_MWGRS_REGION_LIST_TAG)
+    bag = region_list.find(_RDF_BAG) if region_list is not None else None
+    if bag is None:
+        return [], _region_info_dimensions(region_info)
+    entries = [_photo_entry_from_li(li, canonical=canonical) for li in bag.findall(_RDF_LI)]
+    return [entry for entry in entries if entry is not None], _region_info_dimensions(region_info)
+
+
+def _photo_entry_from_li(li: ET.Element, *, canonical: bool) -> dict[str, Any] | None:
+    if canonical:
+        return _photo_region_entry_from_exiftool(li)
+    return _photo_region_entry_from_compact(li)
+
+
+def _entry_for_exiftool(entry: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in entry.items() if not key.startswith("_")}
+
+
+def _restore_photo_region_extras(target_regions: list[ET.Element], photo_entries: list[dict[str, Any]]) -> None:
+    for li, entry in zip(target_regions, photo_entries, strict=False):
+        if li.find(_MWGRS_TYPE_TAG) is None:
+            ET.SubElement(li, _MWGRS_TYPE_TAG).text = "Photo"
+        extras = dict(entry.get("_extras") or {})
+        for key, value in dict(extras.get("attrs") or {}).items():
+            li.set(str(key), str(value))
+        for child in list(extras.get("children") or []):
+            li.append(child)
+
+
+def _is_canonical_photo_li(li: ET.Element) -> bool:
+    region_type = str(li.findtext(_MWGRS_TYPE_TAG) or "").strip()
+    return region_type in {"", "Photo"} and li.find(_MWGRS_AREA_TAG) is not None
+
+
 _MINIMAL_XMP = (
     "<?xml version='1.0' encoding='UTF-8'?>"
     "<x:xmpmeta xmlns:x='adobe:ns:meta/'>"
@@ -409,12 +547,15 @@ def write_face_regions_exiftool(
     import tempfile
 
     valid = _valid_face_regions(regions)
+    photo_entries, photo_dimensions = _existing_photo_region_entries(sidecar_path)
     image_width, image_height = _region_image_dimensions(valid)
+    if image_width <= 0 or image_height <= 0:
+        image_width, image_height = photo_dimensions
 
     entry: dict[str, Any] = {}
 
-    if valid and image_width > 0 and image_height > 0:
-        region_list = []
+    if (photo_entries or valid) and image_width > 0 and image_height > 0:
+        region_list = [_entry_for_exiftool(photo_entry) for photo_entry in photo_entries]
         mp_regions = []
         for r in valid:
             rx = float(r.get("rx") or 0)
@@ -468,7 +609,7 @@ def write_face_regions_exiftool(
             raise RuntimeError(
                 f"ExifTool failed writing face regions for {sidecar_path}: {result.stderr.strip()}"
             )
-        _inject_face_region_elements(sidecar_path, temp_xmp)
+        _inject_face_region_elements(sidecar_path, temp_xmp, photo_entries=photo_entries)
     finally:
         json_path.unlink(missing_ok=True)
         temp_xmp.unlink(missing_ok=True)
@@ -491,7 +632,12 @@ def _extract_exiftool_face_elements(
     return mwgrs_el, mp_el
 
 
-def _inject_face_region_elements(sidecar_path: Path, exiftool_xmp: Path) -> None:
+def _inject_face_region_elements(
+    sidecar_path: Path,
+    exiftool_xmp: Path,
+    *,
+    photo_entries: list[dict[str, Any]] | None = None,
+) -> None:
     """Inject mwg-rs:Regions and MP:RegionInfo from ExifTool-written XMP into the
     primary rdf:Description of the main sidecar (preserves all other properties)."""
     mwgrs_el, mp_el = _extract_exiftool_face_elements(exiftool_xmp)
@@ -506,8 +652,9 @@ def _inject_face_region_elements(sidecar_path: Path, exiftool_xmp: Path) -> None
     if main_desc is None:
         return
 
-    # Remove existing face-region elements from all descriptions
-    for tag in (f"{{{MWGRS_NS}}}Regions", f"{{{MP_NS}}}RegionInfo"):
+    # Remove existing region elements from all descriptions; the injected
+    # mwg-rs:Regions block already includes preserved Photo entries.
+    for tag in (f"{{{MWGRS_NS}}}Regions", f"{{{MWGRS_NS}}}RegionInfo", f"{{{MP_NS}}}RegionInfo"):
         for d in main_rdf.findall(f"{{{RDF_NS}}}Description"):
             old = d.find(tag)
             if old is not None:
@@ -516,6 +663,13 @@ def _inject_face_region_elements(sidecar_path: Path, exiftool_xmp: Path) -> None
     # Only inject populated (non-empty) elements
     if mwgrs_el is not None and len(mwgrs_el) > 0:
         main_desc.append(mwgrs_el)
+        if photo_entries:
+            photo_lis = [
+                li
+                for li in mwgrs_el.findall(f".//{{{RDF_NS}}}li")
+                if _is_canonical_photo_li(li)
+            ]
+            _restore_photo_region_extras(photo_lis, photo_entries)
     if mp_el is not None and len(mp_el) > 0:
         main_desc.append(mp_el)
 
@@ -558,10 +712,6 @@ def merge_face_regions_xmp(
             if desc is None:
                 desc = ET.SubElement(rdf_rdf, _RDF_DESC)
             _set_face_regions_in_desc(desc, regions)
-            # Remove old compact mwg-rs:RegionInfo (superseded by ExifTool's mwg-rs:Regions)
-            old_ri = desc.find(_MWGRS_REGION_INFO_TAG)
-            if old_ri is not None:
-                desc.remove(old_ri)
             tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
             write_face_regions_exiftool(sidecar_path, regions)
             return sidecar_path
