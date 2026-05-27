@@ -2946,6 +2946,47 @@
     "query": "Amun Temple, Luxor, Egypt",
     "status": "miss"
   },
+  "anaheim, california, united states": {
+    "city": "Anaheim",
+    "country": "United States",
+    "display_name": "Anaheim, Orange County, California, United States",
+    "latitude": "33.8347516",
+    "longitude": "-117.9117320",
+    "query": "Anaheim, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Anaheim",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.7889241",
+        "33.8790572",
+        "-118.0173585",
+        "-117.6739673"
+      ],
+      "category": "boundary",
+      "display_name": "Anaheim, Orange County, California, United States",
+      "importance": 0.6443894554065206,
+      "lat": "33.8347516",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.9117320",
+      "name": "Anaheim",
+      "osm_id": 253985,
+      "osm_type": "relation",
+      "place_id": 315505133,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "anchorage, alaska": {
     "city": "Anchorage",
     "country": "United States",
@@ -3544,6 +3585,10 @@
     "status": "ok",
     "sublocation": "Atlantic Ocean"
   },
+  "auburn cord duesenberg museum, indianapolis, indiana, united states": {
+    "query": "Auburn Cord Duesenberg Museum, Indianapolis, Indiana, United States",
+    "status": "miss"
+  },
   "auburn cord duesenberg museum, usa": {
     "city": "Auburn",
     "country": "United States",
@@ -3630,6 +3675,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "auburn, indiana, united states": {
+    "city": "Auburn",
+    "country": "United States",
+    "display_name": "Auburn, DeKalb County, Indiana, 46709, United States",
+    "latitude": "41.3669902",
+    "longitude": "-85.0588632",
+    "query": "Auburn, Indiana, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "county": "DeKalb County",
+        "postcode": "46709",
+        "state": "Indiana",
+        "town": "Auburn"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "41.3426940",
+        "41.3973210",
+        "-85.0978015",
+        "-85.0220500"
+      ],
+      "category": "boundary",
+      "display_name": "Auburn, DeKalb County, Indiana, 46709, United States",
+      "importance": 0.4514692368753542,
+      "lat": "41.3669902",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-85.0588632",
+      "name": "Auburn",
+      "osm_id": 127768,
+      "osm_type": "relation",
+      "place_id": 371359730,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Indiana",
+    "status": "ok",
+    "sublocation": ""
+  },
   "auburn, indiana, usa": {
     "city": "Auburn",
     "country": "United States",
@@ -3697,6 +3784,47 @@
     "source": "nominatim",
     "state": "Texas",
     "status": "ok"
+  },
+  "austin, texas, united states": {
+    "city": "Austin",
+    "country": "United States",
+    "display_name": "Austin, Travis County, Texas, United States",
+    "latitude": "30.2711286",
+    "longitude": "-97.7436995",
+    "query": "Austin, Texas, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-TX",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Travis County",
+        "state": "Texas"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "30.0985133",
+        "30.5166255",
+        "-97.9367663",
+        "-97.5605288"
+      ],
+      "category": "boundary",
+      "display_name": "Austin, Travis County, Texas, United States",
+      "importance": 0.7061144221148422,
+      "lat": "30.2711286",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.7436995",
+      "name": "Austin",
+      "osm_id": 113314,
+      "osm_type": "relation",
+      "place_id": 313478768,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Texas",
+    "status": "ok",
+    "sublocation": ""
   },
   "austin, texas, usa": {
     "city": "Austin",
@@ -5957,14 +6085,47 @@
   "boone hall plantation, mount pleasant, south carolina, united states": {
     "city": "Mount Pleasant",
     "country": "United States",
-    "display_name": "Boone Hall Plantation, Tybee Pass, Brickyard Plantation, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+    "display_name": "Boone Hall Plantation, Old Ivy Way, Brickyard Plantation, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
     "latitude": "32.8541556",
     "longitude": "-79.8171075",
     "query": "Boone Hall Plantation, Mount Pleasant, South Carolina, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-SC",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Charleston County",
+        "postcode": "29466",
+        "residential": "Brickyard Plantation",
+        "road": "Old Ivy Way",
+        "state": "South Carolina",
+        "tourism": "Boone Hall Plantation",
+        "town": "Mount Pleasant"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "32.8446510",
+        "32.8634085",
+        "-79.8271471",
+        "-79.8057501"
+      ],
+      "category": "tourism",
+      "display_name": "Boone Hall Plantation, Old Ivy Way, Brickyard Plantation, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+      "importance": 2.8699931334355954e-05,
+      "lat": "32.8541556",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.8171075",
+      "name": "Boone Hall Plantation",
+      "osm_id": 195417062,
+      "osm_type": "way",
+      "place_id": 343328312,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "South Carolina",
     "status": "ok",
-    "sublocation": "Tybee Pass"
+    "sublocation": "Old Ivy Way"
   },
   "boone hall plantation, south carolina, usa": {
     "city": "Mount Pleasant",
@@ -9009,6 +9170,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cape elizabeth, maine, united states": {
+    "city": "Cape Elizabeth",
+    "country": "United States",
+    "display_name": "Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+    "latitude": "43.5964405",
+    "longitude": "-70.2284765",
+    "query": "Cape Elizabeth, Maine, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cumberland County",
+        "postcode": "04107",
+        "state": "Maine",
+        "village": "Cape Elizabeth"
+      },
+      "addresstype": "village",
+      "boundingbox": [
+        "43.4985682",
+        "43.6341047",
+        "-70.2810745",
+        "-70.1071936"
+      ],
+      "category": "boundary",
+      "display_name": "Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+      "importance": 0.4475694317102816,
+      "lat": "43.5964405",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.2284765",
+      "name": "Cape Elizabeth",
+      "osm_id": 11155161,
+      "osm_type": "relation",
+      "place_id": 364148136,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cape elizabeth, maine, usa": {
     "city": "Cape Elizabeth",
     "country": "United States",
@@ -10060,6 +10263,50 @@
     "state": "",
     "status": "ok"
   },
+  "chandelier tree, california, united states": {
+    "city": "Leggett",
+    "country": "United States",
+    "display_name": "Chandelier Tree, Drive Thru Tree Road, Leggett, Mendocino County, California, 95585, United States",
+    "latitude": "39.8583984",
+    "longitude": "-123.7192347",
+    "query": "Chandelier Tree, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mendocino County",
+        "natural": "Chandelier Tree",
+        "postcode": "95585",
+        "road": "Drive Thru Tree Road",
+        "state": "California",
+        "village": "Leggett"
+      },
+      "addresstype": "natural",
+      "boundingbox": [
+        "39.8583484",
+        "39.8584484",
+        "-123.7192847",
+        "-123.7191847"
+      ],
+      "category": "natural",
+      "display_name": "Chandelier Tree, Drive Thru Tree Road, Leggett, Mendocino County, California, 95585, United States",
+      "importance": 4.61745632104527e-05,
+      "lat": "39.8583984",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.7192347",
+      "name": "Chandelier Tree",
+      "osm_id": 469605599,
+      "osm_type": "node",
+      "place_id": 321218578,
+      "place_rank": 30,
+      "type": "tree"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "Drive Thru Tree Road"
+  },
   "chandelier tree, drive-thru tree park": {
     "query": "Chandelier Tree, Drive-Thru Tree Park",
     "status": "miss"
@@ -10138,6 +10385,48 @@
   "chapel bridge, switzerland": {
     "query": "Chapel Bridge, Switzerland",
     "status": "miss"
+  },
+  "chappaquiddick island, massachusetts, united states": {
+    "city": "Edgartown",
+    "country": "United States",
+    "display_name": "Chappaquiddick Island, Edgartown, Dukes County, Massachusetts, United States",
+    "latitude": "41.3855681",
+    "longitude": "-70.4773093",
+    "query": "Chappaquiddick Island, Massachusetts, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Dukes County",
+        "island": "Chappaquiddick Island",
+        "state": "Massachusetts",
+        "town": "Edgartown"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "41.3504312",
+        "41.4209976",
+        "-70.5085916",
+        "-70.4463860"
+      ],
+      "category": "place",
+      "display_name": "Chappaquiddick Island, Edgartown, Dukes County, Massachusetts, United States",
+      "importance": 0.3626429788867404,
+      "lat": "41.3855681",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.4773093",
+      "name": "Chappaquiddick Island",
+      "osm_id": 3954502,
+      "osm_type": "relation",
+      "place_id": 361042092,
+      "place_rank": 17,
+      "type": "island"
+    },
+    "source": "nominatim",
+    "state": "Massachusetts",
+    "status": "ok",
+    "sublocation": ""
   },
   "charles bridge (karlův most)": {
     "city": "Prague",
@@ -10242,9 +10531,39 @@
     "latitude": "32.7884363",
     "longitude": "-79.9399309",
     "query": "Charleston, South Carolina, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-SC",
+        "city": "Charleston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Charleston County",
+        "state": "South Carolina"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "32.6685050",
+        "32.9735150",
+        "-80.1438459",
+        "-79.7970640"
+      ],
+      "category": "boundary",
+      "display_name": "Charleston, Charleston County, South Carolina, United States",
+      "importance": 0.6598943815490479,
+      "lat": "32.7884363",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.9399309",
+      "name": "Charleston",
+      "osm_id": 194119,
+      "osm_type": "relation",
+      "place_id": 343468097,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "South Carolina",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "charleston, south carolina, usa": {
     "city": "Charleston",
@@ -10284,6 +10603,46 @@
     },
     "source": "nominatim",
     "state": "South Carolina",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "charlevoix, michigan, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Charlevoix County, Michigan, United States",
+    "latitude": "45.2020750",
+    "longitude": "-84.9676387",
+    "query": "Charlevoix, Michigan, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Charlevoix County",
+        "state": "Michigan"
+      },
+      "addresstype": "county",
+      "boundingbox": [
+        "45.1150711",
+        "45.8415706",
+        "-85.8442416",
+        "-84.7326236"
+      ],
+      "category": "boundary",
+      "display_name": "Charlevoix County, Michigan, United States",
+      "importance": 0.5406105360281349,
+      "lat": "45.2020750",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-84.9676387",
+      "name": "Charlevoix County",
+      "osm_id": 1907310,
+      "osm_type": "relation",
+      "place_id": 367698712,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Michigan",
     "status": "ok",
     "sublocation": ""
   },
@@ -11259,6 +11618,50 @@
     "state": "South Carolina",
     "status": "ok"
   },
+  "church street, charleston, south carolina, united states": {
+    "city": "Charleston",
+    "country": "United States",
+    "display_name": "Church Street, South of Broad, Charleston, Charleston County, South Carolina, 29401, United States",
+    "latitude": "32.7716862",
+    "longitude": "-79.9294762",
+    "query": "Church Street, Charleston, South Carolina, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-SC",
+        "city": "Charleston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Charleston County",
+        "postcode": "29401",
+        "quarter": "South of Broad",
+        "road": "Church Street",
+        "state": "South Carolina"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "32.7701731",
+        "32.7731428",
+        "-79.9294889",
+        "-79.9292563"
+      ],
+      "category": "highway",
+      "display_name": "Church Street, South of Broad, Charleston, Charleston County, South Carolina, 29401, United States",
+      "importance": 0.05340349050125883,
+      "lat": "32.7716862",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.9294762",
+      "name": "Church Street",
+      "osm_id": 37594671,
+      "osm_type": "way",
+      "place_id": 343528985,
+      "place_rank": 26,
+      "type": "residential"
+    },
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": "Church Street"
+  },
   "church street, charleston, south carolina, usa": {
     "city": "Charleston",
     "country": "United States",
@@ -11355,6 +11758,54 @@
       "osm_id": 12646643435,
       "osm_type": "node",
       "place_id": 364194629,
+      "place_rank": 30,
+      "type": "bicycle_rental"
+    },
+    "source": "nominatim",
+    "state": "Quebec",
+    "status": "ok",
+    "sublocation": "Rue des Carrières"
+  },
+  "château frontenac, quebec city, canada": {
+    "city": "Quebec",
+    "country": "Canada",
+    "display_name": "Chateau Frontenac, Quebec City, Canada, Quebec, Canada",
+    "latitude": "46.8113081",
+    "longitude": "-71.2050539",
+    "query": "Château Frontenac, Quebec City, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-QC",
+        "amenity": "Château Frontenac",
+        "city": "Quebec",
+        "city_district": "La Cité-Limoilou",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Urban agglomeration of Québec",
+        "postcode": "G1R 4P5",
+        "quarter": "Vieux-Québec",
+        "road": "Rue des Carrières",
+        "state": "Quebec",
+        "state_district": "Capitale-Nationale",
+        "suburb": "Vieux-Québec–Cap-Blanc–Colline-Parlementaire"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "46.8112581",
+        "46.8113581",
+        "-71.2051039",
+        "-71.2050039"
+      ],
+      "category": "amenity",
+      "display_name": "Château Frontenac, Rue des Carrières, Vieux-Québec, Vieux-Québec–Cap-Blanc–Colline-Parlementaire, La Cité-Limoilou, Quebec, Urban agglomeration of Québec, Capitale-Nationale, Quebec, G1R 4P5, Canada",
+      "importance": 7.228732738226928e-05,
+      "lat": "46.8113081",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.2050539",
+      "name": "Château Frontenac",
+      "osm_id": 12646643435,
+      "osm_type": "node",
+      "place_id": 365927509,
       "place_rank": 30,
       "type": "bicycle_rental"
     },
@@ -11741,6 +12192,35 @@
     "latitude": "41.4996574",
     "longitude": "-81.6936772",
     "query": "Cleveland, Ohio, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OH",
+        "city": "Cleveland",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Cuyahoga County",
+        "state": "Ohio"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "41.3906280",
+        "41.6044360",
+        "-81.8790937",
+        "-81.5327440"
+      ],
+      "category": "boundary",
+      "display_name": "Cleveland, Cuyahoga County, Ohio, United States",
+      "importance": 0.7004129088191448,
+      "lat": "41.4996574",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.6936772",
+      "name": "Cleveland",
+      "osm_id": 182130,
+      "osm_type": "relation",
+      "place_id": 369973911,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Ohio",
     "status": "ok",
@@ -14052,6 +14532,48 @@
     "query": "Danube River fort",
     "status": "miss"
   },
+  "darien, connecticut, united states": {
+    "city": "Darien",
+    "country": "United States",
+    "display_name": "Darien, Western Connecticut Planning Region, Connecticut, 06820, United States",
+    "latitude": "41.0787079",
+    "longitude": "-73.4692873",
+    "query": "Darien, Connecticut, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CT",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Western Connecticut Planning Region",
+        "postcode": "06820",
+        "state": "Connecticut",
+        "town": "Darien"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "40.9753166",
+        "41.1147043",
+        "-73.5181520",
+        "-73.4440460"
+      ],
+      "category": "boundary",
+      "display_name": "Darien, Western Connecticut Planning Region, Connecticut, 06820, United States",
+      "importance": 0.48783349435729384,
+      "lat": "41.0787079",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.4692873",
+      "name": "Darien",
+      "osm_id": 3307253,
+      "osm_type": "relation",
+      "place_id": 356433201,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
+  },
   "darien, connecticut, usa": {
     "city": "Darien",
     "country": "United States",
@@ -14389,6 +14911,35 @@
     "latitude": "42.3315509",
     "longitude": "-83.0466403",
     "query": "Detroit, Michigan, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MI",
+        "city": "Detroit",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Wayne County",
+        "state": "Michigan"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "42.2551920",
+        "42.4503959",
+        "-83.2879590",
+        "-82.9104391"
+      ],
+      "category": "boundary",
+      "display_name": "Detroit, Wayne County, Michigan, United States",
+      "importance": 0.7321719627376911,
+      "lat": "42.3315509",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-83.0466403",
+      "name": "Detroit",
+      "osm_id": 134591,
+      "osm_type": "relation",
+      "place_id": 419048531,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Michigan",
     "status": "ok",
@@ -16531,7 +17082,40 @@
     "display_name": "EPCOT, 200, Epcot Center Drive, Bay Lake, Orange County, Florida, 32821, United States",
     "latitude": "28.3714061",
     "longitude": "-81.5489587",
-    "query": "Epcot, Florida, United States",
+    "query": "EPCOT, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "hamlet": "Bay Lake",
+        "house_number": "200",
+        "postcode": "32821",
+        "road": "Epcot Center Drive",
+        "state": "Florida",
+        "tourism": "EPCOT"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "28.3662488",
+        "28.3766564",
+        "-81.5544334",
+        "-81.5429857"
+      ],
+      "category": "tourism",
+      "display_name": "EPCOT, 200, Epcot Center Drive, Bay Lake, Orange County, Florida, 32821, United States",
+      "importance": 0.5132080413762283,
+      "lat": "28.3714061",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.5489587",
+      "name": "EPCOT",
+      "osm_id": 805298160,
+      "osm_type": "way",
+      "place_id": 302990725,
+      "place_rank": 30,
+      "type": "theme_park"
+    },
     "source": "nominatim",
     "state": "Florida",
     "status": "ok",
@@ -19376,6 +19960,49 @@
     "state": "Community of Madrid",
     "status": "ok"
   },
+  "granada hills, california, united states": {
+    "city": "Los Angeles",
+    "country": "United States",
+    "display_name": "Granada Hills, Granada Hills South Neighborhood Council District, Los Angeles, Los Angeles County, California, 91344, United States",
+    "latitude": "34.2661558",
+    "longitude": "-118.5174342",
+    "query": "Granada Hills, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "91344",
+        "state": "California",
+        "suburb": "Granada Hills"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "34.2461558",
+        "34.2861558",
+        "-118.5374342",
+        "-118.4974342"
+      ],
+      "category": "place",
+      "display_name": "Granada Hills, Granada Hills South Neighborhood Council District, Los Angeles, Los Angeles County, California, 91344, United States",
+      "importance": 0.3949527989551982,
+      "lat": "34.2661558",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.5174342",
+      "name": "Granada Hills",
+      "osm_id": 150941903,
+      "osm_type": "node",
+      "place_id": 318616594,
+      "place_rank": 19,
+      "type": "suburb"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "granada hills, california, usa": {
     "city": "Los Angeles",
     "country": "United States",
@@ -19596,6 +20223,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "grand beach, san marino, california, united states": {
+    "query": "Grand Beach, San Marino, California, United States",
+    "status": "miss"
+  },
   "grand beach, united states": {
     "city": "Grand Beach",
     "country": "United States",
@@ -19677,6 +20308,53 @@
     "state": "Michigan",
     "status": "ok",
     "sublocation": ""
+  },
+  "grand central terminal, new york city, new york, united states": {
+    "city": "New York",
+    "country": "United States",
+    "display_name": "Grand Central Terminal, 89, East 42nd Street, Midtown South, Manhattan Community Board 5, Manhattan, New York County, New York, 10178, United States",
+    "latitude": "40.7526944",
+    "longitude": "-73.9772530",
+    "query": "Grand Central Terminal, New York City, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "city": "New York",
+        "country": "United States",
+        "country_code": "us",
+        "county": "New York County",
+        "house_number": "89",
+        "neighbourhood": "Midtown South",
+        "postcode": "10178",
+        "road": "East 42nd Street",
+        "state": "New York",
+        "suburb": "Manhattan",
+        "tourism": "Grand Central Terminal"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "40.7519810",
+        "40.7533155",
+        "-73.9781878",
+        "-73.9763618"
+      ],
+      "category": "tourism",
+      "display_name": "Grand Central Terminal, 89, East 42nd Street, Midtown South, Manhattan Community Board 5, Manhattan, New York County, New York, 10178, United States",
+      "importance": 0.5454188880865112,
+      "lat": "40.7526944",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9772530",
+      "name": "Grand Central Terminal",
+      "osm_id": 265947358,
+      "osm_type": "way",
+      "place_id": 359587261,
+      "place_rank": 30,
+      "type": "attraction"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": "89 East 42nd Street"
   },
   "grand central terminal, new york, new york, united states": {
     "city": "New York",
@@ -19856,6 +20534,47 @@
     "state": "",
     "status": "ok",
     "sublocation": "Na Phra Lan Tunnel"
+  },
+  "grants pass, oregon, united states": {
+    "city": "Grants Pass",
+    "country": "United States",
+    "display_name": "Grants Pass, Josephine County, Oregon, United States",
+    "latitude": "42.4393707",
+    "longitude": "-123.3272489",
+    "query": "Grants Pass, Oregon, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-OR",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Josephine County",
+        "state": "Oregon",
+        "town": "Grants Pass"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "42.3897047",
+        "42.4730075",
+        "-123.3912853",
+        "-123.2825593"
+      ],
+      "category": "boundary",
+      "display_name": "Grants Pass, Josephine County, Oregon, United States",
+      "importance": 0.5012003947230182,
+      "lat": "42.4393707",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.3272489",
+      "name": "Grants Pass",
+      "osm_id": 15478376,
+      "osm_type": "relation",
+      "place_id": 382918890,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Oregon",
+    "status": "ok",
+    "sublocation": ""
   },
   "grants pass, oregon, usa": {
     "city": "Grants Pass",
@@ -22971,6 +23690,49 @@
     "state": "Casablanca-Settat",
     "status": "ok"
   },
+  "hyde park, new york, united states": {
+    "city": "Town of Hyde Park",
+    "country": "United States",
+    "display_name": "Hyde Park, Haviland, Town of Hyde Park, Dutchess County, New York, United States",
+    "latitude": "41.7841956",
+    "longitude": "-73.9373912",
+    "query": "Hyde Park, New York, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NY",
+        "census": "Hyde Park",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Dutchess County",
+        "state": "New York",
+        "town": "Town of Hyde Park",
+        "village": "Haviland"
+      },
+      "addresstype": "census",
+      "boundingbox": [
+        "41.7719515",
+        "41.7969486",
+        "-73.9480547",
+        "-73.9219767"
+      ],
+      "category": "boundary",
+      "display_name": "Hyde Park, Haviland, Town of Hyde Park, Dutchess County, New York, United States",
+      "importance": 0.3799838315762615,
+      "lat": "41.7841956",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.9373912",
+      "name": "Hyde Park",
+      "osm_id": 14077327,
+      "osm_type": "relation",
+      "place_id": 357399832,
+      "place_rank": 25,
+      "type": "census"
+    },
+    "source": "nominatim",
+    "state": "New York",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hyde park, new york, usa": {
     "city": "Town of Hyde Park",
     "country": "United States",
@@ -23263,6 +24025,33 @@
     "latitude": "40.3270127",
     "longitude": "-86.1746933",
     "query": "Indiana, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-IN",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Indiana"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "37.7716793",
+        "41.7624063",
+        "-88.0972043",
+        "-84.7846090"
+      ],
+      "category": "boundary",
+      "display_name": "Indiana, United States",
+      "importance": 0.7678357076278995,
+      "lat": "40.3270127",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.1746933",
+      "name": "Indiana",
+      "osm_id": 161816,
+      "osm_type": "relation",
+      "place_id": 339658029,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Indiana",
     "status": "ok",
@@ -24027,9 +24816,40 @@
     "latitude": "30.2946859",
     "longitude": "-81.3931396",
     "query": "Jacksonville Beach, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Duval County",
+        "postcode": "32250",
+        "state": "Florida",
+        "suburb": "Jacksonville Beach"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "30.2522430",
+        "30.3077040",
+        "-81.4301720",
+        "-81.3179280"
+      ],
+      "category": "boundary",
+      "display_name": "Jacksonville Beach, Duval County, Florida, 32250, United States",
+      "importance": 0.44483426465222636,
+      "lat": "30.2946859",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.3931396",
+      "name": "Jacksonville Beach",
+      "osm_id": 1216736,
+      "osm_type": "relation",
+      "place_id": 301792300,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Florida",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "jacksonville beach, florida, usa": {
     "city": "",
@@ -24879,9 +25699,39 @@
     "latitude": "22.0503838",
     "longitude": "-159.5588624",
     "query": "Kauai, Hawaii, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Kauaʻi County",
+        "island": "Kauai",
+        "state": "Hawaii"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "21.8682221",
+        "22.2327054",
+        "-159.7879565",
+        "-159.2923171"
+      ],
+      "category": "place",
+      "display_name": "Kauai, Kauaʻi County, Hawaii, United States",
+      "importance": 0.5439467691431094,
+      "lat": "22.0503838",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-159.5588624",
+      "name": "Kauai",
+      "osm_id": 3489753,
+      "osm_type": "relation",
+      "place_id": 378224852,
+      "place_rank": 17,
+      "type": "island"
+    },
     "source": "nominatim",
     "state": "Hawaii",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "kauai, hi": {
     "city": "",
@@ -26095,6 +26945,51 @@
     "status": "ok",
     "sublocation": "8039 Beach Boulevard"
   },
+  "knott's berry farm, buena park, california, united states": {
+    "city": "Buena Park",
+    "country": "United States",
+    "display_name": "Knott's Berry Farm, 8039, Beach Boulevard, Buena Park, Orange County, California, 90620, United States",
+    "latitude": "33.8437507",
+    "longitude": "-118.0005672",
+    "query": "Knott's Berry Farm, Buena Park, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "house_number": "8039",
+        "postcode": "90620",
+        "road": "Beach Boulevard",
+        "state": "California",
+        "tourism": "Knott's Berry Farm",
+        "town": "Buena Park"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "33.8410593",
+        "33.8465309",
+        "-118.0023097",
+        "-117.9971555"
+      ],
+      "category": "tourism",
+      "display_name": "Knott's Berry Farm, 8039, Beach Boulevard, Buena Park, Orange County, California, 90620, United States",
+      "importance": 0.45039779319602985,
+      "lat": "33.8437507",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.0005672",
+      "name": "Knott's Berry Farm",
+      "osm_id": 882176907,
+      "osm_type": "way",
+      "place_id": 318663659,
+      "place_rank": 30,
+      "type": "theme_park"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "8039 Beach Boulevard"
+  },
   "knott's berry farm, buena park, california, usa": {
     "city": "Buena Park",
     "country": "United States",
@@ -26882,6 +27777,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "lake buena vista, florida, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Lake Buena Vista, Orange County, Florida, United States",
+    "latitude": "28.3716746",
+    "longitude": "-81.5239625",
+    "query": "Lake Buena Vista, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Orange County",
+        "hamlet": "Lake Buena Vista",
+        "state": "Florida"
+      },
+      "addresstype": "hamlet",
+      "boundingbox": [
+        "28.3620643",
+        "28.3986361",
+        "-81.5430629",
+        "-81.5013437"
+      ],
+      "category": "boundary",
+      "display_name": "Lake Buena Vista, Orange County, Florida, United States",
+      "importance": 0.4822666286050225,
+      "lat": "28.3716746",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-81.5239625",
+      "name": "Lake Buena Vista",
+      "osm_id": 1102870,
+      "osm_type": "relation",
+      "place_id": 301616917,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": ""
+  },
   "lake district national park, england": {
     "city": "",
     "country": "United Kingdom",
@@ -27197,6 +28133,35 @@
     "latitude": "39.0885405",
     "longitude": "-120.0503528",
     "query": "Lake Tahoe, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Placer County",
+        "lake": "Lake Tahoe",
+        "state": "California"
+      },
+      "addresstype": "lake",
+      "boundingbox": [
+        "38.9281733",
+        "39.2490133",
+        "-120.1639382",
+        "-119.9260578"
+      ],
+      "category": "water",
+      "display_name": "Lake Tahoe, Placer County, California, United States",
+      "importance": 0.5754997470294765,
+      "lat": "39.0885405",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.0503528",
+      "name": "Lake Tahoe",
+      "osm_id": 1823287,
+      "osm_type": "relation",
+      "place_id": 321170441,
+      "place_rank": 20,
+      "type": "lake"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -27637,6 +28602,49 @@
   "leaving aswan - dec. 1975": {
     "query": "Leaving Aswan - Dec. 1975",
     "status": "miss"
+  },
+  "leggett, california, united states": {
+    "city": "Leggett",
+    "country": "United States",
+    "display_name": "Leggett, Mendocino County, California, 95585, United States",
+    "latitude": "39.8638520",
+    "longitude": "-123.7263756",
+    "query": "Leggett, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "census": "Leggett",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mendocino County",
+        "postcode": "95585",
+        "state": "California",
+        "village": "Leggett"
+      },
+      "addresstype": "census",
+      "boundingbox": [
+        "39.8460240",
+        "39.8816630",
+        "-123.7490290",
+        "-123.7007960"
+      ],
+      "category": "boundary",
+      "display_name": "Leggett, Mendocino County, California, 95585, United States",
+      "importance": 0.41761525391502413,
+      "lat": "39.8638520",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.7263756",
+      "name": "Leggett",
+      "osm_id": 19964320,
+      "osm_type": "relation",
+      "place_id": 322901974,
+      "place_rank": 25,
+      "type": "census"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
   },
   "leggett, united states": {
     "city": "Leggett",
@@ -29685,6 +30693,48 @@
     "status": "ok",
     "sublocation": "US 6"
   },
+  "loveland pass, colorado, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Loveland Pass, US 6, Clear Creek County, Colorado, United States",
+    "latitude": "39.6639360",
+    "longitude": "-105.8789355",
+    "query": "Loveland Pass, Colorado, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CO",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Clear Creek County",
+        "road": "US 6",
+        "state": "Colorado",
+        "tourism": "Loveland Pass"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "39.6638860",
+        "39.6639860",
+        "-105.8789855",
+        "-105.8788855"
+      ],
+      "category": "tourism",
+      "display_name": "Loveland Pass, US 6, Clear Creek County, Colorado, United States",
+      "importance": 0.27438272693865795,
+      "lat": "39.6639360",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-105.8789355",
+      "name": "Loveland Pass",
+      "osm_id": 1867660938,
+      "osm_type": "node",
+      "place_id": 330846909,
+      "place_rank": 30,
+      "type": "viewpoint"
+    },
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": "US 6"
+  },
   "loveland pass, colorado, usa": {
     "city": "",
     "country": "United States",
@@ -30176,10 +31226,44 @@
   "magnolia plantation and gardens, charleston, south carolina, united states": {
     "city": "Charleston",
     "country": "United States",
-    "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Charleston, Charleston County, South Carolina, 29414, United States",
+    "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Shadowmoss, Charleston, Charleston County, South Carolina, 29414, United States",
     "latitude": "32.8746113",
     "longitude": "-80.0832425",
     "query": "Magnolia Plantation and Gardens, Charleston, South Carolina, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-SC",
+        "city": "Charleston",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Charleston County",
+        "hamlet": "Shadowmoss",
+        "house_number": "3500",
+        "postcode": "29414",
+        "road": "Ashley River Road",
+        "state": "South Carolina",
+        "tourism": "Magnolia Plantation and Gardens"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "32.8745613",
+        "32.8746613",
+        "-80.0832925",
+        "-80.0831925"
+      ],
+      "category": "tourism",
+      "display_name": "Magnolia Plantation and Gardens, 3500, Ashley River Road, Shadowmoss, Charleston, Charleston County, South Carolina, 29414, United States",
+      "importance": 5.7064927138124935e-05,
+      "lat": "32.8746113",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-80.0832425",
+      "name": "Magnolia Plantation and Gardens",
+      "osm_id": 1435028272,
+      "osm_type": "node",
+      "place_id": 343321620,
+      "place_rank": 30,
+      "type": "attraction"
+    },
     "source": "nominatim",
     "state": "South Carolina",
     "status": "ok",
@@ -31452,6 +32536,35 @@
     "latitude": "44.9772995",
     "longitude": "-93.2654692",
     "query": "Minneapolis, Minnesota, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "city": "Minneapolis",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Hennepin County",
+        "state": "Minnesota"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "44.8901500",
+        "45.0512498",
+        "-93.3291250",
+        "-93.1938590"
+      ],
+      "category": "boundary",
+      "display_name": "Minneapolis, Hennepin County, Minnesota, United States",
+      "importance": 0.6954156537035846,
+      "lat": "44.9772995",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.2654692",
+      "name": "Minneapolis",
+      "osm_id": 136712,
+      "osm_type": "relation",
+      "place_id": 373824816,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Minnesota",
     "status": "ok",
@@ -34505,6 +35618,49 @@
     "query": "Ogunkuit, Maine, United States of America",
     "status": "miss"
   },
+  "ogunquit beach, maine, united states": {
+    "city": "Ogunquit",
+    "country": "United States",
+    "display_name": "Ogunquit Beach, Ogunquit, York County, Maine, 03907, United States",
+    "latitude": "43.2530696",
+    "longitude": "-70.5921692",
+    "query": "Ogunquit Beach, Maine, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "beach": "Ogunquit Beach",
+        "country": "United States",
+        "country_code": "us",
+        "county": "York County",
+        "postcode": "03907",
+        "state": "Maine",
+        "village": "Ogunquit"
+      },
+      "addresstype": "beach",
+      "boundingbox": [
+        "43.2474138",
+        "43.2582756",
+        "-70.5963153",
+        "-70.5901033"
+      ],
+      "category": "natural",
+      "display_name": "Ogunquit Beach, Ogunquit, York County, Maine, 03907, United States",
+      "importance": 0.10671175936522466,
+      "lat": "43.2530696",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-70.5921692",
+      "name": "Ogunquit Beach",
+      "osm_id": 438218314,
+      "osm_type": "way",
+      "place_id": 364519634,
+      "place_rank": 22,
+      "type": "beach"
+    },
+    "source": "nominatim",
+    "state": "Maine",
+    "status": "ok",
+    "sublocation": ""
+  },
   "ogunquit beach, maine, usa": {
     "city": "Ogunquit",
     "country": "United States",
@@ -36523,6 +37679,35 @@
     "latitude": "34.1476507",
     "longitude": "-118.1441550",
     "query": "Pasadena, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Pasadena",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "34.1172023",
+        "34.2515593",
+        "-118.1982432",
+        "-118.0655987"
+      ],
+      "category": "boundary",
+      "display_name": "Pasadena, Los Angeles County, California, United States",
+      "importance": 0.6582737362174178,
+      "lat": "34.1476507",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.1441550",
+      "name": "Pasadena",
+      "osm_id": 3529725,
+      "osm_type": "relation",
+      "place_id": 332067626,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -36561,6 +37746,47 @@
       "osm_id": 3529725,
       "osm_type": "relation",
       "place_id": 296866082,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "paso robles, california, united states": {
+    "city": "Paso Robles",
+    "country": "United States",
+    "display_name": "Paso Robles, San Luis Obispo County, California, United States",
+    "latitude": "35.6262618",
+    "longitude": "-120.6901319",
+    "query": "Paso Robles, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Luis Obispo County",
+        "state": "California",
+        "town": "Paso Robles"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "35.5767154",
+        "35.6922701",
+        "-120.7076039",
+        "-120.5294537"
+      ],
+      "category": "boundary",
+      "display_name": "Paso Robles, San Luis Obispo County, California, United States",
+      "importance": 0.5090968538944352,
+      "lat": "35.6262618",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.6901319",
+      "name": "Paso Robles",
+      "osm_id": 112147,
+      "osm_type": "relation",
+      "place_id": 316290710,
       "place_rank": 16,
       "type": "administrative"
     },
@@ -40805,6 +42031,47 @@
     "state": "California",
     "status": "ok"
   },
+  "riverside, california, united states": {
+    "city": "Riverside",
+    "country": "United States",
+    "display_name": "Riverside, Riverside County, California, United States",
+    "latitude": "33.9824949",
+    "longitude": "-117.3742380",
+    "query": "Riverside, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Riverside",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Riverside County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "33.8726114",
+        "34.0194489",
+        "-117.5237612",
+        "-117.2788040"
+      ],
+      "category": "boundary",
+      "display_name": "Riverside, Riverside County, California, United States",
+      "importance": 0.6167582271486978,
+      "lat": "33.9824949",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-117.3742380",
+      "name": "Riverside",
+      "osm_id": 11051996,
+      "osm_type": "relation",
+      "place_id": 317750354,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "riverside, california, usa": {
     "city": "Riverside",
     "country": "United States",
@@ -42417,13 +43684,45 @@
   "san antonio river, san antonio, texas, united states": {
     "city": "San Antonio",
     "country": "United States",
-    "display_name": "San Antonio River, San Antonio, Bexar County, Texas, 78209, United States",
-    "latitude": "29.4711932",
-    "longitude": "-98.4707948",
+    "display_name": "San Antonio River, San Antonio, Bexar County, Texas, 78212, United States",
+    "latitude": "29.4737192",
+    "longitude": "-98.4831345",
     "query": "San Antonio River, San Antonio, Texas, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-TX",
+        "city": "San Antonio",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Bexar County",
+        "postcode": "78212",
+        "river": "San Antonio River",
+        "state": "Texas"
+      },
+      "addresstype": "river",
+      "boundingbox": [
+        "29.4710515",
+        "29.4748259",
+        "-98.4858134",
+        "-98.4792142"
+      ],
+      "category": "waterway",
+      "display_name": "San Antonio River, San Antonio, Bexar County, Texas, 78212, United States",
+      "importance": 0.14673928816662848,
+      "lat": "29.4737192",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-98.4831345",
+      "name": "San Antonio River",
+      "osm_id": 1389589502,
+      "osm_type": "way",
+      "place_id": 314918438,
+      "place_rank": 19,
+      "type": "river"
+    },
     "source": "nominatim",
     "state": "Texas",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "san antonio river, san antonio, texas, usa": {
     "city": "San Antonio",
@@ -42509,6 +43808,34 @@
     "latitude": "34.8253019",
     "longitude": "-116.0833144",
     "query": "San Bernardino, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Bernardino County",
+        "state": "California"
+      },
+      "addresstype": "county",
+      "boundingbox": [
+        "33.8710543",
+        "35.8092129",
+        "-117.8025491",
+        "-114.1307816"
+      ],
+      "category": "boundary",
+      "display_name": "San Bernardino County, California, United States",
+      "importance": 0.6144667319924094,
+      "lat": "34.8253019",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.0833144",
+      "name": "San Bernardino County",
+      "osm_id": 396509,
+      "osm_type": "relation",
+      "place_id": 321686807,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -44176,6 +45503,47 @@
     "latitude": "47.6038321",
     "longitude": "-122.3300620",
     "query": "Seattle, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WA",
+        "city": "Seattle",
+        "country": "United States",
+        "country_code": "us",
+        "county": "King County",
+        "state": "Washington"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "47.4810022",
+        "47.7341503",
+        "-122.4596960",
+        "-122.2244330"
+      ],
+      "category": "boundary",
+      "display_name": "Seattle, King County, Washington, United States",
+      "importance": 0.7344378062407435,
+      "lat": "47.6038321",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.3300620",
+      "name": "Seattle",
+      "osm_id": 237385,
+      "osm_type": "relation",
+      "place_id": 324456970,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "seattle, washington, united states": {
+    "city": "Seattle",
+    "country": "United States",
+    "display_name": "Seattle, King County, Washington, United States",
+    "latitude": "47.6038321",
+    "longitude": "-122.3300620",
+    "query": "Seattle, Washington, United States",
     "raw": {
       "address": {
         "ISO3166-2-lvl4": "US-WA",
@@ -46910,6 +48278,47 @@
     "query": "St. Paul's Cathedral, Piccadilly Circus, London, England",
     "status": "miss"
   },
+  "st. paul, minnesota, united states": {
+    "city": "Saint Paul",
+    "country": "United States",
+    "display_name": "Saint Paul, Ramsey County, Minnesota, United States",
+    "latitude": "44.9497487",
+    "longitude": "-93.0931028",
+    "query": "St. Paul, Minnesota, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-MN",
+        "city": "Saint Paul",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Ramsey County",
+        "state": "Minnesota"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "44.8872692",
+        "44.9920237",
+        "-93.2078138",
+        "-93.0043117"
+      ],
+      "category": "boundary",
+      "display_name": "Saint Paul, Ramsey County, Minnesota, United States",
+      "importance": 0.6467045767108192,
+      "lat": "44.9497487",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-93.0931028",
+      "name": "Saint Paul",
+      "osm_id": 136612,
+      "osm_type": "relation",
+      "place_id": 375231871,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Minnesota",
+    "status": "ok",
+    "sublocation": ""
+  },
   "st. paul, minnesota, usa": {
     "city": "Saint Paul",
     "country": "United States",
@@ -47163,6 +48572,47 @@
     "state": "",
     "status": "ok",
     "sublocation": "Johannesgasse"
+  },
+  "stamford, connecticut, united states": {
+    "city": "Stamford",
+    "country": "United States",
+    "display_name": "Stamford, Western Connecticut Planning Region, Connecticut, United States",
+    "latitude": "41.0534302",
+    "longitude": "-73.5387341",
+    "query": "Stamford, Connecticut, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CT",
+        "city": "Stamford",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Western Connecticut Planning Region",
+        "state": "Connecticut"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "40.9645138",
+        "41.1799290",
+        "-73.6339806",
+        "-73.4954009"
+      ],
+      "category": "boundary",
+      "display_name": "Stamford, Western Connecticut Planning Region, Connecticut, United States",
+      "importance": 0.5850877096462171,
+      "lat": "41.0534302",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-73.5387341",
+      "name": "Stamford",
+      "osm_id": 3306055,
+      "osm_type": "relation",
+      "place_id": 355846123,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Connecticut",
+    "status": "ok",
+    "sublocation": ""
   },
   "stamford, connecticut, usa": {
     "city": "Stamford",
@@ -48984,6 +50434,45 @@
   "tennessee, north carolina, south carolina, or georgia, united states": {
     "query": "Tennessee, North Carolina, South Carolina, or Georgia, United States",
     "status": "miss"
+  },
+  "tennessee, usa": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Tennessee, United States",
+    "latitude": "35.7730076",
+    "longitude": "-86.2820081",
+    "query": "Tennessee, USA",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-TN",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Tennessee"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "34.9829380",
+        "36.6781180",
+        "-90.3102980",
+        "-81.6472191"
+      ],
+      "category": "boundary",
+      "display_name": "Tennessee, United States",
+      "importance": 0.7633471192503373,
+      "lat": "35.7730076",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.2820081",
+      "name": "Tennessee",
+      "osm_id": 161838,
+      "osm_type": "relation",
+      "place_id": 343216774,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Tennessee",
+    "status": "ok",
+    "sublocation": ""
   },
   "terra cotta army, china": {
     "query": "Terra Cotta Army, China",
@@ -54205,6 +55694,49 @@
     "status": "ok",
     "sublocation": "24 Third Street"
   },
+  "utah and colorado, united states": {
+    "city": "Denver",
+    "country": "United States",
+    "display_name": "Utah Street, Fort Logan, Denver, Colorado, 80236, United States",
+    "latitude": "39.6501105",
+    "longitude": "-105.0517318",
+    "query": "Utah and Colorado, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CO",
+        "city": "Denver",
+        "country": "United States",
+        "country_code": "us",
+        "neighbourhood": "Fort Logan",
+        "postcode": "80236",
+        "road": "Utah Street",
+        "state": "Colorado"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "39.6491617",
+        "39.6501202",
+        "-105.0523715",
+        "-105.0511356"
+      ],
+      "category": "highway",
+      "display_name": "Utah Street, Fort Logan, Denver, Colorado, 80236, United States",
+      "importance": 0.05340288166628516,
+      "lat": "39.6501105",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-105.0517318",
+      "name": "Utah Street",
+      "osm_id": 691534939,
+      "osm_type": "way",
+      "place_id": 331929426,
+      "place_rank": 26,
+      "type": "unclassified"
+    },
+    "source": "nominatim",
+    "state": "Colorado",
+    "status": "ok",
+    "sublocation": "Utah Street"
+  },
   "utah or colorado, usa": {
     "query": "Utah or Colorado, USA",
     "status": "miss"
@@ -55679,15 +57211,47 @@
     "status": "ok"
   },
   "waikiki beach, honolulu, hawaii, united states": {
-    "city": "Honolulu",
+    "city": "East Honolulu",
     "country": "United States",
-    "display_name": "Waikiki Beach, Honolulu, Hawaii, United States, Honolulu, Hawaii, United States",
+    "display_name": "Waikiki Beach, Honolulu, Hawaii, United States, East Honolulu, Hawaii, United States",
     "latitude": "21.2741046",
     "longitude": "-157.8243118",
     "query": "Waikiki Beach, Honolulu, Hawaii, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-HI",
+        "beach": "Waikiki Beach",
+        "city": "East Honolulu",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Honolulu County",
+        "state": "Hawaii",
+        "suburb": "Waikīkī"
+      },
+      "addresstype": "beach",
+      "boundingbox": [
+        "21.2713293",
+        "21.2767939",
+        "-157.8297428",
+        "-157.8228221"
+      ],
+      "category": "natural",
+      "display_name": "Waikiki Beach, Waikīkī, East Honolulu, Honolulu, Honolulu County, Hawaii, United States",
+      "importance": 0.10673867170214386,
+      "lat": "21.2741046",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-157.8243118",
+      "name": "Waikiki Beach",
+      "osm_id": 218679862,
+      "osm_type": "way",
+      "place_id": 379143636,
+      "place_rank": 22,
+      "type": "beach"
+    },
     "source": "nominatim",
     "state": "Hawaii",
-    "status": "ok"
+    "status": "ok",
+    "sublocation": ""
   },
   "waikiki beach, honolulu, hawaii, usa": {
     "city": "East Honolulu",

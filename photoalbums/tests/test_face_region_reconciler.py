@@ -120,7 +120,7 @@ def _page_region_xmp(regions: list[dict]) -> str:
         cx, cy, nw, nh = r["cx"], r["cy"], r["nw"], r["nh"]
         lines += [
             "            <rdf:li rdf:parseType='Resource'",
-            f"              mwg-rs:Type='Photo'",
+            "              mwg-rs:Type='Photo'",
             f"              stArea:x='{cx}' stArea:y='{cy}'",
             f"              stArea:w='{nw}' stArea:h='{nh}' stArea:unit='normalized'",
             "              mwg-rs:Name='photo_1'/>",
@@ -284,6 +284,26 @@ class TestReadPagePhotoRegions(unittest.TestCase):
         self.assertEqual(len(regions), 2)
         self.assertAlmostEqual(regions[0]["cx"], 0.3)
         self.assertAlmostEqual(regions[1]["cx"], 0.7)
+
+    def test_reads_exiftool_canonical_regions_from_writer(self):
+        from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+        from photoalbums.lib.xmp_sidecar import write_region_list
+
+        xmp = self.tmpdir / "page.xmp"
+        write_region_list(
+            xmp,
+            [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=400, height=300), "Caption")],
+            800,
+            600,
+        )
+
+        regions = read_page_photo_regions(xmp)
+
+        self.assertEqual(len(regions), 1)
+        self.assertAlmostEqual(regions[0]["cx"], 0.25)
+        self.assertAlmostEqual(regions[0]["cy"], 0.25)
+        self.assertAlmostEqual(regions[0]["nw"], 0.5)
+        self.assertAlmostEqual(regions[0]["nh"], 0.5)
 
     def test_missing_file_returns_empty(self):
         self.assertEqual(read_page_photo_regions(self.tmpdir / "missing.xmp"), [])
@@ -473,6 +493,72 @@ class TestReconcilePage(unittest.TestCase):
     def _page_xmp(self) -> Path:
         return self.pages_dir / "Family_2020_B01_P05_V.xmp"
 
+    # ------------------------------------------------------------------
+    # OpenCV visual-validation helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_patch(img_path: Path, box: dict, size: tuple[int, int] = (32, 32)):
+        """Extract and resize a normalised-coordinate face box from an image.
+
+        Returns a 32×32 float32 greyscale array, or None if the image can't be
+        opened or the box falls outside the image.
+        """
+        import cv2
+
+        img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return None
+        h, w = img.shape
+        x0 = max(0, int(box["rx"] * w))
+        y0 = max(0, int(box["ry"] * h))
+        x1 = min(w, int((box["rx"] + box["rw"]) * w))
+        y1 = min(h, int((box["ry"] + box["rh"]) * h))
+        patch = img[y0:y1, x0:x1]
+        if patch.size == 0:
+            return None
+        return cv2.resize(patch, size).astype("float32")
+
+    @staticmethod
+    def _ncc(patch_a, patch_b) -> float:
+        """Normalised cross-correlation in [-1, 1]; 1.0 = identical content."""
+        import cv2
+
+        result = cv2.matchTemplate(patch_a, patch_b, cv2.TM_CCOEFF_NORMED)
+        return float(result[0, 0])
+
+    def _assert_same_region(self, img_a: Path, box_a: dict, img_b: Path, box_b: dict,
+                             *, msg: str = "", threshold: float = 0.90) -> None:
+        """Assert the two face-box patches contain the same visual content (NCC ≥ threshold)."""
+        pa = self._extract_patch(img_a, box_a)
+        pb = self._extract_patch(img_b, box_b)
+        self.assertIsNotNone(pa, f"could not extract patch from {img_a.name}")
+        self.assertIsNotNone(pb, f"could not extract patch from {img_b.name}")
+        score = self._ncc(pa, pb)
+        label = msg or f"{img_a.name}@{box_a} vs {img_b.name}@{box_b}"
+        self.assertGreater(score, threshold,
+                           f"Face patches should show the same scene content "
+                           f"(NCC={score:.3f} < {threshold}): {label}")
+
+    # ------------------------------------------------------------------
+
+    def _write_alignment_images(self, page_xmp: Path, scan_boxes: dict[str, tuple[int, int, int, int]]) -> None:
+        import cv2
+        import numpy as np
+
+        rng = np.random.default_rng(12345)
+        page = rng.integers(0, 256, size=(180, 320, 3), dtype=np.uint8)
+        for i in range(16):
+            x = 20 + (i * 17) % 270
+            y = 20 + (i * 29) % 130
+            cv2.circle(page, (x, y), 5 + (i % 5), (255 - i * 8, 30 + i * 11, 80 + i * 7), -1)
+            cv2.putText(page, str(i), (x + 4, y + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 0), 1)
+
+        assert cv2.imwrite(str(page_xmp.with_suffix(".png")), page)
+        for scan_name, (x, y, w, h) in scan_boxes.items():
+            scan_path = self.archive_dir / scan_name
+            assert cv2.imwrite(str(scan_path), page[y : y + h, x : x + w])
+
     def test_dry_run_no_writes(self):
         """dry_run=True should not modify any files."""
         page_xmp = self._page_xmp()
@@ -492,6 +578,28 @@ class TestReconcilePage(unittest.TestCase):
         self.assertFalse(result.clusters[0].has_conflict)
         self.assertEqual(len(result.pending_writes), 0)
 
+    def test_face_in_page_backfills_to_crop_and_scan(self):
+        """A page face should be written to missing crop and scan peers."""
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
+        self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
+        merge_iptc_face_box(page_xmp, "Alice", 0.09, 0.09, 0.12, 0.12)
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _empty_xmp())
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        _write_xmp(scan_xmp, _empty_xmp())
+
+        result = reconcile_page(page_xmp, dry_run=True)
+
+        writes_by_kind = {w.source_kind: w for w in result.pending_writes}
+        self.assertEqual(set(writes_by_kind), {"crop", "scan"})
+        self.assertEqual(writes_by_kind["crop"].xmp_path, crop_xmp)
+        self.assertAlmostEqual(writes_by_kind["crop"].rx, 0.1)
+        self.assertAlmostEqual(writes_by_kind["crop"].rw, 0.3)
+        self.assertEqual(writes_by_kind["scan"].xmp_path, scan_xmp)
+        self.assertAlmostEqual(writes_by_kind["scan"].rx, 0.1, places=2)
+        self.assertAlmostEqual(writes_by_kind["scan"].rw, 0.3, places=2)
+
     def test_face_in_crop_backfills_to_page(self):
         """A face only in a crop should be backfilled to the page XMP."""
         page_xmp = self._page_xmp()
@@ -507,6 +615,27 @@ class TestReconcilePage(unittest.TestCase):
         self.assertEqual(result.pending_writes[0].source_kind, "page")
         self.assertEqual(result.pending_writes[0].name, "Alice")
 
+    def test_face_in_crop_backfills_to_page_and_scan(self):
+        """A crop face should be projected to page space and shared with the scan."""
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
+        self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _face_xmp([{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.2, "rh": 0.2}]))
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        _write_xmp(scan_xmp, _empty_xmp())
+
+        result = reconcile_page(page_xmp, dry_run=True)
+
+        writes_by_kind = {w.source_kind: w for w in result.pending_writes}
+        self.assertEqual(set(writes_by_kind), {"page", "scan"})
+        self.assertEqual(writes_by_kind["page"].xmp_path, page_xmp)
+        self.assertEqual(writes_by_kind["scan"].xmp_path, scan_xmp)
+        self.assertAlmostEqual(writes_by_kind["page"].rx, 0.09)
+        self.assertAlmostEqual(writes_by_kind["page"].rw, 0.08)
+        self.assertAlmostEqual(writes_by_kind["scan"].rx, 0.1, places=2)
+        self.assertAlmostEqual(writes_by_kind["scan"].rw, 0.2, places=2)
+
     def test_face_in_crop_write_applied(self):
         """dry_run=False should write the face to the page XMP."""
         page_xmp = self._page_xmp()
@@ -518,6 +647,268 @@ class TestReconcilePage(unittest.TestCase):
         boxes = read_iptc_face_boxes(page_xmp)
         self.assertEqual(len(boxes), 1)
         self.assertEqual(boxes[0]["name"], "Alice")
+
+    def test_face_id_in_scan_propagates_to_photo_and_page(self):
+        """Face identity in scan is written to both photo (crop) and page after full reconcile.
+
+        Geometry (scan covers page pixels x=16,y=9,w=128,h=72 in a 320×180 page):
+          scan (0.1,0.1,0.3,0.3) → page ≈ (0.09,0.09,0.12,0.12)
+                                 → crop (cx=0.25,cy=0.25,nw=0.4) ≈ (0.10,0.10,0.30,0.30)
+
+        OpenCV patch comparison verifies the bounding-box pixels are the same scene
+        content across all three files.
+        """
+        import cv2
+
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
+        self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
+        # Build crop image: same 128×72 cut that the crop XMP represents
+        page_arr = cv2.imread(str(page_xmp.with_suffix(".png")))
+        crop_img_path = self.photos_dir / "Family_2020_B01_P05_D01-00_V.jpg"
+        cv2.imwrite(str(crop_img_path), page_arr[9:81, 16:144])
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _empty_xmp())
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        _write_xmp(scan_xmp, _face_xmp([{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.3, "rh": 0.3}]))
+
+        reconcile_page(page_xmp, dry_run=False)
+
+        page_faces = read_iptc_face_boxes(page_xmp)
+        crop_faces = read_iptc_face_boxes(crop_xmp)
+        scan_faces = read_iptc_face_boxes(scan_xmp)
+
+        # Name propagates to all three files
+        self.assertIn("Alice", {f["name"] for f in page_faces}, "face from scan must appear in page")
+        self.assertIn("Alice", {f["name"] for f in crop_faces}, "face from scan must appear in crop")
+        self.assertIn("Alice", {f["name"] for f in scan_faces}, "face must remain in originating scan")
+
+        page_alice = next(f for f in page_faces if f["name"] == "Alice")
+        crop_alice = next(f for f in crop_faces if f["name"] == "Alice")
+        scan_alice = next(f for f in scan_faces if f["name"] == "Alice")
+
+        # Coordinates are geometrically correct after OpenCV-aligned projection
+        self.assertAlmostEqual(page_alice["rx"], 0.09, places=2, msg="page rx from scan")
+        self.assertAlmostEqual(page_alice["ry"], 0.09, places=2, msg="page ry from scan")
+        self.assertAlmostEqual(page_alice["rw"], 0.12, places=2, msg="page rw from scan")
+        self.assertAlmostEqual(page_alice["rh"], 0.12, places=2, msg="page rh from scan")
+        self.assertAlmostEqual(crop_alice["rx"], 0.10, places=2, msg="crop rx back-projected from scan")
+        self.assertAlmostEqual(crop_alice["ry"], 0.10, places=2, msg="crop ry back-projected from scan")
+        self.assertAlmostEqual(crop_alice["rw"], 0.30, places=2, msg="crop rw back-projected from scan")
+        self.assertAlmostEqual(crop_alice["rh"], 0.30, places=2, msg="crop rh back-projected from scan")
+
+        # Visual validation: bounding boxes in all three images enclose the same pixels
+        scan_img = self.archive_dir / "Family_2020_B01_P05_S01.tif"
+        page_img = page_xmp.with_suffix(".png")
+        self._assert_same_region(scan_img, scan_alice, page_img, page_alice,
+                                  msg="scan face patch vs page face patch")
+        self._assert_same_region(scan_img, scan_alice, crop_img_path, crop_alice,
+                                  msg="scan face patch vs crop face patch")
+
+    def test_face_id_in_photo_propagates_to_scan_and_page(self):
+        """Face identity in photo (crop) is written to both scan and page after full reconcile.
+
+        Geometry (crop region cx=0.25,cy=0.25,nw=0.4; scan covers page pixels 16,9,128,72):
+          crop (0.1,0.1,0.2,0.2) → page ≈ (0.09,0.09,0.08,0.08)
+                                 → scan ≈ (0.10,0.10,0.20,0.20)
+
+        OpenCV patch comparison verifies the bounding-box pixels are the same scene
+        content across all three files.
+        """
+        import cv2
+
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
+        self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
+        page_arr = cv2.imread(str(page_xmp.with_suffix(".png")))
+        crop_img_path = self.photos_dir / "Family_2020_B01_P05_D01-00_V.jpg"
+        cv2.imwrite(str(crop_img_path), page_arr[9:81, 16:144])
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _face_xmp([{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.2, "rh": 0.2}]))
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        _write_xmp(scan_xmp, _empty_xmp())
+
+        reconcile_page(page_xmp, dry_run=False)
+
+        page_faces = read_iptc_face_boxes(page_xmp)
+        crop_faces = read_iptc_face_boxes(crop_xmp)
+        scan_faces = read_iptc_face_boxes(scan_xmp)
+
+        # Name propagates to all three files
+        self.assertIn("Alice", {f["name"] for f in page_faces}, "face from crop must appear in page")
+        self.assertIn("Alice", {f["name"] for f in crop_faces}, "face must remain in originating crop")
+        self.assertIn("Alice", {f["name"] for f in scan_faces}, "face from crop must appear in scan")
+
+        page_alice = next(f for f in page_faces if f["name"] == "Alice")
+        crop_alice = next(f for f in crop_faces if f["name"] == "Alice")
+        scan_alice = next(f for f in scan_faces if f["name"] == "Alice")
+
+        # Coordinates are geometrically correct
+        self.assertAlmostEqual(page_alice["rx"], 0.09, places=2, msg="page rx from crop")
+        self.assertAlmostEqual(page_alice["ry"], 0.09, places=2, msg="page ry from crop")
+        self.assertAlmostEqual(page_alice["rw"], 0.08, places=2, msg="page rw from crop")
+        self.assertAlmostEqual(page_alice["rh"], 0.08, places=2, msg="page rh from crop")
+        self.assertAlmostEqual(scan_alice["rx"], 0.10, places=2, msg="scan rx back-projected from crop")
+        self.assertAlmostEqual(scan_alice["ry"], 0.10, places=2, msg="scan ry back-projected from crop")
+        self.assertAlmostEqual(scan_alice["rw"], 0.20, places=2, msg="scan rw back-projected from crop")
+        self.assertAlmostEqual(scan_alice["rh"], 0.20, places=2, msg="scan rh back-projected from crop")
+
+        # Visual validation: bounding boxes in all three images enclose the same pixels
+        scan_img = self.archive_dir / "Family_2020_B01_P05_S01.tif"
+        page_img = page_xmp.with_suffix(".png")
+        self._assert_same_region(crop_img_path, crop_alice, page_img, page_alice,
+                                  msg="crop face patch vs page face patch")
+        self._assert_same_region(crop_img_path, crop_alice, scan_img, scan_alice,
+                                  msg="crop face patch vs scan face patch")
+
+    def test_face_id_in_page_propagates_to_photo_and_scan(self):
+        """Face identity in page is written to both photo (crop) and scan after full reconcile.
+
+        Geometry (crop region cx=0.25,cy=0.25,nw=0.4; scan covers page pixels 16,9,128,72):
+          page (0.09,0.09,0.12,0.12) → crop ≈ (0.10,0.10,0.30,0.30)
+                                     → scan ≈ (0.10,0.10,0.30,0.30)
+
+        OpenCV patch comparison verifies the bounding-box pixels are the same scene
+        content across all three files.
+        """
+        import cv2
+
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
+        self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
+        page_arr = cv2.imread(str(page_xmp.with_suffix(".png")))
+        crop_img_path = self.photos_dir / "Family_2020_B01_P05_D01-00_V.jpg"
+        cv2.imwrite(str(crop_img_path), page_arr[9:81, 16:144])
+        # Place face in page at a position inside the crop region
+        # (region spans page 0.05–0.45 in both axes; face at 0.09,0.09 is inside it)
+        merge_iptc_face_box(page_xmp, "Alice", 0.09, 0.09, 0.12, 0.12)
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _empty_xmp())
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        _write_xmp(scan_xmp, _empty_xmp())
+
+        reconcile_page(page_xmp, dry_run=False)
+
+        page_faces = read_iptc_face_boxes(page_xmp)
+        crop_faces = read_iptc_face_boxes(crop_xmp)
+        scan_faces = read_iptc_face_boxes(scan_xmp)
+
+        # Name propagates to all three files
+        self.assertIn("Alice", {f["name"] for f in page_faces}, "face must remain in originating page")
+        self.assertIn("Alice", {f["name"] for f in crop_faces}, "face from page must appear in crop")
+        self.assertIn("Alice", {f["name"] for f in scan_faces}, "face from page must appear in scan")
+
+        page_alice = next(f for f in page_faces if f["name"] == "Alice")
+        crop_alice = next(f for f in crop_faces if f["name"] == "Alice")
+        scan_alice = next(f for f in scan_faces if f["name"] == "Alice")
+
+        # Coordinates are geometrically correct
+        self.assertAlmostEqual(crop_alice["rx"], 0.10, places=2, msg="crop rx from page")
+        self.assertAlmostEqual(crop_alice["ry"], 0.10, places=2, msg="crop ry from page")
+        self.assertAlmostEqual(crop_alice["rw"], 0.30, places=2, msg="crop rw from page")
+        self.assertAlmostEqual(crop_alice["rh"], 0.30, places=2, msg="crop rh from page")
+        self.assertAlmostEqual(scan_alice["rx"], 0.10, places=2, msg="scan rx from page via OpenCV inverse")
+        self.assertAlmostEqual(scan_alice["ry"], 0.10, places=2, msg="scan ry from page via OpenCV inverse")
+        self.assertAlmostEqual(scan_alice["rw"], 0.30, places=2, msg="scan rw from page via OpenCV inverse")
+        self.assertAlmostEqual(scan_alice["rh"], 0.30, places=2, msg="scan rh from page via OpenCV inverse")
+
+        # Visual validation: bounding boxes in all three images enclose the same pixels
+        scan_img = self.archive_dir / "Family_2020_B01_P05_S01.tif"
+        page_img = page_xmp.with_suffix(".png")
+        self._assert_same_region(page_img, page_alice, crop_img_path, crop_alice,
+                                  msg="page face patch vs crop face patch")
+        self._assert_same_region(page_img, page_alice, scan_img, scan_alice,
+                                  msg="page face patch vs scan face patch")
+
+    def test_face_in_scan_backfills_to_page_and_crop(self):
+        """A single-scan face should be reconciled into page space and crop space."""
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
+        self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _empty_xmp())
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        _write_xmp(scan_xmp, _face_xmp([{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.3, "rh": 0.3}]))
+
+        result = reconcile_page(page_xmp, dry_run=True)
+
+        writes_by_kind = {w.source_kind: w for w in result.pending_writes}
+        self.assertEqual(set(writes_by_kind), {"page", "crop"})
+        self.assertEqual(writes_by_kind["page"].xmp_path, page_xmp)
+        self.assertEqual(writes_by_kind["crop"].xmp_path, crop_xmp)
+        self.assertAlmostEqual(writes_by_kind["page"].rx, 0.09, places=2)
+        self.assertAlmostEqual(writes_by_kind["page"].rw, 0.12, places=2)
+        self.assertAlmostEqual(writes_by_kind["crop"].rx, 0.1, places=2)
+        self.assertAlmostEqual(writes_by_kind["crop"].rw, 0.3, places=2)
+
+    def test_face_in_stitched_scan_uses_opencv_alignment_to_backfill_page_and_crop(self):
+        """A multi-scan face should use image alignment instead of normalized scan coordinates."""
+        page_xmp = self._page_xmp()
+        scan_box = (120, 45, 140, 100)
+        cx = (scan_box[0] + scan_box[2] / 2) / 320
+        cy = (scan_box[1] + scan_box[3] / 2) / 180
+        nw = scan_box[2] / 320
+        nh = scan_box[3] / 180
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": cx, "cy": cy, "nw": nw, "nh": nh}]))
+        self._write_alignment_images(
+            page_xmp,
+            {
+                "Family_2020_B01_P05_S01.tif": (0, 25, 140, 100),
+                "Family_2020_B01_P05_S02.tif": scan_box,
+            },
+        )
+        _write_xmp(self.archive_dir / "Family_2020_B01_P05_S01.xmp", _empty_xmp())
+        scan_xmp = self.archive_dir / "Family_2020_B01_P05_S02.xmp"
+        _write_xmp(scan_xmp, _face_xmp([{"name": "Alice", "rx": 0.25, "ry": 0.3, "rw": 0.35, "rh": 0.35}]))
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _empty_xmp())
+
+        result = reconcile_page(page_xmp, dry_run=True)
+
+        writes_by_kind = {w.source_kind: w for w in result.pending_writes}
+        self.assertEqual(set(writes_by_kind), {"page", "crop"})
+        self.assertAlmostEqual(writes_by_kind["page"].rx, (scan_box[0] + 0.25 * scan_box[2]) / 320, places=2)
+        self.assertAlmostEqual(writes_by_kind["page"].ry, (scan_box[1] + 0.3 * scan_box[3]) / 180, places=2)
+        self.assertAlmostEqual(writes_by_kind["crop"].rx, 0.25, places=2)
+        self.assertAlmostEqual(writes_by_kind["crop"].ry, 0.3, places=2)
+
+    def test_page_face_uses_opencv_alignment_to_backfill_matching_scan_only(self):
+        """A page face should be projected into the stitched scan that contains it."""
+        page_xmp = self._page_xmp()
+        scan_box = (120, 45, 140, 100)
+        cx = (scan_box[0] + scan_box[2] / 2) / 320
+        cy = (scan_box[1] + scan_box[3] / 2) / 180
+        nw = scan_box[2] / 320
+        nh = scan_box[3] / 180
+        _write_xmp(page_xmp, _page_region_xmp([{"cx": cx, "cy": cy, "nw": nw, "nh": nh}]))
+        self._write_alignment_images(
+            page_xmp,
+            {
+                "Family_2020_B01_P05_S01.tif": (0, 25, 140, 100),
+                "Family_2020_B01_P05_S02.tif": scan_box,
+            },
+        )
+        scan1_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
+        scan2_xmp = self.archive_dir / "Family_2020_B01_P05_S02.xmp"
+        _write_xmp(scan1_xmp, _empty_xmp())
+        _write_xmp(scan2_xmp, _empty_xmp())
+        crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
+        _write_xmp(crop_xmp, _empty_xmp())
+        merge_iptc_face_box(
+            page_xmp,
+            "Alice",
+            (scan_box[0] + 0.25 * scan_box[2]) / 320,
+            (scan_box[1] + 0.3 * scan_box[3]) / 180,
+            0.35 * scan_box[2] / 320,
+            0.35 * scan_box[3] / 180,
+        )
+
+        result = reconcile_page(page_xmp, dry_run=True)
+
+        scan_writes = [w for w in result.pending_writes if w.source_kind == "scan"]
+        self.assertEqual([w.xmp_path for w in scan_writes], [scan2_xmp])
+        self.assertAlmostEqual(scan_writes[0].rx, 0.25, places=2)
+        self.assertAlmostEqual(scan_writes[0].ry, 0.3, places=2)
 
     def test_conflict_skipped_in_backfill(self):
         """Clusters with multiple distinct names are skipped during backfill by default."""
@@ -538,7 +929,10 @@ class TestReconcilePage(unittest.TestCase):
         page_tree = ET.parse(str(page_xmp))
         desc = page_tree.getroot().find(".//{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description")
         from photoalbums.lib.face_region_reconciler import (
-            _IPTC_IMAGE_REGION, _RDF_BAG, _RDF_LI, _add_iptc_face_li
+            _IPTC_IMAGE_REGION,
+            _RDF_BAG,
+            _RDF_LI,
+            _add_iptc_face_li,
         )
         ir = ET.SubElement(desc, _IPTC_IMAGE_REGION)
         bag = ET.SubElement(ir, _RDF_BAG)

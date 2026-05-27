@@ -1,0 +1,172 @@
+{
+  "eval_date": "2026-05-20",
+  "what_is_tested": "POC targets for page-context reasoning before implementing the full XMP evidence pipeline.",
+  "notes": [
+    "These targets are intentionally evidence-first. A passing pipeline may propose review candidates, but should not write inferred people or locations unless the evidence is explicit and conflict-free.",
+    "Region indexes are zero-based and come from the current mwg-rs page region order."
+  ],
+  "cases": [
+    {
+      "id": "family_p04_context",
+      "page_image": "Family_1977-1980_B07_Pages/Family_1977-1980_B07_P04_V.jpg",
+      "album_title": "Family 1977-1980 Book 7",
+      "model_context": [
+        "The page has six photos in a two-column, three-row layout.",
+        "Existing crop XMP identifies Gloria Jean Dilbeck (nee Laymon) in the upper-left crop and Jim Peterson in the bottom-middle/right crop, but the page-level face regions are incomplete.",
+        "Known archive location signature: this family's San Marino home is 2240 Lorain Rd, San Marino, CA 91108, United States."
+      ],
+      "expected": {
+        "identity_candidates": [
+          {
+            "person_name": "Gloria Jean Dilbeck (nee Laymon)",
+            "region_index": 0,
+            "page_area": "upper left photo",
+            "evidence_goal": "Use caption/page context to propose Gloria without relying on a clear Face ID match."
+          },
+          {
+            "person_name": "Gloria Jean Dilbeck (nee Laymon)",
+            "region_index": 4,
+            "page_area": "middle right photo",
+            "evidence_goal": "Use caption/page context to propose Gloria without relying on a clear Face ID match."
+          },
+          {
+            "person_name": "Gladys",
+            "region_index": 1,
+            "page_area": "middle left photo",
+            "evidence_goal": "Use caption/page context because Face ID did not recognize Gladys."
+          },
+          {
+            "person_name": "Jim Peterson",
+            "region_index": 5,
+            "page_area": "bottom right photo",
+            "evidence_goal": "Recover Jim Peterson as a missing Face ID candidate from page/crop context."
+          }
+        ],
+        "conflict_checks": [
+          {
+            "person_name": "Gloria Jean Dilbeck (nee Laymon)",
+            "region_index": 3,
+            "page_area": "upper right photo",
+            "conflict": "The visible caption under the upper-right photo names Rod, Diana, and Frank rather than Gloria."
+          }
+        ],
+        "location": {
+          "location_query": "2240 Lorain Rd, San Marino, CA 91108, United States",
+          "address": "2240 Lorain Rd, San Marino, CA 91108",
+          "city": "San Marino",
+          "state": "CA",
+          "country": "United States",
+          "write_policy": "review-or-auto-only-when-page-context-supports-family-home"
+        },
+        "identity_continuity": {
+          "anchor_image": "Family_1977-1980_B07_Photos/Family_1977-1980_B07_P04_D05-00_V.jpg",
+          "anchor_caption": "Gloria-Randall-Darlene-John-Jim",
+          "candidate_image": "Family_1977-1980_B07_Photos/Family_1977-1980_B07_P04_D06-00_V.jpg",
+          "candidate_caption": "Jim-Miriam-Donald",
+          "target_person": "Gloria Jean Dilbeck (nee Laymon)",
+          "candidate_description": "front blond woman in photo #6",
+          "expected_policy": "review-only-not-auto-write",
+          "expected_outcome": "If visual continuity suggests Gloria but the candidate caption says Jim-Miriam-Donald, surface the conflict and keep the result review-only."
+        }
+      }
+    },
+    {
+      "id": "china_p16_huaqing",
+      "page_image": "MainlandChina_1986_B02_Pages/MainlandChina_1986_B02_P16_V.jpg",
+      "context_images": [
+        "MainlandChina_1986_B02_Archive/MainlandChina_1986_B02_P16_S01.tif",
+        "MainlandChina_1986_B02_Archive/MainlandChina_1986_B02_P16_S02.tif"
+      ],
+      "album_title": "Mainland China 1986 Book 2",
+      "model_context": [
+        "The stitched page view is not enough by itself; include the source scans when reasoning about page captions.",
+        "The source scan caption should be treated as stronger evidence than a vague nearby location guess."
+      ],
+      "expected": {
+        "location": {
+          "location_name": "Hua Qing Hot Springs, Xi'an, Shaanxi, China",
+          "location_query": "Huaqing Hot Springs, 38 Huaqing Rd, Lintong District, Xi'An, Shaanxi, China, 710699",
+          "address": "38 Huaqing Rd, Lintong District, Xi'An, Shaanxi, China, 710699",
+          "caption_evidence": "HUA QING HOT SPRINGS",
+          "write_policy": "auto-if-caption-evidence-is-visible-or-present-in-source-scan-context"
+        }
+      }
+    }
+  ],
+  "proposed_next_tests": [
+    {
+      "id": "layout_overlap_rejection_china_b01_p13",
+      "page_image": "MainlandChina_1986_B01_Pages/MainlandChina_1986_B01_P13_V.jpg",
+      "why_it_is_better": "Tests whether the pipeline notices bad/overlapping photo regions before trusting numbered overlays or crop associations.",
+      "evidence": [
+        "The visible page has overlapping detected regions around photos #3, #6, and #7.",
+        "Caption text says THE LONG CORRIDOR - 273 SECTIONS and AUDREY & LESLIE WITH A KOREAN TOUR GROUP."
+      ],
+      "expected_behavior": [
+        "Flag layout regions as suspect instead of assigning people/location metadata through overlapping boxes.",
+        "Use the caption and image content for review candidates only until regions are repaired."
+      ]
+    },
+    {
+      "id": "multi_location_scope_family_b05_p23",
+      "page_image": "Family_1970-1974_B05_Pages/Family_1970-1974_B05_P23_V.jpg",
+      "why_it_is_better": "Tests that the model scopes multiple captions and locations on one page instead of applying one location to every photo.",
+      "evidence": [
+        "Top caption: SAN MARINO - OCTOBER 1972.",
+        "Upper-right caption: DOLORES - BERKELEY - OCT. 1972.",
+        "Middle caption: ALTADENA CALIF. - CHRISTMAS 1972."
+      ],
+      "expected_behavior": [
+        "Assign San Marino only to the squash/garden photos it captions.",
+        "Assign Berkeley only to Dolores photo #6.",
+        "Assign Altadena only to the Christmas photos, not the whole page."
+      ]
+    },
+    {
+      "id": "face_crop_region_reconciliation_southamerica_p37",
+      "page_image": "SouthAmerica_1986_B00_Pages/SouthAmerica_1986_B00_P37_V.jpg",
+      "why_it_is_better": "Tests reconciliation of page face boxes, crop sidecar people, visible people, and location caption context on a travel page.",
+      "evidence": [
+        "Fresh XMP mining found crop/page face mismatches across regions #1-#6.",
+        "Caption names the park, restaurant, show, and Buenos Aires.",
+        "Audrey and Irvin appear in some crops but not consistently through face boxes."
+      ],
+      "expected_behavior": [
+        "Do not blindly merge page-level Audrey/Irvin into every region.",
+        "Use visible people and crop/page face boxes to produce per-region review candidates.",
+        "Apply Buenos Aires only where the caption context supports it."
+      ]
+    },
+    {
+      "id": "dense_family_caption_face_merge_1994_p03",
+      "page_image": "Family_1994_B00_Pages/Family_1994_B00_P03_V.jpg",
+      "why_it_is_better": "Tests a dense family page where captions, faces, crop sidecars, and group photos all contain partial but overlapping people evidence.",
+      "evidence": [
+        "Captions name Eugene, Donald, Audrey, Gloria, Linda, Jimmy, Dolores, Sarah, Melissa, June, Cove, Chris, Courtney, and wedding guests.",
+        "Fresh XMP mining found page face boxes containing more names than some crop sidecars."
+      ],
+      "expected_behavior": [
+        "Merge caption names and face boxes into per-photo candidates without dropping known names.",
+        "Keep ambiguous first names review-only when no full-name mapping is supported.",
+        "Do not assign wedding-party names to unrelated birthday-party photos."
+      ]
+    },
+    {
+      "id": "caption_conflict_identity_review_family_p04_photo6",
+      "page_image": "Family_1977-1980_B07_Pages/Family_1977-1980_B07_P04_V.jpg",
+      "anchor_image": "Family_1977-1980_B07_Photos/Family_1977-1980_B07_P04_D05-00_V.jpg",
+      "candidate_image": "Family_1977-1980_B07_Photos/Family_1977-1980_B07_P04_D06-00_V.jpg",
+      "why_it_is_better": "Tests the exact hard case: visual continuity may suggest one person while the caption says another.",
+      "evidence": [
+        "Photo #5 caption includes Gloria.",
+        "Photo #6 caption says Jim-Miriam-Donald.",
+        "The front blond woman in #6 has no clear XMP face box."
+      ],
+      "expected_behavior": [
+        "Allow Gemma to propose a visual-continuity candidate.",
+        "Surface caption_conflict=true when the visual candidate conflicts with Jim-Miriam-Donald.",
+        "Force write_action=review rather than auto-writing Gloria."
+      ]
+    }
+  ]
+}

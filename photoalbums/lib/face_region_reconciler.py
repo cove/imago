@@ -16,6 +16,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,8 @@ _XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
 
 # Threshold for IoU-based clustering and duplicate detection
 _DEFAULT_IOU_THRESHOLD = 0.3
+_MIN_HOMOGRAPHY_MATCHES = 8
+_MIN_HOMOGRAPHY_INLIERS = 6
 
 
 # ---------------------------------------------------------------------------
@@ -255,42 +258,23 @@ def find_crop_xmps_for_page(page_xmp: Path) -> list[Path]:
 
 
 def read_page_photo_regions(page_xmp: Path) -> list[dict[str, float]]:
-    """Read mwg-rs:RegionList Photo regions from page XMP in normalized coords.
+    """Read page photo regions from XMP in normalized page coordinates.
 
     Returns list of dicts with keys: index (0-based), cx, cy, nw, nh.
     cx, cy = center; nw, nh = normalized width/height (0–1).
     """
-    if not page_xmp.is_file():
-        return []
-    try:
-        tree = ET.parse(str(page_xmp))
-    except ET.ParseError:
-        return []
+    from .xmp_sidecar import read_region_list
 
-    results: list[dict[str, float]] = []
-    idx = 0
-    for li in tree.iter(_RDF_LI):
-        rtype = li.get(f"{{{_MWGRS_NS}}}Type")
-        if rtype != "Photo":
-            continue
-        cx_t = li.get(f"{{{_STAREA_NS}}}x")
-        cy_t = li.get(f"{{{_STAREA_NS}}}y")
-        nw_t = li.get(f"{{{_STAREA_NS}}}w")
-        nh_t = li.get(f"{{{_STAREA_NS}}}h")
-        if not (cx_t and cy_t and nw_t and nh_t):
-            continue
-        try:
-            results.append({
-                "index": float(idx),
-                "cx": float(cx_t),
-                "cy": float(cy_t),
-                "nw": float(nw_t),
-                "nh": float(nh_t),
-            })
-        except (TypeError, ValueError):
-            pass
-        idx += 1
-    return results
+    return [
+        {
+            "index": float(idx),
+            "cx": float(region["cx"]),
+            "cy": float(region["cy"]),
+            "nw": float(region["nw"]),
+            "nh": float(region["nh"]),
+        }
+        for idx, region in enumerate(read_region_list(page_xmp, 1, 1))
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +405,200 @@ def _scan_count_for_page(page_xmp: Path) -> int:
 
 
 # ---------------------------------------------------------------------------
+# OpenCV scan/page coordinate transforms
+# ---------------------------------------------------------------------------
+
+
+def _image_for_xmp(xmp_path: Path, suffixes: tuple[str, ...]) -> Path | None:
+    for suffix in suffixes:
+        candidate = xmp_path.with_suffix(suffix)
+        if candidate.is_file() and candidate.stat().st_size > 0:
+            return candidate
+    return None
+
+
+def _page_image_for_xmp(page_xmp: Path) -> Path | None:
+    return _image_for_xmp(page_xmp, (".jpg", ".jpeg", ".png", ".tif", ".tiff"))
+
+
+def _scan_image_for_xmp(scan_xmp: Path) -> Path | None:
+    return _image_for_xmp(scan_xmp, (".tif", ".tiff", ".jpg", ".jpeg", ".png"))
+
+
+def _read_gray_for_alignment(path: Path):
+    import cv2
+
+    from ..stitch_oversized_pages import _read_stitch_image
+
+    image = _read_stitch_image(path)
+    if image.ndim == 2:
+        return image
+    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+
+def _detect_alignment_features(cv2, gray):
+    sift_create = getattr(cv2, "SIFT_create", None)
+    if sift_create is not None:
+        detector = sift_create(nfeatures=4000)
+        keypoints, descriptors = detector.detectAndCompute(gray, None)
+        return keypoints, descriptors, cv2.NORM_L2
+    detector = cv2.ORB_create(nfeatures=4000)
+    keypoints, descriptors = detector.detectAndCompute(gray, None)
+    return keypoints, descriptors, cv2.NORM_HAMMING
+
+
+def _match_alignment_features(cv2, scan_descriptors, page_descriptors, norm_type) -> list:
+    matcher = cv2.BFMatcher(norm_type)
+    raw_matches = matcher.knnMatch(scan_descriptors, page_descriptors, k=2)
+    matches = []
+    for pair in raw_matches:
+        if len(pair) != 2:
+            continue
+        first, second = pair
+        if first.distance < 0.75 * second.distance:
+            matches.append(first)
+    return matches
+
+
+@lru_cache(maxsize=128)
+def _scan_to_page_transform_cached(
+    scan_image_path: str,
+    page_image_path: str,
+    scan_mtime_ns: int,
+    page_mtime_ns: int,
+) -> tuple[tuple[float, ...], tuple[int, int], tuple[int, int]] | None:
+    del scan_mtime_ns, page_mtime_ns
+
+    import cv2
+    import numpy as np
+
+    try:
+        scan_gray = _read_gray_for_alignment(Path(scan_image_path))
+        page_gray = _read_gray_for_alignment(Path(page_image_path))
+    except Exception as exc:
+        log.debug("Could not read scan/page images for face alignment: %s", exc)
+        return None
+
+    scan_keypoints, scan_descriptors, scan_norm = _detect_alignment_features(cv2, scan_gray)
+    page_keypoints, page_descriptors, page_norm = _detect_alignment_features(cv2, page_gray)
+    if scan_norm != page_norm or scan_descriptors is None or page_descriptors is None:
+        return None
+
+    matches = _match_alignment_features(cv2, scan_descriptors, page_descriptors, scan_norm)
+    if len(matches) < _MIN_HOMOGRAPHY_MATCHES:
+        return None
+
+    scan_points = np.float32([scan_keypoints[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    page_points = np.float32([page_keypoints[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+    matrix, inlier_mask = cv2.findHomography(scan_points, page_points, cv2.RANSAC, 5.0)
+    if matrix is None or inlier_mask is None or int(inlier_mask.sum()) < _MIN_HOMOGRAPHY_INLIERS:
+        return None
+
+    scan_h, scan_w = scan_gray.shape[:2]
+    page_h, page_w = page_gray.shape[:2]
+    return tuple(float(v) for v in matrix.reshape(-1)), (scan_w, scan_h), (page_w, page_h)
+
+
+def _scan_to_page_transform(scan_xmp: Path, page_xmp: Path):
+    scan_image = _scan_image_for_xmp(scan_xmp)
+    page_image = _page_image_for_xmp(page_xmp)
+    if scan_image is None:
+        log.error("Cannot align scan face regions: no image file found for %s", scan_xmp)
+        return None
+    if page_image is None:
+        log.error("Cannot align scan face regions: no page image file found for %s", page_xmp)
+        return None
+    transform = _scan_to_page_transform_cached(
+        str(scan_image),
+        str(page_image),
+        scan_image.stat().st_mtime_ns,
+        page_image.stat().st_mtime_ns,
+    )
+    if transform is None:
+        log.error("Cannot align scan face regions with OpenCV: %s -> %s", scan_image, page_image)
+    return transform
+
+
+def _project_box_with_homography(
+    matrix_values: tuple[float, ...],
+    rx: float,
+    ry: float,
+    rw: float,
+    rh: float,
+    source_size: tuple[int, int],
+    target_size: tuple[int, int],
+) -> tuple[float, float, float, float] | None:
+    import cv2
+    import numpy as np
+
+    source_w, source_h = source_size
+    target_w, target_h = target_size
+    if source_w <= 0 or source_h <= 0 or target_w <= 0 or target_h <= 0:
+        return None
+
+    points = np.float32(
+        [
+            [rx * source_w, ry * source_h],
+            [(rx + rw) * source_w, ry * source_h],
+            [(rx + rw) * source_w, (ry + rh) * source_h],
+            [rx * source_w, (ry + rh) * source_h],
+        ]
+    ).reshape(-1, 1, 2)
+    matrix = np.asarray(matrix_values, dtype=np.float64).reshape(3, 3)
+    projected = cv2.perspectiveTransform(points, matrix).reshape(-1, 2)
+
+    x0 = max(0.0, min(float(projected[:, 0].min()), float(target_w)))
+    y0 = max(0.0, min(float(projected[:, 1].min()), float(target_h)))
+    x1 = max(0.0, min(float(projected[:, 0].max()), float(target_w)))
+    y1 = max(0.0, min(float(projected[:, 1].max()), float(target_h)))
+    if x1 <= x0 or y1 <= y0:
+        return None
+    return x0 / target_w, y0 / target_h, (x1 - x0) / target_w, (y1 - y0) / target_h
+
+
+def _project_scan_face_to_page(face: dict[str, Any], scan_xmp: Path, page_xmp: Path):
+    transform = _scan_to_page_transform(scan_xmp, page_xmp)
+    if transform is None:
+        return None
+    matrix_values, scan_size, page_size = transform
+    return _project_box_with_homography(
+        matrix_values,
+        face["rx"],
+        face["ry"],
+        face["rw"],
+        face["rh"],
+        scan_size,
+        page_size,
+    )
+
+
+def _project_page_face_to_scan(
+    page_rx: float,
+    page_ry: float,
+    page_rw: float,
+    page_rh: float,
+    scan_xmp: Path,
+    page_xmp: Path,
+):
+    import numpy as np
+
+    transform = _scan_to_page_transform(scan_xmp, page_xmp)
+    if transform is None:
+        return None
+    matrix_values, scan_size, page_size = transform
+    inverse = np.linalg.inv(np.asarray(matrix_values, dtype=np.float64).reshape(3, 3))
+    return _project_box_with_homography(
+        tuple(float(v) for v in inverse.reshape(-1)),
+        page_rx,
+        page_ry,
+        page_rw,
+        page_rh,
+        page_size,
+        scan_size,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Project all sources into page space
 # ---------------------------------------------------------------------------
 
@@ -481,7 +659,6 @@ def project_sources_to_page(
 
     # --- Archive scan faces ---
     scan_count = _scan_count_for_page(page_xmp)
-    scan_confidence = "approximate" if scan_count == 1 else "unresolved"
 
     for scan_xmp in scan_xmps:
         for fb in read_iptc_face_boxes(scan_xmp):
@@ -491,20 +668,22 @@ def project_sources_to_page(
                 source_kind="scan",
                 source_xmp=scan_xmp,
             )
-            if scan_confidence == "unresolved":
-                log.debug(
-                    "Multi-scan page (%d scans) — cannot project scan face to page space: %s",
-                    scan_count, scan_xmp.name,
-                )
-                unresolved.append(src)
+            projected_box = _project_scan_face_to_page(fb, scan_xmp, page_xmp)
+            if projected_box is not None:
+                page_rx, page_ry, page_rw, page_rh = projected_box
+                projected.append(ProjectedFaceBox(
+                    name=src.name,
+                    page_rx=page_rx, page_ry=page_ry, page_rw=page_rw, page_rh=page_rh,
+                    confidence="high",
+                    origin=src,
+                ))
                 continue
-            # Single scan: treat normalized scan coords ≈ page coords (approximate)
-            projected.append(ProjectedFaceBox(
-                name=src.name,
-                page_rx=src.rx, page_ry=src.ry, page_rw=src.rw, page_rh=src.rh,
-                confidence="approximate",
-                origin=src,
-            ))
+            log.error(
+                "Cannot project scan face to page space without OpenCV alignment: %s (%d page scan(s))",
+                scan_xmp.name,
+                scan_count,
+            )
+            unresolved.append(src)
 
     return projected, unresolved
 
@@ -633,6 +812,81 @@ def _source_already_in_cluster(cluster: FaceCluster, xmp_path: Path) -> bool:
     return any(s.origin.source_xmp == xmp_path for s in cluster.sources)
 
 
+def _plan_crop_backfills_for_cluster(
+    page_xmp: Path,
+    cluster: FaceCluster,
+    crop_xmps: list[Path],
+    page_regions: list[dict[str, float]],
+    archive_max: int,
+    resolved_name: str,
+    page_box: tuple[float, float, float, float],
+    iou_threshold: float,
+) -> list[PendingWrite]:
+    pending: list[PendingWrite] = []
+    rx, ry, rw, rh = page_box
+    for crop_xmp in crop_xmps:
+        if _source_already_in_cluster(cluster, crop_xmp):
+            continue
+        region = _crop_region_in_page(crop_xmp, page_xmp, page_regions, archive_max)
+        if region is None:
+            continue
+        crop_ox = region["cx"] - region["nw"] / 2.0
+        crop_oy = region["cy"] - region["nh"] / 2.0
+        crop_box_page = (crop_ox, crop_oy, region["nw"], region["nh"])
+        if _iou((rx, ry, rw, rh), crop_box_page) < 0.05:
+            continue
+        crx, cry, crw, crh = _page_face_to_crop(rx, ry, rw, rh, region)
+        crx, cry = _clamp01(crx), _clamp01(cry)
+        crw = max(0.01, min(1.0 - crx, crw))
+        crh = max(0.01, min(1.0 - cry, crh))
+        existing = read_iptc_face_boxes(crop_xmp)
+        if not _box_already_covered(crx, cry, crw, crh, existing, iou_threshold=iou_threshold):
+            pending.append(PendingWrite(
+                xmp_path=crop_xmp,
+                source_kind="crop",
+                name=resolved_name,
+                rx=crx, ry=cry, rw=crw, rh=crh,
+                reason="face cluster not present in crop XMP",
+            ))
+    return pending
+
+
+def _plan_scan_backfills_for_cluster(
+    page_xmp: Path,
+    cluster: FaceCluster,
+    scan_xmps: list[Path],
+    resolved_name: str,
+    page_box: tuple[float, float, float, float],
+    iou_threshold: float,
+) -> list[PendingWrite]:
+    pending: list[PendingWrite] = []
+    scan_count = _scan_count_for_page(page_xmp)
+    rx, ry, rw, rh = page_box
+    for scan_xmp in scan_xmps:
+        if _source_already_in_cluster(cluster, scan_xmp):
+            continue
+        scan_box = _project_page_face_to_scan(rx, ry, rw, rh, scan_xmp, page_xmp)
+        if scan_box is None:
+            log.error(
+                "Cannot backfill page face to scan without OpenCV alignment: %s (%d page scan(s))",
+                scan_xmp.name,
+                scan_count,
+            )
+            continue
+        reason = "face cluster not present in scan XMP (OpenCV-aligned to stitched page)"
+        scan_rx, scan_ry, scan_rw, scan_rh = scan_box
+        existing = read_iptc_face_boxes(scan_xmp)
+        if not _box_already_covered(scan_rx, scan_ry, scan_rw, scan_rh, existing, iou_threshold=iou_threshold):
+            pending.append(PendingWrite(
+                xmp_path=scan_xmp,
+                source_kind="scan",
+                name=resolved_name,
+                rx=scan_rx, ry=scan_ry, rw=scan_rw, rh=scan_rh,
+                reason=reason,
+            ))
+    return pending
+
+
 def plan_backfill(
     page_xmp: Path,
     clusters: list[FaceCluster],
@@ -654,7 +908,6 @@ def plan_backfill(
     If skip_conflicts=True, clusters with multiple distinct names are skipped.
     """
     pending: list[PendingWrite] = []
-    scan_count = _scan_count_for_page(page_xmp)
 
     for cluster in clusters:
         if skip_conflicts and cluster.has_conflict:
@@ -677,48 +930,13 @@ def plan_backfill(
                     reason="face cluster not present in page XMP",
                 ))
 
-        # --- Crop XMPs ---
-        for crop_xmp in crop_xmps:
-            if _source_already_in_cluster(cluster, crop_xmp):
-                continue
-            region = _crop_region_in_page(crop_xmp, page_xmp, page_regions, archive_max)
-            if region is None:
-                continue
-            # Check if the cluster box overlaps the crop's page-space region
-            crop_ox = region["cx"] - region["nw"] / 2.0
-            crop_oy = region["cy"] - region["nh"] / 2.0
-            crop_box_page = (crop_ox, crop_oy, region["nw"], region["nh"])
-            if _iou((rx, ry, rw, rh), crop_box_page) < 0.05:
-                continue  # face doesn't overlap this crop
-            crx, cry, crw, crh = _page_face_to_crop(rx, ry, rw, rh, region)
-            crx, cry = _clamp01(crx), _clamp01(cry)
-            crw = max(0.01, min(1.0 - crx, crw))
-            crh = max(0.01, min(1.0 - cry, crh))
-            existing = read_iptc_face_boxes(crop_xmp)
-            if not _box_already_covered(crx, cry, crw, crh, existing, iou_threshold=iou_threshold):
-                pending.append(PendingWrite(
-                    xmp_path=crop_xmp,
-                    source_kind="crop",
-                    name=resolved_name,
-                    rx=crx, ry=cry, rw=crw, rh=crh,
-                    reason="face cluster not present in crop XMP",
-                ))
-
-        # --- Scan XMPs (single-scan only; multi-scan = unresolved, skip) ---
-        if scan_count > 1:
-            continue
-        for scan_xmp in scan_xmps:
-            if _source_already_in_cluster(cluster, scan_xmp):
-                continue
-            existing = read_iptc_face_boxes(scan_xmp)
-            if not _box_already_covered(rx, ry, rw, rh, existing, iou_threshold=iou_threshold):
-                pending.append(PendingWrite(
-                    xmp_path=scan_xmp,
-                    source_kind="scan",
-                    name=resolved_name,
-                    rx=rx, ry=ry, rw=rw, rh=rh,
-                    reason="face cluster not present in scan XMP (approximate: single-scan page)",
-                ))
+        page_box = (rx, ry, rw, rh)
+        pending.extend(_plan_crop_backfills_for_cluster(
+            page_xmp, cluster, crop_xmps, page_regions, archive_max, resolved_name, page_box, iou_threshold
+        ))
+        pending.extend(_plan_scan_backfills_for_cluster(
+            page_xmp, cluster, scan_xmps, resolved_name, page_box, iou_threshold
+        ))
 
     return pending
 

@@ -515,6 +515,50 @@ class TestXMPSidecar(unittest.TestCase):
         self.assertNotIn("photoshop:City", xml)
         self.assertNotIn("photoshop:Country", xml)
 
+    def test_write_region_list_preserves_existing_canonical_face_regions(self):
+        from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "Family_2020_B01_P02_V.xmp"
+            xmp_sidecar.write_region_list(
+                out,
+                [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=400, height=300), "First caption")],
+                800,
+                600,
+            )
+            xmp_sidecar.write_xmp_sidecar(
+                out,
+                person_names=["Alice Example"],
+                subjects=[],
+                description="",
+                source_text="",
+                ocr_text="",
+                detections_payload={"people": [{"name": "Alice Example", "bbox": [80, 60, 100, 120]}]},
+                image_width=800,
+                image_height=600,
+            )
+
+            xmp_sidecar.write_region_list(
+                out,
+                [RegionWithCaption(RegionResult(index=0, x=0, y=0, width=400, height=300), "Updated caption")],
+                800,
+                600,
+            )
+
+            regions = xmp_sidecar.read_region_list(out, 800, 600)
+            region_names = [
+                (
+                    str(li.findtext(f"{{{xmp_sidecar.MWGRS_NS}}}Type") or "").strip(),
+                    str(li.findtext(f"{{{xmp_sidecar.MWGRS_NS}}}Name") or "").strip(),
+                )
+                for li in ET.parse(out).getroot().iter(f"{{{xmp_sidecar.RDF_NS}}}li")
+                if li.find(f"{{{xmp_sidecar.MWGRS_NS}}}Area") is not None
+            ]
+
+        self.assertEqual(regions[0]["caption"], "Updated caption")
+        self.assertIn(("Photo", "Updated caption"), region_names)
+        self.assertIn(("Face", "Alice Example"), region_names)
+
     def test_write_xmp_sidecar_normalizes_literal_newline_escapes(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "image.xmp"

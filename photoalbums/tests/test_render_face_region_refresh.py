@@ -360,11 +360,10 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 image_height=100,
             )
 
-            # Old compact mwg-rs:RegionInfo is cleared entirely (photo regions gone from mwg-rs)
+            # Old compact mwg-rs:RegionInfo is migrated to ExifTool's canonical mwg-rs:Regions.
             self.assertEqual(_compact_mwgrs_region_types(out), [])
             self.assertEqual(_compact_mwgrs_region_names(out), [])
-            # ExifTool writes New Name face region to mwg-rs:Regions
-            self.assertEqual(_digikam_mwgrs_region_names(out), ["New Name"])
+            self.assertEqual(_digikam_mwgrs_region_names(out), ["Photo Region", "New Name"])
             self.assertEqual(_mp_region_rectangles(out), ["0.100000, 0.100000, 0.200000, 0.300000"])
 
     def test_write_xmp_sidecar_removes_stale_face_regions_without_touching_non_face_regions(self):
@@ -422,10 +421,10 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
 
             self.assertEqual(_image_region_ids(out), ["photo-1"])
             self.assertEqual(_image_region_types(out), ["photo-region"])
-            # Old compact mwg-rs:RegionInfo is cleared; ExifTool clears mwg-rs:Regions/MP
+            # Old compact photo regions are migrated to ExifTool's canonical mwg-rs:Regions.
             self.assertEqual(_compact_mwgrs_region_types(out), [])
             self.assertEqual(_compact_mwgrs_region_names(out), [])
-            self.assertEqual(_digikam_mwgrs_region_names(out), [])
+            self.assertEqual(_digikam_mwgrs_region_names(out), ["Photo Region"])
             self.assertEqual(_mp_region_rectangles(out), [])
 
     def test_write_xmp_sidecar_leaves_all_non_face_regions_unchanged(self):
