@@ -105,8 +105,7 @@ photoalbums-list-render-pipeline-steps:
   {{python}} -m photoalbums process --photos-root "." --list-steps
 
 photoalbums-render-pipeline *args:
-  mkdir -p logs
-  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}} 2>&1 | tee logs/photoalbums-render.log
+  {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
 
 photoalbums-list-scan-pipeline-steps:
   {{python}} -m photoalbums watch --list-steps
