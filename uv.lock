@@ -1194,6 +1194,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "chardet" },
+    { name = "colorlog" },
     { name = "diffusers" },
     { name = "docling" },
     { name = "insightface" },
@@ -1237,6 +1238,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "chardet", specifier = "<6" },
+    { name = "colorlog" },
     { name = "diffusers", git = "https://github.com/yfyang007/RealRestorer.git?subdirectory=diffusers&rev=fa2a3e3c23768eb94748c5855d83cc2e340ab13b" },
     { name = "docling" },
     { name = "insightface" },

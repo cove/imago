@@ -427,13 +427,16 @@ def _scan_image_for_xmp(scan_xmp: Path) -> Path | None:
 
 def _read_gray_for_alignment(path: Path):
     import cv2
+    import numpy as np
 
     from ..stitch_oversized_pages import _read_stitch_image
 
     image = _read_stitch_image(path)
-    if image.ndim == 2:
-        return image
-    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if gray.dtype != np.uint8:
+        # SIFT requires uint8 or float32; 16-bit TIFs must be normalized first
+        gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    return gray
 
 
 def _detect_alignment_features(cv2, gray):
@@ -860,18 +863,17 @@ def _plan_scan_backfills_for_cluster(
     iou_threshold: float,
 ) -> list[PendingWrite]:
     pending: list[PendingWrite] = []
-    scan_count = _scan_count_for_page(page_xmp)
     rx, ry, rw, rh = page_box
     for scan_xmp in scan_xmps:
         if _source_already_in_cluster(cluster, scan_xmp):
             continue
         scan_box = _project_page_face_to_scan(rx, ry, rw, rh, scan_xmp, page_xmp)
         if scan_box is None:
-            log.error(
-                "Cannot backfill page face to scan without OpenCV alignment: %s (%d page scan(s))",
-                scan_xmp.name,
-                scan_count,
-            )
+            # Two reasons scan_box can be None:
+            # 1. OpenCV alignment failed — already logged by _scan_to_page_transform.
+            # 2. Face projects outside this scan's bounds — expected on multi-scan
+            #    pages where the face belongs to a different scan slice.
+            # Neither case needs an additional log here.
             continue
         reason = "face cluster not present in scan XMP (OpenCV-aligned to stitched page)"
         scan_rx, scan_ry, scan_rw, scan_rh = scan_box

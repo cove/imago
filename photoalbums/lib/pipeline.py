@@ -15,14 +15,14 @@ class PipelineStep:
 def _make_steps() -> list[PipelineStep]:
     return [
         PipelineStep(
-            id="scan-ai",
-            label="Run AI on archive scan (OCR, YOLO objects, Immich faces, GPS, date, people)",
+            id="render",
+            label="Stitch/convert archive scans to page view JPEGs",
             depends_on=[],
         ),
         PipelineStep(
-            id="render",
-            label="Stitch/convert archive scans to page view JPEGs",
-            depends_on=["scan-ai"],
+            id="propagate-scan-context",
+            label="Copy OCR text and location context from scan XMP to view XMP",
+            depends_on=["render"],
         ),
         PipelineStep(
             id="detect-regions",
@@ -40,9 +40,14 @@ def _make_steps() -> list[PipelineStep]:
             depends_on=["crop-regions"],
         ),
         PipelineStep(
+            id="ocr",
+            label="Run OCR on rendered view JPEG",
+            depends_on=["propagate-scan-context"],
+        ),
+        PipelineStep(
             id="ai-index",
-            label="Run AI pipeline (OCR, caption, GPS, XMP write)",
-            depends_on=["face-refresh"],
+            label="Run AI pipeline (caption, GPS, XMP write)",
+            depends_on=["ocr"],
         ),
         PipelineStep(
             id="immich-face-refresh",
