@@ -25,6 +25,7 @@ from ..naming import (
     is_archive_dir,
     is_pages_dir,
     is_photos_dir,
+    pages_dir_for_album_dir,
     parse_album_filename,
 )
 from .ai_album_titles import (
@@ -325,9 +326,34 @@ def _format_location_hint_from_state(state: dict[str, Any] | None) -> str:
     return ", ".join(part for part in parts if part)
 
 
+def _find_view_xmp_for_derived(image_path: Path) -> Path | None:
+    match = _derived_name_match(image_path)
+    if match is None:
+        return None
+    page = str(match.group("page")).zfill(2)
+    archive_dir = find_archive_dir_for_image(image_path)
+    if archive_dir is None:
+        return None
+    view_dir = pages_dir_for_album_dir(archive_dir)
+    if not view_dir.is_dir():
+        return None
+    candidates = list(view_dir.glob(f"*_P{page}_V.xmp"))
+    return candidates[0] if candidates else None
+
+
 def _resolve_upstream_page_sidecar_state(image_path: Path) -> dict[str, Any] | None:
     if not _derived_name_match(image_path):
         return None
+    # Prefer scan_context written by propagate-scan-context pipeline step on the view XMP
+    view_xmp = _find_view_xmp_for_derived(image_path)
+    if view_xmp is not None and view_xmp.is_file():
+        view_state = read_ai_sidecar_state(view_xmp)
+        if isinstance(view_state, dict):
+            detections = view_state.get("detections")
+            scan_context = dict(detections.get("scan_context") or {}) if isinstance(detections, dict) else {}
+            if scan_context:
+                return scan_context
+    # Fall back to reading scan XMP directly
     archive_dir = find_archive_dir_for_image(image_path)
     if archive_dir is None or not archive_dir.is_dir():
         return None
@@ -3415,6 +3441,7 @@ class IndexRunner:
             scan_filenames = [path.name for path in scan_ocr_authority.group_paths]
         targets = _full_analysis_targets(image_path, layout, scan_ocr_authority)
         derived_ocr_override = _effective_sidecar_ocr_text(image_path, existing_sidecar_state)
+        existing_ocr_ran = bool((existing_sidecar_state or {}).get("ocr_ran"))
         step_runner, existing_detections = self._build_full_step_runner(
             image_path=image_path,
             sidecar_path=sidecar_path,
@@ -3445,7 +3472,9 @@ class IndexRunner:
             extra_people_names=existing_xmp_people,
             is_page_scan=layout.page_like,
             ocr_text_override=(
-                scan_ocr_authority.ocr_text if scan_ocr_authority is not None else (derived_ocr_override or None)
+                scan_ocr_authority.ocr_text
+                if scan_ocr_authority is not None
+                else (derived_ocr_override if existing_ocr_ran else (derived_ocr_override or None))
             ),
             context_ocr_text=hints.upstream_context_ocr,
             context_location_hint=hints.upstream_location_hint,

@@ -1400,6 +1400,55 @@ def read_pipeline_step(xmp_path: str | Path, step_name: str) -> dict[str, object
     return dict(step) if isinstance(step, dict) else None
 
 
+def propagate_scan_context_to_view(
+    scan_xmp_path: str | Path,
+    view_xmp_path: str | Path,
+) -> bool:
+    """Copy scan OCR text and location context into the view XMP Detections as scan_context.
+
+    Only writes fields absent in the existing scan_context block. Returns True if anything changed.
+    """
+    scan_state = read_ai_sidecar_state(scan_xmp_path)
+    if not isinstance(scan_state, dict):
+        return False
+    incoming: dict[str, str] = {}
+    for field in ("ocr_text", "location_city", "location_state", "location_country", "location_sublocation", "album_title"):
+        val = str(scan_state.get(field) or "").strip()
+        if val:
+            incoming[field] = val
+    if not incoming:
+        return False
+    view_path = Path(view_xmp_path)
+    tree = _load_or_create_xmp_tree(view_path)
+    desc = _get_or_create_rdf_desc(tree)
+    detections = _read_detections_payload(desc)
+    existing = dict(detections.get("scan_context") or {})
+    merged = {**incoming, **existing}  # existing values take precedence
+    if merged == existing:
+        return False
+    detections["scan_context"] = merged
+    _write_detections_payload(tree, view_path, detections)
+    return True
+
+
+def patch_ocr_fields(xmp_path: str | Path, *, ocr_text: str, ocr_lang: str) -> None:
+    """Update OCRText, OCRLang, and append an ocr_ran=True processing history entry in place."""
+    path = Path(xmp_path)
+    tree = _load_or_create_xmp_tree(path)
+    desc = _get_or_create_rdf_desc(tree)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRText", ocr_text, allow_empty=True)
+    _set_simple_text(desc, f"{{{IMAGO_NS}}}OCRLang", ocr_lang)
+    history = _read_processing_history(desc)
+    history.append({
+        "action": "ocr",
+        "when": _xmp_datetime_now(),
+        "software_agent": "imago",
+        "parameters": {"stage": "ocr", "ocr_ran": True},
+    })
+    _set_processing_history(desc, history)
+    _save_xmp_tree(tree, path)
+
+
 def write_pipeline_step(
     xmp_path: str | Path,
     step_name: str,
