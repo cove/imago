@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+PIPELINE_LOGGER_NAME = "photoalbums.render_pipeline"
+_active_process_pipeline_prefix = ""
 
 MODULE_DIR = Path(__file__).resolve().parent
 if str(MODULE_DIR) not in sys.path:
@@ -68,6 +72,115 @@ def run_render() -> int:
     import stitch_oversized_pages
 
     return _call_main(stitch_oversized_pages.main)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline log coloring
+# ---------------------------------------------------------------------------
+
+_C_RESET   = "\033[0m"
+_C_BOLD    = "\033[1m"
+_C_DIM     = "\033[2m"
+_C_GREY    = "\033[90m"
+_C_RED     = "\033[1;31m"
+_C_GREEN   = "\033[1;32m"
+_C_YELLOW  = "\033[33m"
+_C_CYAN    = "\033[36m"
+
+_RE_IMAGE   = re.compile(r'\b([\w][\w.-]*\.(?:jpg|jpeg|tif|tiff|png|xmp))\b', re.IGNORECASE)
+_RE_STEP_ID = re.compile(r'(\[\d+/\d+\])\s+(\S+)')
+_RE_DONE    = re.compile(r'(\.\.\.) (done)\b')
+_RE_SKIPPED = re.compile(r'(\.\.\.) (skipped[^\n]*)')
+_RE_RERUN   = re.compile(r'(\(re-run:[^)]*\))')
+
+
+def _sub_images(msg: str, restore: str = _C_RESET) -> str:
+    return _RE_IMAGE.sub(lambda m: f"{_C_YELLOW}{m.group(1)}{restore}", msg)
+
+
+def _colorize_pipeline_msg(msg: str, levelno: int) -> str:
+    if levelno >= logging.ERROR:
+        # Apply image highlights first (clean string), then wrap all in bold red.
+        # After each yellow span, restore to red so the surrounding color holds.
+        msg = _sub_images(msg, restore=_C_RED)
+        return f"{_C_RED}{msg}{_C_RESET}"
+
+    if levelno >= logging.WARNING:
+        msg = _sub_images(msg, restore=_C_YELLOW)
+        return f"{_C_YELLOW}{msg}{_C_RESET}"
+
+    # INFO — apply all substitutions on the clean string first, then add structural
+    # coloring.  Image sub runs before step-id so the ANSI bytes it inserts don't
+    # confuse the later step-id pattern (which only looks at the line prefix).
+    msg = _sub_images(msg)
+    msg = _RE_STEP_ID.sub(
+        lambda m: f"{_C_CYAN}{m.group(1)}{_C_RESET} {_C_BOLD}{m.group(2)}{_C_RESET}", msg
+    )
+    msg = _RE_DONE.sub(
+        lambda m: f"{_C_DIM}{m.group(1)}{_C_RESET} {_C_GREEN}{m.group(2)}{_C_RESET}", msg
+    )
+    msg = _RE_SKIPPED.sub(
+        lambda m: f"{_C_DIM}{m.group(1)} {m.group(2)}{_C_RESET}", msg
+    )
+    msg = _RE_RERUN.sub(lambda m: f"{_C_YELLOW}{m.group(1)}{_C_RESET}", msg)
+    return msg
+
+
+class _PipelineColorFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        ts = self.formatTime(record, self.datefmt)
+        levelname = f"{record.levelname:<7}"
+        msg = record.getMessage()
+
+        ts_str = f"{_C_GREY}{ts}{_C_RESET}"
+
+        if record.levelno >= logging.ERROR:
+            lvl_str = f"{_C_RED}{levelname}{_C_RESET}"
+        elif record.levelno >= logging.WARNING:
+            lvl_str = f"{_C_YELLOW}{levelname}{_C_RESET}"
+        else:
+            lvl_str = f"{_C_DIM}{levelname}{_C_RESET}"
+
+        return f"{ts_str} {lvl_str} {_colorize_pipeline_msg(msg, record.levelno)}"
+
+
+class _PipelinePlainFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        ts = self.formatTime(record, self.datefmt)
+        levelname = f"{record.levelname:<7}"
+        msg = record.getMessage()
+        return f"{ts} {levelname} {msg}"
+
+
+def _configure_process_pipeline_logging() -> None:
+    logger = logging.getLogger(PIPELINE_LOGGER_NAME)
+    logger.handlers.clear()
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(_PipelineColorFormatter(datefmt="%H:%M:%S"))
+    logger.addHandler(stream_handler)
+
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / f"photoalbums-render-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(_PipelinePlainFormatter(datefmt="%H:%M:%S"))
+    logger.addHandler(file_handler)
+
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+
+def _reset_process_pipeline_logging() -> None:
+    logging.getLogger(PIPELINE_LOGGER_NAME).handlers.clear()
+
+
+def _pipeline_line(message: str, *, level: int = logging.INFO) -> None:
+    logger = logging.getLogger(PIPELINE_LOGGER_NAME)
+    if logger.handlers:
+        logger.log(level, message)
+        return
+    print(message)
 
 
 def run_stitch_validate() -> int:
@@ -1005,18 +1118,18 @@ def print_pipeline_plan(
     page_count: int,
 ) -> None:
     total = len(steps)
-    print(f"Pipeline steps ({total} total):")
+    _pipeline_line(f"Pipeline steps ({total} total):")
     for i, step in enumerate(steps, 1):
         annotation = ""
         if step.id in skip_ids:
             annotation = f"  (skipped: --skip {step.id})"
         elif step.id in redo_ids:
             annotation = "  (redo forced)"
-        print(f"  [{i}] {step.id}{annotation}")
+        _pipeline_line(f"  [{i}] {step.id}{annotation}")
     if album_label:
-        print(f"Album: {album_label}, {page_count} page(s)")
+        _pipeline_line(f"Album: {album_label}, {page_count} page(s)")
     else:
-        print(f"{page_count} page(s)")
+        _pipeline_line(f"{page_count} page(s)")
 
 
 def _dispatch_pipeline_step(
@@ -1036,7 +1149,6 @@ def _dispatch_pipeline_step(
     step_just_ran,
     stale_dep,
     ai_runner,
-    scan_ai_runner,
     ai_page_idx,
     face_session,
     root,
@@ -1050,17 +1162,6 @@ def _dispatch_pipeline_step(
     deps,
 ) -> int:
     match step.id:
-        case "scan-ai":
-            _run_pipeline_scan_ai_step(
-                primary_scan=primary_scan,
-                xmp_path=xmp_path,
-                scan_ai_runner=scan_ai_runner,
-                force_this_step=force_this_step,
-                counters=counters,
-                step_just_ran=step_just_ran,
-                stale_dep=stale_dep,
-                deps=deps,
-            )
         case "render":
             if not force_this_step and view_path.is_file():
                 counters["render"]["skipped"] += 1
@@ -1143,6 +1244,28 @@ def _dispatch_pipeline_step(
                 stale_dep=stale_dep,
                 deps=deps,
             )
+        case "propagate-scan-context":
+            _run_pipeline_propagate_scan_context_step(
+                primary_scan=primary_scan,
+                view_path=view_path,
+                xmp_path=xmp_path,
+                force_this_step=force_this_step,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
+            )
+        case "ocr":
+            _run_pipeline_ocr_step(
+                view_path=view_path,
+                xmp_path=xmp_path,
+                archive=archive,
+                force_this_step=force_this_step,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
+            )
         case "ai-index":
             ai_page_idx = _run_pipeline_ai_index_step(
                 ai_runner=ai_runner,
@@ -1189,7 +1312,6 @@ def _run_process_pipeline_step(
     step_just_ran: set[str],
     counters: dict[str, dict],
     ai_runner,
-    scan_ai_runner,
     ai_page_idx: int,
     face_session,
     root: Path,
@@ -1201,6 +1323,8 @@ def _run_process_pipeline_step(
     force_restoration: bool,
     deps: dict,
 ) -> int:
+    global _active_process_pipeline_prefix
+
     prefix = f"[{step_idx}/{total_steps}] {step.id} {page_label}"
     pipeline_state = deps["read_pipeline_state"](xmp_path)
     should_redo = step.id in effective_redo_ids
@@ -1211,9 +1335,9 @@ def _run_process_pipeline_step(
         stale, stale_dep = _check_step_stale(step, pipeline_state)
     force_this_step = should_redo or dep_ran or stale
 
-    print(f"{prefix}", end="", flush=True)
-
     try:
+        _active_process_pipeline_prefix = prefix
+        _pipeline_line(prefix)
         ai_page_idx = _dispatch_pipeline_step(
             step=step,
             group=group,
@@ -1230,7 +1354,6 @@ def _run_process_pipeline_step(
             step_just_ran=step_just_ran,
             stale_dep=stale_dep,
             ai_runner=ai_runner,
-            scan_ai_runner=scan_ai_runner,
             ai_page_idx=ai_page_idx,
             face_session=face_session,
             root=root,
@@ -1245,37 +1368,11 @@ def _run_process_pipeline_step(
         )
     except Exception as exc:
         counters[step.id]["failed"] += 1
-        print(f" ... ERROR: {exc}", file=sys.stderr, flush=True)
+        _pipeline_line(f"{prefix} ... ERROR: {exc}", level=logging.ERROR)
+    finally:
+        _active_process_pipeline_prefix = ""
     return ai_page_idx
 
-
-def _run_pipeline_scan_ai_step(
-    *,
-    primary_scan: Path,
-    xmp_path: Path,
-    scan_ai_runner,
-    force_this_step: bool,
-    counters: dict[str, dict],
-    step_just_ran: set[str],
-    stale_dep: str,
-    deps: dict,
-) -> None:
-    if not force_this_step and deps["read_pipeline_step"](xmp_path, "scan-ai") is not None:
-        counters["scan-ai"]["skipped"] += 1
-        _print_outcome("skipped (already complete)", stale_dep)
-        return
-    scan_ai_runner.force_processing = force_this_step
-    scan_ai_runner.files = [primary_scan]
-    fail_before = scan_ai_runner.failures
-    scan_ai_runner._process_one(1, primary_scan)
-    if scan_ai_runner.failures > fail_before:
-        counters["scan-ai"]["failed"] += 1
-        _print_outcome("ERROR", stale_dep)
-    else:
-        counters["scan-ai"]["run"] += 1
-        step_just_ran.add("scan-ai")
-        deps["write_pipeline_step"](xmp_path, "scan-ai")
-        _print_outcome("done", stale_dep)
 
 
 def _run_pipeline_detect_regions_step(
@@ -1474,6 +1571,70 @@ def _run_pipeline_face_reconcile_step(
     _print_outcome("done", stale_dep)
 
 
+def _run_pipeline_propagate_scan_context_step(
+    *,
+    primary_scan: Path,
+    view_path: Path,
+    xmp_path: Path,
+    force_this_step: bool,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
+) -> None:
+    if not force_this_step and deps["read_pipeline_step"](xmp_path, "propagate-scan-context") is not None:
+        counters["propagate-scan-context"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+        return
+    scan_xmp = primary_scan.with_suffix(".xmp")
+    changed = deps["propagate_scan_context_to_view"](scan_xmp, xmp_path)
+    counters["propagate-scan-context"]["run"] += 1
+    step_just_ran.add("propagate-scan-context")
+    deps["write_pipeline_step"](xmp_path, "propagate-scan-context")
+    _print_outcome("done" if changed else "done (nothing to propagate)", stale_dep)
+
+
+def _run_pipeline_ocr_step(
+    *,
+    view_path: Path,
+    xmp_path: Path,
+    archive: Path,
+    force_this_step: bool,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
+) -> None:
+    if not force_this_step and deps["read_pipeline_step"](xmp_path, "ocr") is not None:
+        counters["ocr"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+        return
+    from .lib.ai_model_settings import default_lmstudio_base_url
+    from .lib.ai_ocr import OCREngine
+    from .lib.ai_render_settings import load_render_settings
+
+    _, settings = load_render_settings(archive, defaults={"ocr_engine": "none", "ocr_lang": "eng", "ocr_model": "", "lmstudio_base_url": default_lmstudio_base_url()})
+    archive_settings = dict(settings.get("archive_settings") or {})
+    ocr_engine_name = str(archive_settings.get("ocr_engine", "none"))
+    if ocr_engine_name == "none":
+        counters["ocr"]["skipped"] += 1
+        _print_outcome("skipped (ocr_engine=none)", stale_dep)
+        return
+    ocr_engine = OCREngine(
+        engine=ocr_engine_name,
+        language=str(archive_settings.get("ocr_lang", "eng")),
+        model_name=str(archive_settings.get("ocr_model", "")),
+        base_url=str(archive_settings.get("lmstudio_base_url", default_lmstudio_base_url())),
+    )
+    ocr_text = ocr_engine.read_text(view_path)
+    ocr_lang = str(archive_settings.get("ocr_lang", "eng"))
+    deps["patch_ocr_fields"](xmp_path, ocr_text=ocr_text, ocr_lang=ocr_lang)
+    counters["ocr"]["run"] += 1
+    step_just_ran.add("ocr")
+    deps["write_pipeline_step"](xmp_path, "ocr", model=ocr_engine.effective_model_name)
+    _print_outcome("done", stale_dep)
+
+
 def _run_pipeline_ai_index_step(
     *,
     ai_runner,
@@ -1526,7 +1687,7 @@ def _run_pipeline_verify_crops_step(
         view_path,
         model_name=str(ai_runner.defaults.get("caption_model") or ""),
         base_url=str(ai_runner.defaults.get("lmstudio_base_url") or ""),
-        logger=lambda message: print(f"    {message}", flush=True),
+        logger=lambda message: _pipeline_line(f"    {message}"),
     )
     deps["persist_verify_crops_state"](view_path, verify_result)
     counters["verify-crops"]["run"] += 1
@@ -1553,10 +1714,14 @@ def run_process_pipeline(
     gps_only: bool = False,
     refresh_gps: bool = False,
 ) -> int:
+    _configure_process_pipeline_logging()
+
     from .lib._caption_lmstudio import lmstudio_token_logging
     from .lib.pipeline import OPTIONAL_STEP_IDS, PIPELINE_STEPS, VALID_STEP_IDS
     from .lib.xmp_sidecar import (
         clear_pipeline_steps,
+        patch_ocr_fields,
+        propagate_scan_context_to_view,
         read_pipeline_state,
         read_pipeline_step,
         write_pipeline_step,
@@ -1590,6 +1755,7 @@ def run_process_pipeline(
     archives = _matching_pipeline_archives(root, album_id=album_id, list_archive_dirs=list_archive_dirs)
     if not archives:
         print(f"No archive directories found matching '{album_id}' under {root}", file=sys.stderr)
+        _reset_process_pipeline_logging()
         return 1
 
     # Collect all page groups
@@ -1603,6 +1769,7 @@ def run_process_pipeline(
     )
     if not all_pages:
         print("No matching pages found.", file=sys.stderr)
+        _reset_process_pipeline_logging()
         return 1
 
     active_steps = [s for s in PIPELINE_STEPS if s.id not in effective_skip_ids]
@@ -1647,9 +1814,6 @@ def run_process_pipeline(
     ai_runner = IndexRunner(
         _pipeline_ai_runner_argv(root, gps_only=gps_only, refresh_gps=refresh_gps, force=force, debug=debug)
     )
-    scan_ai_runner = IndexRunner(
-        _pipeline_scan_ai_runner_argv(root, force=force, debug=debug)
-    )
     deps = {
         "CropPageStats": CropPageStats,
         "FaceRefreshSkipped": FaceRefreshSkipped,
@@ -1671,6 +1835,8 @@ def run_process_pipeline(
         "list_derived_images": list_derived_images,
         "merge_face_regions_xmp": merge_face_regions_xmp,
         "merge_persons_xmp": merge_persons_xmp,
+        "patch_ocr_fields": patch_ocr_fields,
+        "propagate_scan_context_to_view": propagate_scan_context_to_view,
         "persist_verify_crops_state": persist_verify_crops_state,
         "read_pipeline_state": read_pipeline_state,
         "read_pipeline_step": read_pipeline_step,
@@ -1690,7 +1856,6 @@ def run_process_pipeline(
             effective_redo_ids=effective_redo_ids,
             counters=counters,
             ai_runner=ai_runner,
-            scan_ai_runner=scan_ai_runner,
             face_session=face_session,
             root=root,
             model_name=model_name,
@@ -1707,6 +1872,7 @@ def run_process_pipeline(
     _print_process_pipeline_summary(active_steps, counters)
 
     any_failed = any(counters[s.id]["failed"] > 0 for s in active_steps)
+    _reset_process_pipeline_logging()
     return 1 if any_failed else 0
 
 
@@ -1781,14 +1947,6 @@ def _pipeline_ai_runner_argv(root: Path, *, gps_only: bool, refresh_gps: bool, f
     return argv
 
 
-def _pipeline_scan_ai_runner_argv(root: Path, *, force: bool, debug: bool) -> list[str]:
-    argv = ["--photos-root", str(root), "--include-archive"]
-    if force:
-        argv.append("--force")
-    if debug:
-        argv.append("--debug")
-    return argv
-
 
 def _process_pipeline_pages(
     all_pages: list[tuple],
@@ -1798,7 +1956,6 @@ def _process_pipeline_pages(
     effective_redo_ids: set[str],
     counters: dict[str, dict],
     ai_runner,
-    scan_ai_runner,
     face_session,
     root: Path,
     model_name: str,
@@ -1819,6 +1976,8 @@ def _process_pipeline_pages(
             _require_primary_scan=_require_primary_scan,
             _view_page_output_path=_view_page_output_path,
         )
+        _pipeline_line(f"Processing {page_context['page_label']}")
+        _show_image_preview(page_context["view_path"], page_context["primary_scan"])
         step_just_ran: set[str] = set()
         for step_idx, step in enumerate(active_steps, 1):
             ai_page_idx = _run_process_pipeline_step(
@@ -1833,7 +1992,6 @@ def _process_pipeline_pages(
                 step_just_ran=step_just_ran,
                 counters=counters,
                 ai_runner=ai_runner,
-                scan_ai_runner=scan_ai_runner,
                 ai_page_idx=ai_page_idx,
                 face_session=face_session,
                 root=root,
@@ -1846,6 +2004,21 @@ def _process_pipeline_pages(
                 deps=deps,
                 **page_context,
             )
+
+
+def _show_image_preview(view_path: Path, primary_scan: Path) -> None:
+    import shutil
+    import subprocess
+
+    image = view_path if view_path.is_file() else primary_scan if primary_scan.is_file() else None
+    if image is None:
+        return
+    width = max(20, shutil.get_terminal_size().columns // 8)
+    if shutil.which("chafa"):
+        # chafa auto-detects kitty/sixel/truecolor; works correctly with Ghostty
+        subprocess.run(["chafa", f"--size={width}x", str(image)], check=False)
+    elif shutil.which("viu"):
+        subprocess.run(["viu", "-w", str(width), str(image)], check=False)
 
 
 def _pipeline_page_context(group, *, view_dir: Path, _require_primary_scan, _view_page_output_path) -> dict:
@@ -1864,12 +2037,17 @@ def _pipeline_page_context(group, *, view_dir: Path, _require_primary_scan, _vie
 
 
 def _print_process_pipeline_summary(active_steps: list, counters: dict[str, dict]) -> None:
-    print("\n===== PIPELINE SUMMARY =====")
+    _pipeline_line("")
+    _pipeline_line("===== PIPELINE SUMMARY =====")
     for step in active_steps:
         c = counters[step.id]
         detail = ", ".join(c["detail"]) if c["detail"] else ""
         detail_col = f"  ({detail})" if detail else ""
-        print(f"  {step.id:<22} run={c['run']}  skipped={c['skipped']}  failed={c['failed']}{detail_col}")
+        level = logging.ERROR if c["failed"] else logging.INFO
+        _pipeline_line(
+            f"  {step.id:<22} run={c['run']}  skipped={c['skipped']}  failed={c['failed']}{detail_col}",
+            level=level,
+        )
 
 
 def _check_step_stale(step, pipeline_state: dict) -> tuple[bool, str]:
@@ -1909,9 +2087,11 @@ def _check_step_stale(step, pipeline_state: dict) -> tuple[bool, str]:
 
 def _print_outcome(outcome: str, stale_dep: str) -> None:
     if stale_dep:
-        print(f" ... (re-run: {stale_dep} updated)", flush=True)
+        suffix = f"... (re-run: {stale_dep} updated)"
     else:
-        print(f" ... {outcome}", flush=True)
+        suffix = f"... {outcome}"
+    level = logging.ERROR if "ERROR" in outcome else logging.INFO
+    _pipeline_line(f"  {suffix}", level=level)
 
 
 def _print_ai_index_discovery_summary(*, sidecar_path: Path) -> None:
@@ -1923,19 +2103,19 @@ def _print_ai_index_discovery_summary(*, sidecar_path: Path) -> None:
     detections = dict(state.get("detections") or {})
     caption = str(state.get("description") or "").strip()
     if caption:
-        print(f"    ai-index caption: {caption}", flush=True)
+        _pipeline_line(f"    ai-index caption: {caption}")
     dc_date = str(state.get("dc_date") or "").strip()
     if dc_date:
-        print(f"    ai-index date: {dc_date}", flush=True)
+        _pipeline_line(f"    ai-index date: {dc_date}")
     location_text = _ai_index_location_text(state)
     if location_text:
-        print(f"    ai-index shown_location: {location_text}", flush=True)
+        _pipeline_line(f"    ai-index shown_location: {location_text}")
     _print_ai_index_gps_summary(state)
     locations_shown = list(detections.get("locations_shown") or [])
     if locations_shown:
         names = _location_shown_names(locations_shown)
         if names:
-            print(f"    ai-index locations_shown: {', '.join(names)}", flush=True)
+            _pipeline_line(f"    ai-index locations_shown: {', '.join(names)}")
 
 
 def _location_shown_names(locations_shown: list) -> list[str]:
@@ -1963,7 +2143,7 @@ def _print_ai_index_gps_summary(state: dict) -> None:
     gps_lat = str(state.get("gps_latitude") or "").strip()
     gps_lon = str(state.get("gps_longitude") or "").strip()
     if gps_lat or gps_lon:
-        print(f"    ai-index gps: {gps_lat or '?'} {gps_lon or '?'}", flush=True)
+        _pipeline_line(f"    ai-index gps: {gps_lat or '?'} {gps_lon or '?'}")
 
 
 def _format_verify_crops_detail(verify_result: dict[str, object]) -> str:
@@ -1987,13 +2167,13 @@ def _print_verify_crops_summary(view_path: Path, verify_result: dict[str, object
     status = str(verify_result.get("status") or "")
     if status != "ok":
         missing = ", ".join(list(verify_result.get("missing_context") or []))
-        print(f"    verify-crops missing context: {missing}", flush=True)
+        _pipeline_line(f"    verify-crops missing context: {missing}", level=logging.WARNING)
         return
     for row in list(verify_result.get("results") or []):
         _print_verify_crops_row(row)
     artifact_path = str(verify_result.get("artifact_path") or "").strip()
     if artifact_path:
-        print(f"    verify-crops artifact: {artifact_path}", flush=True)
+        _pipeline_line(f"    verify-crops artifact: {artifact_path}")
 
 
 def _print_verify_crops_row(row: dict) -> None:
@@ -2001,7 +2181,7 @@ def _print_verify_crops_row(row: dict) -> None:
     concerns = _collect_verify_crops_concerns(review)
     if concerns:
         crop_name = Path(str(row.get("crop_image_path") or "")).name
-        print(f"    verify-crops {crop_name}: {'; '.join(concerns)}", flush=True)
+        _pipeline_line(f"    verify-crops {crop_name}: {'; '.join(concerns)}", level=logging.WARNING)
 
 
 def _collect_verify_crops_concerns(review: dict) -> list[str]:
