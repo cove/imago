@@ -14,7 +14,12 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.commands import _effective_pipeline_step_ids, print_pipeline_plan
-from photoalbums.lib.pipeline import PIPELINE_STEPS, VALID_STEP_IDS, validate_step_ids
+from photoalbums.lib.pipeline import (
+    PIPELINE_STEPS,
+    VALID_STEP_IDS,
+    format_pipeline_dag,
+    validate_step_ids,
+)
 from photoalbums.lib.xmp_sidecar import is_step_stale
 
 
@@ -94,6 +99,44 @@ class TestPrintPipelinePlan(unittest.TestCase):
     def test_immich_face_refresh_runs_after_ai_index(self):
         step_ids = [step.id for step in PIPELINE_STEPS]
         self.assertLess(step_ids.index("ai-index"), step_ids.index("immich-face-refresh"))
+
+
+class TestPipelineDag(unittest.TestCase):
+    def test_registration_order_is_valid_topological_order(self):
+        # Execution walks PIPELINE_STEPS in list order while depends_on drives
+        # staleness; the list must therefore be a valid topological sort so a
+        # step never runs before a dependency. Nothing enforces this at runtime,
+        # so guard it here.
+        seen: set[str] = set()
+        for step in PIPELINE_STEPS:
+            for dep in step.depends_on:
+                self.assertIn(
+                    dep,
+                    seen,
+                    f"{step.id} lists dependency {dep!r} that appears later in PIPELINE_STEPS",
+                )
+            seen.add(step.id)
+
+    def test_dag_lists_every_step(self):
+        output = "\n".join(format_pipeline_dag(PIPELINE_STEPS))
+        for step in PIPELINE_STEPS:
+            self.assertIn(step.id, output)
+
+    def test_dag_marks_multi_parent_node_once(self):
+        lines = format_pipeline_dag(PIPELINE_STEPS)
+        # immich-face-refresh depends on both ai-index and face-refresh: expanded
+        # once with an "(also after: ...)" note and back-referenced elsewhere.
+        also_after = [ln for ln in lines if "immich-face-refresh" in ln and "also after" in ln]
+        back_ref = [ln for ln in lines if "immich-face-refresh" in ln and "shown above" in ln]
+        self.assertEqual(len(also_after), 1)
+        self.assertEqual(len(back_ref), 1)
+        self.assertIn("face-refresh", also_after[0])
+
+    def test_dag_tags_optional_step(self):
+        lines = format_pipeline_dag(PIPELINE_STEPS)
+        verify = [ln for ln in lines if "verify-crops" in ln]
+        self.assertTrue(verify)
+        self.assertIn("[optional]", verify[0])
 
 
 class TestEffectivePipelineStepIds(unittest.TestCase):

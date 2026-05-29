@@ -43,11 +43,10 @@ STEPS: dict[str, StepDef] = {
     "metadata": StepDef("metadata", [], ["ocr", "caption", "location", "locations_shown", "location_shown_ran"]),
     "people": StepDef("people", [], ["people"]),
     "objects": StepDef("objects", [], ["objects", "object_model"]),
-    "propagate-to-crops": StepDef("propagate-to-crops", ["metadata", "people"], []),
 }
 
 # Topological order for execution
-STEP_ORDER = ["metadata", "people", "objects", "propagate-to-crops"]
+STEP_ORDER = ["metadata", "people", "objects"]
 
 
 # ── Input hash functions ───────────────────────────────────────────────────────
@@ -105,7 +104,6 @@ STEP_HASH_FNS: dict[str, Callable[[dict[str, Any], dict[str, str]], str]] = {
     "metadata": metadata_input_hash,
     "people": people_input_hash,
     "objects": objects_input_hash,
-    "propagate-to-crops": propagate_to_crops_input_hash,
 }
 
 

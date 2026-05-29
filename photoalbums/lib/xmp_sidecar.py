@@ -1431,6 +1431,52 @@ def propagate_scan_context_to_view(
     return True
 
 
+def write_detector_text_regions(
+    xmp_path: str | Path,
+    *,
+    detector: str,
+    text_regions: list[dict],
+    img_w: int,
+    img_h: int,
+) -> None:
+    """Persist a detector's text regions into imago:Detections["detectors"][detector].
+
+    Each region records the recognized ``text``, its source ``label`` (e.g. caption,
+    title, footnote), and its bounding box in BOTH original-image pixels
+    (``x``/``y``/``width``/``height``, top-left origin) and normalized 0..1 coordinates
+    (``nx``/``ny``/``nw``/``nh``) so external programs can consume either form. The
+    block is replaced wholesale for ``detector`` on each call.
+    """
+    path = Path(xmp_path)
+    tree = _load_or_create_xmp_tree(path)
+    desc = _get_or_create_rdf_desc(tree)
+    detections = _read_detections_payload(desc)
+    detectors = dict(detections.get("detectors") or {})
+    entries: list[dict] = []
+    for region in text_regions or []:
+        try:
+            x, y, w, h = int(region["x"]), int(region["y"]), int(region["width"]), int(region["height"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        entry: dict[str, object] = {
+            "label": str(region.get("label") or ""),
+            "text": str(region.get("text") or ""),
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+        }
+        if img_w > 0 and img_h > 0:
+            entry["nx"] = round(x / img_w, 6)
+            entry["ny"] = round(y / img_h, 6)
+            entry["nw"] = round(w / img_w, 6)
+            entry["nh"] = round(h / img_h, 6)
+        entries.append(entry)
+    detectors[str(detector)] = {"text_regions": entries}
+    detections["detectors"] = detectors
+    _write_detections_payload(tree, path, detections)
+
+
 def patch_ocr_fields(xmp_path: str | Path, *, ocr_text: str, ocr_lang: str) -> None:
     """Update OCRText, OCRLang, and append an ocr_ran=True processing history entry in place."""
     path = Path(xmp_path)
@@ -2486,6 +2532,7 @@ def write_xmp_sidecar(
     people_detected: bool = False,
     people_identified: bool = False,
     locations_shown: list[dict] | None = None,
+    write_face_regions: bool = False,
 ) -> Path:
     path = Path(sidecar_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -2581,7 +2628,7 @@ def write_xmp_sidecar(
             locations_shown=locations_shown,
         )
     tree.write(path, encoding="utf-8", xml_declaration=True)
-    if isinstance(detections_payload, dict) and "people" in detections_payload:
+    if write_face_regions and isinstance(detections_payload, dict) and "people" in detections_payload:
         _write_exiftool_face_regions(path, detections_payload, image_width, image_height)
     return path
 
@@ -2764,17 +2811,18 @@ def write_region_list(
 
     desc = _get_or_create_rdf_desc(tree)
 
+    # The detections payload is the source of truth for verbatim per-photo names
+    # (see _do_metadata in ai_index_analysis) and for detector text regions, which
+    # we mirror into the standard mwg-rs RegionList as Caption/Text-typed regions.
+    detections_payload = _read_detections_payload(desc)
+    caption_entries = _caption_region_entries_from_detections(detections_payload, img_w, img_h)
+
     _remove_mwgrs_region_blocks(desc)
 
-    if not regions_with_captions:
+    if not regions_with_captions and not caption_entries:
         tree.write(str(path), encoding="utf-8", xml_declaration=True)
         return
 
-    # Look up the AI metadata's verbatim per-photo response, if any, so we
-    # can fill in mwg-rs:Name even when the caller (e.g. detect-regions)
-    # passes regions with empty captions. The detections payload is the
-    # source of truth — see _do_metadata in ai_index_analysis.
-    detections_payload = _read_detections_payload(desc)
     metadata_photos_by_number = _metadata_photos_by_number(detections_payload)
 
     region_entries: list[dict] = []
@@ -2797,12 +2845,17 @@ def write_region_list(
                 img_h=img_h,
             )
         )
+    # Append derived caption/text regions and preserved face regions AFTER the photo
+    # entries so canonical-photo metadata application (which zips photo items with the
+    # photo region list, in order) stays aligned.
+    region_entries.extend(caption_entries)
     region_entries.extend(_existing_face_region_entries(path))
 
     ET.indent(tree, space="  ")
     tree.write(str(path), encoding="utf-8", xml_declaration=True)
     _write_mwgrs_regions_exiftool(path, region_entries, img_w, img_h)
     _apply_region_metadata_to_canonical_items(path, regions_with_captions, existing_regions)
+    _apply_caption_region_types(path, caption_entries)
 
     tree = ET.parse(str(path))  # type: ignore[assignment]
     desc = _get_or_create_rdf_desc(tree)
@@ -2928,6 +2981,50 @@ def _region_entry_for_exiftool(region, caption: str, photo_number: int, *, pixel
     }
 
 
+def _caption_region_entries_from_detections(detections_payload: dict, img_w: int, img_h: int) -> list[dict]:
+    """Build mwg-rs RegionList entries for detector text regions.
+
+    Text regions live in ``imago:Detections["detectors"][<name>]["text_regions"]`` with
+    pixel bboxes. We mirror them into the standard mwg-rs RegionList using a custom
+    ``Type`` (``Caption`` for caption-like labels, otherwise ``Text``) so generic
+    metadata tools can read them. The region readers here filter on ``Type == "Photo"``
+    (and ``"Face"``), so these entries never leak into the photo-cropping pipeline.
+    """
+    if img_w <= 0 or img_h <= 0:
+        return []
+    from .ai_view_regions import pixel_to_mwgrs  # pylint: disable=import-outside-toplevel
+
+    detectors = (detections_payload or {}).get("detectors") or {}
+    if not isinstance(detectors, dict):
+        return []
+    entries: list[dict] = []
+    for detector_data in detectors.values():
+        if not isinstance(detector_data, dict):
+            continue
+        for region in detector_data.get("text_regions") or []:
+            try:
+                x, y, w, h = int(region["x"]), int(region["y"]), int(region["width"]), int(region["height"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            cx, cy, nw, nh = pixel_to_mwgrs(x, y, w, h, img_size=(img_w, img_h))
+            label = str(region.get("label") or "").strip().lower()
+            region_type = "Caption" if label in {"", "caption"} else "Text"
+            entries.append(
+                {
+                    "Name": str(region.get("text") or ""),
+                    "Type": region_type,
+                    "Area": {
+                        "X": round(cx, 6),
+                        "Y": round(cy, 6),
+                        "W": round(nw, 6),
+                        "H": round(nh, 6),
+                        "Unit": "normalized",
+                    },
+                }
+            )
+    return entries
+
+
 def _existing_face_region_entries(path: Path) -> list[dict]:
     if not path.is_file():
         return []
@@ -3033,6 +3130,39 @@ def _inject_mwgrs_regions(path: Path, exiftool_xmp: Path) -> None:
     desc = _get_or_create_rdf_desc(tree)
     _remove_mwgrs_region_blocks(desc)
     desc.append(mwgrs_regions)
+    ET.indent(tree, space="  ")
+    tree.write(str(path), encoding="utf-8", xml_declaration=True)
+
+
+def _apply_caption_region_types(path: Path, caption_entries: list[dict]) -> None:
+    """Set mwg-rs:Type on derived caption/text region items.
+
+    ExifTool drops non-standard mwg-rs:Type values (it only honors Face/Pet/Focus/
+    BarCode), so the Caption/Text types we requested are stripped during the ExifTool
+    write. After photo items have been tagged Type=Photo and face items keep Type=Face,
+    the remaining untyped region items (in bag order) are exactly our caption entries,
+    so we assign their Types here via ElementTree.
+    """
+    if not caption_entries:
+        return
+    tree = ET.parse(str(path))
+    rdf = tree.getroot().find(_RDF_ROOT)
+    if rdf is None:
+        return
+    untyped: list[ET.Element] = []
+    for desc in rdf.findall(_RDF_DESC):
+        regions = desc.find(f"{{{MWGRS_NS}}}Regions")
+        region_list = regions.find(f"{{{MWGRS_NS}}}RegionList") if regions is not None else None
+        bag = region_list.find(_RDF_BAG) if region_list is not None else None
+        if bag is None:
+            continue
+        for li in bag.findall(_RDF_LI):
+            existing_type = str(li.findtext(f"{{{MWGRS_NS}}}Type") or li.get(f"{{{MWGRS_NS}}}Type") or "").strip()
+            has_area = li.find(f"{{{MWGRS_NS}}}Area") is not None or li.get(f"{{{STAREA_NS}}}x") is not None
+            if not existing_type and has_area:
+                untyped.append(li)
+    for li, entry in zip(untyped, caption_entries, strict=False):
+        ET.SubElement(li, f"{{{MWGRS_NS}}}Type").text = str(entry.get("Type") or "Caption")
     ET.indent(tree, space="  ")
     tree.write(str(path), encoding="utf-8", xml_declaration=True)
 

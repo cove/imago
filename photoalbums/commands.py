@@ -1266,6 +1266,16 @@ def _dispatch_pipeline_step(
                 stale_dep=stale_dep,
                 deps=deps,
             )
+        case "propagate-to-crops":
+            _run_pipeline_propagate_to_crops_step(
+                view_path=view_path,
+                xmp_path=xmp_path,
+                force_this_step=force_this_step,
+                counters=counters,
+                step_just_ran=step_just_ran,
+                stale_dep=stale_dep,
+                deps=deps,
+            )
         case "ai-index":
             ai_page_idx = _run_pipeline_ai_index_step(
                 ai_runner=ai_runner,
@@ -1626,13 +1636,59 @@ def _run_pipeline_ocr_step(
         model_name=str(archive_settings.get("ocr_model", "")),
         base_url=str(archive_settings.get("lmstudio_base_url", default_lmstudio_base_url())),
     )
-    ocr_text = ocr_engine.read_text(view_path)
     ocr_lang = str(archive_settings.get("ocr_lang", "eng"))
+
+    # The Docling engine runs OCR in a single pass folded into detect-regions (which
+    # runs earlier and persists OCRText to the view XMP). If that text is already
+    # present, skip the redundant second Docling pass and just record the step.
+    if ocr_engine_name == "docling" and _docling_ocr_already_persisted(xmp_path):
+        counters["ocr"]["skipped"] += 1
+        step_just_ran.add("ocr")
+        deps["write_pipeline_step"](xmp_path, "ocr", model=ocr_engine.effective_model_name)
+        _print_outcome("skipped (docling single-pass in detect-regions)", stale_dep)
+        return
+
+    ocr_text = ocr_engine.read_text(view_path)
     deps["patch_ocr_fields"](xmp_path, ocr_text=ocr_text, ocr_lang=ocr_lang)
     counters["ocr"]["run"] += 1
     step_just_ran.add("ocr")
     deps["write_pipeline_step"](xmp_path, "ocr", model=ocr_engine.effective_model_name)
     _print_outcome("done", stale_dep)
+
+
+def _docling_ocr_already_persisted(xmp_path: Path) -> bool:
+    """Return True when the view XMP already holds OCR text from the detect-regions pass."""
+    from .lib.xmp_sidecar import read_ai_sidecar_state
+
+    try:
+        state = read_ai_sidecar_state(xmp_path) or {}
+    except Exception:
+        return False
+    if not bool(state.get("ocr_ran")):
+        return False
+    return bool(str(state.get("ocr_text") or "").strip())
+
+
+def _run_pipeline_propagate_to_crops_step(
+    *,
+    view_path: Path,
+    xmp_path: Path,
+    force_this_step: bool,
+    counters: dict[str, dict],
+    step_just_ran: set[str],
+    stale_dep: str,
+    deps: dict,
+) -> None:
+    if not force_this_step and deps["read_pipeline_step"](xmp_path, "propagate-to-crops") is not None:
+        counters["propagate-to-crops"]["skipped"] += 1
+        _print_outcome("skipped (already complete)", stale_dep)
+        return
+    result = deps["run_propagate_to_crops"](view_path)
+    crops_updated = int((result or {}).get("crops_updated") or 0)
+    counters["propagate-to-crops"]["run"] += 1
+    step_just_ran.add("propagate-to-crops")
+    deps["write_pipeline_step"](xmp_path, "propagate-to-crops")
+    _print_outcome(f"done ({crops_updated} crop(s) updated)" if crops_updated else "done (no crops)", stale_dep)
 
 
 def _run_pipeline_ai_index_step(
@@ -1809,7 +1865,7 @@ def run_process_pipeline(
     face_session = RenderFaceRefreshSession(photos_root=root)
 
     # Build IndexRunners once so engine caches are shared across pages
-    from .lib.ai_index_runner import IndexRunner
+    from .lib.ai_index_runner import IndexRunner, run_propagate_to_crops
 
     ai_runner = IndexRunner(
         _pipeline_ai_runner_argv(root, gps_only=gps_only, refresh_gps=refresh_gps, force=force, debug=debug)
@@ -1837,6 +1893,7 @@ def run_process_pipeline(
         "merge_persons_xmp": merge_persons_xmp,
         "patch_ocr_fields": patch_ocr_fields,
         "propagate_scan_context_to_view": propagate_scan_context_to_view,
+        "run_propagate_to_crops": run_propagate_to_crops,
         "persist_verify_crops_state": persist_verify_crops_state,
         "read_pipeline_state": read_pipeline_state,
         "read_pipeline_step": read_pipeline_step,

@@ -490,7 +490,7 @@ class OCREngine:
         self._torch = None
         self._lmstudio_model: str = ""
 
-        if self.engine in {"none", "local", "lmstudio"}:
+        if self.engine in {"none", "local", "lmstudio", "docling"}:
             return
         raise ValueError(f"Unsupported OCR engine: {engine}")
 
@@ -501,6 +501,8 @@ class OCREngine:
             return str(self._model_name or DEFAULT_LOCAL_OCR_MODEL)
         if self.engine == "lmstudio":
             return str(self._lmstudio_model or self._model_name)
+        if self.engine == "docling":
+            return "docling/ocr"
         return ""
 
     def _ensure_loaded(self) -> None:
@@ -595,20 +597,19 @@ class OCREngine:
                     raw_response,
                     finish_reason=finish_reason,
                 )
-            else:
-                response = _lmstudio_ocr_post(self.base_url, payload, timeout_seconds)
-                choices = list(response.get("choices") or [])
-                if not choices:
-                    raise RuntimeError("LM Studio returned no choices.")
-                message = dict(choices[0].get("message") or {})
-                finish_reason = str(choices[0].get("finish_reason") or "")
-                raw_response = _format_lmstudio_debug_response(message.get("content"))
-                if not raw_response:
-                    raw_response = _format_lmstudio_debug_response(message)
-                return _parse_lmstudio_structured_ocr(
-                    message.get("content"),
-                    finish_reason=finish_reason,
-                )
+            response = _lmstudio_ocr_post(self.base_url, payload, timeout_seconds)
+            choices = list(response.get("choices") or [])
+            if not choices:
+                raise RuntimeError("LM Studio returned no choices.")
+            message = dict(choices[0].get("message") or {})
+            finish_reason = str(choices[0].get("finish_reason") or "")
+            raw_response = _format_lmstudio_debug_response(message.get("content"))
+            if not raw_response:
+                raw_response = _format_lmstudio_debug_response(message)
+            return _parse_lmstudio_structured_ocr(
+                message.get("content"),
+                finish_reason=finish_reason,
+            )
         except Exception as exc:
             error_text = str(exc)
             raise
@@ -824,6 +825,48 @@ class OCREngine:
         attempted = "; ".join(errors)
         raise RuntimeError(f"Local OCR model fallback failed: {attempted}") from last_error
 
+    def _read_text_docling(
+        self,
+        path: Path,
+        *,
+        source_path: str | Path | None = None,
+        debug_recorder=None,
+        debug_step: str = "ocr",
+    ) -> str:
+        from PIL import Image  # pylint: disable=import-outside-toplevel
+
+        from ._docling_ocr import run_docling_ocr  # pylint: disable=import-outside-toplevel
+
+        allow_large_pillow_images(Image)
+        with Image.open(str(path)) as image:
+            img_w, img_h = image.size
+
+        response_text = ""
+        metadata: dict[str, object] = {}
+        error_text = ""
+        try:
+            result = run_docling_ocr(path, img_w, img_h)
+            response_text = result.text
+            metadata = dict(result.debug_payload)
+            return _normalize_ocr_text(response_text)
+        except Exception as exc:
+            error_text = str(exc)
+            metadata = dict(getattr(exc, "debug_payload", {}) or {})
+            raise
+        finally:
+            if error_text:
+                metadata["error"] = error_text
+            _emit_prompt_debug(
+                debug_recorder,
+                step=debug_step,
+                engine=self.engine,
+                model=self.effective_model_name,
+                prompt="docling do_ocr=True (detect-then-recognize)",
+                source_path=source_path or path,
+                response=response_text,
+                metadata=metadata,
+            )
+
     def read_text(
         self,
         image_path: str | Path,
@@ -837,6 +880,13 @@ class OCREngine:
             return ""
         if self.engine == "lmstudio":
             return self._read_text_lmstudio_with_fallback(
+                path,
+                source_path=source_path,
+                debug_recorder=debug_recorder,
+                debug_step=debug_step,
+            )
+        if self.engine == "docling":
+            return self._read_text_docling(
                 path,
                 source_path=source_path,
                 debug_recorder=debug_recorder,

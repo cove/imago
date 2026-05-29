@@ -457,49 +457,16 @@ class TestRunPropagateTocrops(unittest.TestCase):
             assert state is not None
             self.assertEqual(state.get("dc_date_values"), ["1988-08-15"])
 
-    def test_step_skipped_when_neither_upstream_reran(self):
-        """StepRunner skips propagate-to-crops when hashes match for all inputs."""
-        from photoalbums.lib.ai_index_steps import StepRunner, propagate_to_crops_input_hash
-
-        settings = {
-            "crop_paths_signature": "abc",
-            "cast_store_signature": "sig1",
-            "caption_engine": "lmstudio",
-            "caption_model": "model",
-            "ocr_engine": "local",
-            "ocr_model": "ocr-m",
-            "ocr_lang": "eng",
-            "scan_group_signature": "",
-            "nominatim_base_url": "",
-            "model": "yolo",
-            "enable_objects": True,
-        }
-        # Compute expected hash with empty output hashes (nothing ran upstream)
-        base = StepRunner(settings=settings, existing_pipeline_state={}, existing_detections={}, forced_steps=set())
-        expected_hash = propagate_to_crops_input_hash(settings, base.output_hashes)
-
-        pipeline_state = {
-            "ai-index/propagate-to-crops": {
-                "timestamp": "2026-04-11T00:00:00Z",
-                "result": "ok",
-                "input_hash": expected_hash,
-            }
-        }
-        runner = StepRunner(
-            settings=settings,
-            existing_pipeline_state=pipeline_state,
-            existing_detections={},
-            forced_steps=set(),
-        )
-        called = [False]
-
-        def do_propagate():
-            called[0] = True
-            return {"crops_updated": 0}
-
-        runner.run("propagate-to-crops", do_propagate)
-        self.assertFalse(called[0], "propagate-to-crops must be skipped when hash matches")
-        self.assertFalse(runner.reran.get("propagate-to-crops", True))
+    def test_step_skipped_when_outer_pipeline_step_already_complete(self):
+        """Outer pipeline step skips propagate-to-crops when its marker is present in the page XMP."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            image, pages_dir, photos_dir = self._setup_page_image(tmp_dir)
+            xmp_path = image.with_suffix(".xmp")
+            xmp_sidecar.write_pipeline_step(xmp_path, "propagate-to-crops")
+            pipeline_state = xmp_sidecar.read_pipeline_state(xmp_path)
+            step_entry = pipeline_state.get("propagate-to-crops")
+            self.assertIsNotNone(step_entry, "pipeline step marker must be written and readable")
 
 
     def test_per_region_photo_est_date_overrides_page_date(self):

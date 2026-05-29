@@ -398,7 +398,9 @@ def _mirror_page_sidecars(primary_scan_path: Path) -> None:
     for sibling_path in sibling_scans:
         if sibling_path == primary_scan_path:
             continue
-        shutil.copy2(source_sidecar, sibling_path.with_suffix(".xmp"))
+        dest = sibling_path.with_suffix(".xmp")
+        log.debug("mirror sidecar %s → %s", source_sidecar.name, dest.name)
+        shutil.copy2(source_sidecar, dest)
 
 
 def _artifact_sidecar_paths(image_path: Path, sidecar_path: Path) -> list[Path]:
@@ -749,9 +751,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-face-size", type=int, default=40, help="Minimum face size in pixels.")
     parser.add_argument(
         "--ocr-engine",
-        choices=["none", "local", "lmstudio"],
+        choices=["none", "local", "lmstudio", "docling"],
         default="none",
-        help="OCR backend.",
+        help="OCR backend. 'docling' uses detect-then-recognize OCR (best for typed captions); "
+        "'local'/'lmstudio' use a VLM (better for handwriting).",
     )
     parser.add_argument(
         "--ocr-model",
@@ -1218,14 +1221,14 @@ def _propagate_all_crops(
 def run_propagate_to_crops(
     image_path: Path,
     *,
-    location_payload: dict[str, Any],
-    people_payload: list[dict[str, Any]],
+    location_payload: dict[str, Any] | None = None,
+    people_payload: list[dict[str, Any]] | None = None,
     default_location: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Propagate location GPS and person names from page XMP to each crop XMP.
 
     Returns a dict with a 'crops_updated' count (for diagnostic use).
-    Eligible to return None if engine not configured, but this step always runs.
+    When location_payload or people_payload are omitted, they are read from the page XMP.
     """
     crop_paths = _find_crop_paths_for_page(image_path)
     if not crop_paths:
@@ -1239,6 +1242,12 @@ def run_propagate_to_crops(
     page_state = read_ai_sidecar_state(sidecar_path)
     page_dc_date_values = list((page_state or {}).get("dc_date_values") or [])
     page_text = str((page_state or {}).get("ocr_text") or "").strip()
+    if location_payload is None:
+        page_detections = dict((page_state or {}).get("detections") or {})
+        location_payload = dict(page_detections.get("location") or {})
+    if people_payload is None:
+        page_detections = dict((page_state or {}).get("detections") or {})
+        people_payload = list(page_detections.get("people") or [])
     step_timestamp = xmp_datetime_now()
     geocoder = None
     if _propagation_needs_geocoder(locations_shown, regions):
@@ -1620,6 +1629,7 @@ def _write_sidecar_and_record(
         people_detected=bool(people_detected or resolved_person_names),
         people_identified=bool(resolved_person_names),
         locations_shown=detections_payload.get("locations_shown") if detections_payload else None,
+        write_face_regions=True,
     )
     _append_xmp_job_artifact(image_path, sidecar_path)
 
@@ -3276,7 +3286,6 @@ class IndexRunner:
                         scan_ocr_authority=scan_ocr_authority,
                         outcome=outcome,
                     )
-                    self._run_propagate_to_crops(image_path, outcome)
 
             _emit_prompt_debug_artifact(prompt_debug, dry_run=self.dry_run)
             self.processed += 1
@@ -3635,21 +3644,6 @@ class IndexRunner:
             people_identified=len(outcome.person_names) > 0,
             title_page_location=self.title_page_location,
         )
-
-    def _run_propagate_to_crops(self, image_path: Path, outcome: _FullAnalysisOutcome) -> None:
-
-        locations_out = dict(outcome.payload.get("location") or {})
-        people_out = list(outcome.payload.get("people") or [])
-
-        def _do_propagate() -> dict:
-            return run_propagate_to_crops(
-                image_path,
-                location_payload=locations_out,
-                people_payload=people_out,
-                default_location=self.title_page_location or None,
-            )
-
-        outcome.step_runner.run("propagate-to-crops", _do_propagate)
 
     def _emit_full_completion(self, idx: int, image_path: Path, outcome: _FullAnalysisOutcome) -> None:
         if self.stdout_only:

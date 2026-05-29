@@ -28,6 +28,34 @@ log = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_SECONDS = 300.0
 _MAX_SINGLE_REGION_PAGE_FRACTION = 0.90
 
+
+def _resolve_docling_ocr_settings(image_path: str | Path) -> tuple[bool, str]:
+    """Return (docling_ocr_enabled, ocr_lang) for the archive owning ``image_path``.
+
+    The single-pass Docling OCR feature is gated purely on ``ocr_engine == "docling"``
+    in the archive's render settings (per project direction). When the image is not
+    inside a recognizable archive, OCR is disabled.
+    """
+    try:
+        from .ai_render_settings import (  # pylint: disable=import-outside-toplevel
+            find_archive_dir_for_image,
+            load_render_settings,
+            resolve_effective_settings,
+        )
+
+        archive_dir = find_archive_dir_for_image(image_path)
+        if archive_dir is None:
+            return False, "eng"
+        defaults = {"ocr_engine": "none", "ocr_lang": "eng"}
+        _, loaded = load_render_settings(archive_dir, defaults=defaults)
+        effective = resolve_effective_settings(image_path, defaults=defaults, loaded=loaded)
+        enabled = str(effective.get("ocr_engine", "none")).strip().lower() == "docling"
+        ocr_lang = str(effective.get("ocr_lang", "eng")).strip() or "eng"
+        return enabled, ocr_lang
+    except Exception as exc:  # pragma: no cover - defensive: settings resolution is best-effort
+        log.warning("Failed to resolve Docling OCR settings for %s: %s", image_path, exc)
+        return False, "eng"
+
 # Region debug rendering (previously ai_view_region_render.py)
 
 _MAX_EDGE = 4096
@@ -62,12 +90,17 @@ def _draw_label_background(draw, pos: tuple[int, int], label: str, font) -> None
         return
 
 
+# Distinct colour for OCR text-region marks so gemma can tell them apart from photo boxes.
+_TEXT_MARK_COLOUR = (255, 255, 0)
+
+
 def _render_regions(
     image_path: str | Path,
     regions: list[dict],
     output_path: str | Path,
     *,
     prompt_safe: bool,
+    text_regions: list[dict] | None = None,
 ) -> bytes:
     from PIL import Image, ImageDraw, ImageFont  # pylint: disable=import-outside-toplevel
 
@@ -124,6 +157,27 @@ def _render_regions(
             _draw_label_background(draw, label_pos, label, font)
             draw.text(label_pos, label, fill=colour, font=font)
 
+        # OCR text/caption regions drawn as a separate "T#" numbered series so the model
+        # can reference which caption belongs to which photo box.
+        for t_idx, treg in enumerate(text_regions or []):
+            tx = int(round(treg["x"] * scale))
+            ty = int(round(treg["y"] * scale))
+            tw = int(round(treg["width"] * scale))
+            th = int(round(treg["height"] * scale))
+            x0 = max(0, min(draw_w - 1, tx))
+            y0 = max(0, min(draw_h - 1, ty))
+            x1 = max(x0, min(draw_w - 1, tx + tw))
+            y1 = max(y0, min(draw_h - 1, ty + th))
+            draw.rectangle([x0, y0, x1, y1], outline=_TEXT_MARK_COLOUR, width=outline_width)
+            label = f"T{t_idx + 1}"
+            text_value = str(treg.get("text") or "").strip()
+            if text_value and not prompt_safe:
+                max_cap = 30
+                label += f" {text_value[:max_cap]}{'...' if len(text_value) > max_cap else ''}"
+            label_pos = (x0 + outline_width, max(0, y0 - font.size - outline_width))
+            _draw_label_background(draw, label_pos, label, font)
+            draw.text(label_pos, label, fill=_TEXT_MARK_COLOUR, font=font)
+
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=88)
         jpeg_bytes = buf.getvalue()
@@ -146,8 +200,12 @@ def render_regions_overlay(
     image_path: str | Path,
     regions: list[dict],
     output_path: str | Path,
+    *,
+    text_regions: list[dict] | None = None,
 ) -> bytes:
-    return _render_regions(image_path, regions, output_path, prompt_safe=True)
+    return _render_regions(
+        image_path, regions, output_path, prompt_safe=True, text_regions=text_regions
+    )
 
 
 @dataclass(frozen=True)
@@ -477,6 +535,7 @@ def _write_region_association_overlay_image(
     regions: list[RegionResult],
     *,
     attempt_number: int | None = None,
+    text_regions: list[dict] | None = None,
 ) -> Path | None:
     overlay_regions = [
         {
@@ -490,7 +549,7 @@ def _write_region_association_overlay_image(
     ]
     output_path = _region_association_overlay_path(image_path, attempt_number=attempt_number)
     try:
-        render_regions_overlay(image_path, overlay_regions, output_path)
+        render_regions_overlay(image_path, overlay_regions, output_path, text_regions=text_regions)
     except Exception as exc:
         log.warning("Failed to write region-association overlay image %s: %s", output_path, exc)
         return None
@@ -608,6 +667,58 @@ def _apply_docling_validation(
     return validation.kept
 
 
+def _text_regions_to_dicts(text_regions: list) -> list[dict]:
+    """Convert Docling ``DoclingTextRegion`` objects to overlay-ready dicts."""
+    dicts: list[dict] = []
+    for region in text_regions or []:
+        try:
+            x, y, w, h = region.bbox
+        except (TypeError, ValueError):
+            continue
+        dicts.append(
+            {
+                "x": int(x),
+                "y": int(y),
+                "width": int(w),
+                "height": int(h),
+                "text": str(getattr(region, "text", "") or ""),
+                "label": str(getattr(region, "label", "") or ""),
+            }
+        )
+    return dicts
+
+
+def _persist_docling_ocr_text(xmp_path: Path, ocr_text: str, ocr_lang: str) -> None:
+    """Write Docling-recognized OCR text to the view XMP sidecar (single-pass)."""
+    from .xmp_sidecar import patch_ocr_fields  # pylint: disable=import-outside-toplevel
+
+    try:
+        patch_ocr_fields(xmp_path, ocr_text=str(ocr_text or ""), ocr_lang=str(ocr_lang or "eng"))
+    except Exception as exc:  # pragma: no cover - persistence is best-effort
+        log.warning("Failed to persist Docling OCR text to %s: %s", xmp_path, exc)
+
+
+def _persist_docling_text_regions(xmp_path: Path, text_regions: list[dict], img_w: int, img_h: int) -> None:
+    """Persist Docling text regions into imago:Detections["detectors"]["docling_ocr"].
+
+    These structured regions (text + label + pixel & normalized bbox) are mirrored into
+    the standard mwg-rs RegionList by ``write_region_list`` so other programs can read
+    either the rich JSON detector data or the standard region markup.
+    """
+    from .xmp_sidecar import write_detector_text_regions  # pylint: disable=import-outside-toplevel
+
+    try:
+        write_detector_text_regions(
+            xmp_path,
+            detector="docling_ocr",
+            text_regions=text_regions,
+            img_w=img_w,
+            img_h=img_h,
+        )
+    except Exception as exc:  # pragma: no cover - persistence is best-effort
+        log.warning("Failed to persist Docling text regions to %s: %s", xmp_path, exc)
+
+
 def _detect_regions_docling(
     path: Path,
     *,
@@ -619,6 +730,8 @@ def _detect_regions_docling(
     prompt_debug: PromptDebugSession | None,
     skip_validation: bool,
     write_debug: bool = False,
+    do_ocr: bool = False,
+    ocr_lang: str = "eng",
 ) -> list[RegionResult]:
     from ._docling_pipeline import (  # pylint: disable=import-outside-toplevel
         DoclingPipelineRuntimeError,
@@ -637,6 +750,7 @@ def _detect_regions_docling(
             backend=default_docling_backend(),
             device=default_docling_device(),
             retries=default_docling_retries(),
+            do_ocr=do_ocr,
         )
     except DoclingPipelineRuntimeError as exc:
         if prompt_debug is not None and exc.debug_payload:
@@ -652,6 +766,39 @@ def _detect_regions_docling(
     if prompt_debug is not None and pipeline_result.debug_payload:
         _write_docling_raw_debug_artifact(path, pipeline_result.debug_payload)
 
+    # Single-pass OCR: persist recognized caption text + per-region detector data
+    # regardless of whether photo regions validated, since OCR output is useful even
+    # when the photo region geometry is rejected.
+    text_region_dicts: list[dict] | None = None
+    if do_ocr:
+        _persist_docling_ocr_text(xmp_path, pipeline_result.ocr_text, ocr_lang)
+        text_region_dicts = _text_regions_to_dicts(pipeline_result.text_regions)
+        _persist_docling_text_regions(xmp_path, text_region_dicts, img_w, img_h)
+
+    return _finalize_docling_detection(
+        path,
+        xmp_path,
+        model,
+        pipeline_result,
+        (img_w, img_h),
+        skip_validation=skip_validation,
+        write_debug=write_debug,
+        text_region_dicts=text_region_dicts,
+    )
+
+
+def _finalize_docling_detection(
+    path: Path,
+    xmp_path: Path,
+    model: str,
+    pipeline_result,
+    img_size: tuple[int, int],
+    *,
+    skip_validation: bool,
+    write_debug: bool,
+    text_region_dicts: list[dict] | None,
+) -> list[RegionResult]:
+    img_w, img_h = img_size
     if not pipeline_result.regions:
         _write_docling_pipeline_step(xmp_path, "no_regions", model)
         log.info("Docling: no regions detected for %s", path)
@@ -661,11 +808,18 @@ def _detect_regions_docling(
         _write_docling_pipeline_step(xmp_path, "regions_found", model)
         if write_debug:
             _write_accepted_regions_debug_image(path, pipeline_result.regions)
-        return pipeline_result.regions
+        kept = pipeline_result.regions
+    else:
+        kept = _apply_docling_validation(
+            path, xmp_path, model, pipeline_result.regions, (img_w, img_h), write_debug=write_debug
+        )
 
-    return _apply_docling_validation(
-        path, xmp_path, model, pipeline_result.regions, (img_w, img_h), write_debug=write_debug
-    )
+    # When OCR ran, hand gemma a set-of-marks overlay that numbers both the photo
+    # boxes (#N) and the recognized caption boxes (T#) so it can associate them.
+    if text_region_dicts is not None and kept:
+        _write_region_association_overlay_image(path, kept, text_regions=text_region_dicts)
+
+    return kept
 
 
 def detect_regions(
@@ -680,11 +834,19 @@ def detect_regions(
     prompt_debug: PromptDebugSession | None = None,
     skip_validation: bool = False,
     write_debug: bool = False,
+    do_ocr: bool | None = None,
 ) -> list[RegionResult]:
     del timeout, album_context, page_caption, people_roster
 
     path = Path(image_path)
     xmp_path = _xmp_path_for(path)
+
+    # ``do_ocr`` defaults to the archive's ocr_engine setting (single-pass Docling OCR
+    # toggle); an explicit bool overrides it for tests/scripts.
+    if do_ocr is None:
+        do_ocr, ocr_lang = _resolve_docling_ocr_settings(path)
+    else:
+        _, ocr_lang = _resolve_docling_ocr_settings(path)
 
     if not force and _has_xmp_regions(xmp_path):
         try:
@@ -723,4 +885,6 @@ def detect_regions(
         prompt_debug=prompt_debug,
         skip_validation=skip_validation,
         write_debug=write_debug,
+        do_ocr=do_ocr,
+        ocr_lang=ocr_lang,
     )
