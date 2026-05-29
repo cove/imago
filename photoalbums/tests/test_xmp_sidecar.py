@@ -536,6 +536,7 @@ class TestXMPSidecar(unittest.TestCase):
                 detections_payload={"people": [{"name": "Alice Example", "bbox": [80, 60, 100, 120]}]},
                 image_width=800,
                 image_height=600,
+                write_face_regions=True,
             )
 
             xmp_sidecar.write_region_list(

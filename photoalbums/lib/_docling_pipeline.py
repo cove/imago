@@ -4,20 +4,48 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
 
 _RegionResult = None
-_converter_cache: dict[tuple[str, str], Any] = {}
+_converter_cache: dict[tuple[str, str, bool], Any] = {}
+
+# Docling DocItemLabel values (lowercased) that carry recognized text we keep for OCR.
+_TEXT_LABELS = {
+    "caption",
+    "text",
+    "title",
+    "section_header",
+    "paragraph",
+    "list_item",
+    "footnote",
+    "page_header",
+    "page_footer",
+    "handwritten_text",
+    "reference",
+}
+# When do_ocr is enabled, render the page at this scale before OCR (sharper line crops).
+DEFAULT_DOCLING_OCR_IMAGE_SCALE = 2.0
+
+
+@dataclass(frozen=True)
+class DoclingTextRegion:
+    text: str
+    label: str
+    # x, y, width, height in ORIGINAL image pixels, top-left origin.
+    bbox: tuple[int, int, int, int]
 
 
 @dataclass(frozen=True)
 class DoclingPipelineResult:
     regions: list
     debug_payload: dict[str, Any]
+    # Populated only when run_docling_pipeline is called with do_ocr=True.
+    text_regions: list[DoclingTextRegion] = field(default_factory=list)
+    ocr_text: str = ""
 
 
 class DoclingPipelineRuntimeError(RuntimeError):
@@ -117,8 +145,8 @@ def _build_debug_payload(
     return payload
 
 
-def _get_converter(backend: str, device: str):
-    cache_key = (backend, device)
+def _get_converter(backend: str, device: str, do_ocr: bool = False):
+    cache_key = (backend, device, bool(do_ocr))
     if cache_key in _converter_cache:
         return _converter_cache[cache_key]
     from docling.backend.image_backend import ImageDocumentBackend  # pylint: disable=import-outside-toplevel
@@ -127,10 +155,15 @@ def _get_converter(backend: str, device: str):
     from docling.datamodel.pipeline_options import PdfPipelineOptions  # pylint: disable=import-outside-toplevel
     from docling.document_converter import DocumentConverter, PdfFormatOption  # pylint: disable=import-outside-toplevel
 
-    pipeline_options = PdfPipelineOptions(
-        do_ocr=False,
-        accelerator_options=AcceleratorOptions(device=device),
-    )
+    pipeline_kwargs: dict[str, Any] = {
+        "do_ocr": bool(do_ocr),
+        "accelerator_options": AcceleratorOptions(device=device),
+    }
+    if do_ocr:
+        # Let Docling's standard pipeline detect and recognize text in the same pass.
+        pipeline_kwargs["generate_page_images"] = True
+        pipeline_kwargs["images_scale"] = DEFAULT_DOCLING_OCR_IMAGE_SCALE
+    pipeline_options = PdfPipelineOptions(**pipeline_kwargs)
     converter = DocumentConverter(
         format_options={
             InputFormat.IMAGE: PdfFormatOption(
@@ -139,7 +172,10 @@ def _get_converter(backend: str, device: str):
             )
         }
     )
-    log.info("Docling DocumentConverter initialized (backend=%r, device=%r)", backend, device)
+    log.info(
+        "Docling DocumentConverter initialized (backend=%r, device=%r, do_ocr=%s)",
+        backend, device, bool(do_ocr),
+    )
     _converter_cache[cache_key] = (converter, pipeline_options)
     return converter, pipeline_options
 
@@ -187,6 +223,49 @@ def _iter_docling_picture_regions(doc: Any, img_h: int, RegionResult: Any) -> li
     return regions
 
 
+def _bbox_to_pixels(prov: Any, doc: Any, img_w: int, img_h: int) -> tuple[int, int, int, int]:
+    """Convert a Docling provenance bbox to (x, y, w, h) in original image pixels, top-left origin."""
+    page_width = float(img_w)
+    page_height = float(img_h)
+    page_no = getattr(prov, "page_no", None)
+    pages = getattr(doc, "pages", {}) or {}
+    if page_no in pages:
+        size = pages[page_no].size
+        page_width = float(getattr(size, "width", img_w)) or float(img_w)
+        page_height = float(getattr(size, "height", img_h)) or float(img_h)
+    bbox = prov.bbox.to_top_left_origin(page_height=page_height)
+    left, top, right, bottom = bbox.as_tuple()
+    scale_x = float(img_w) / page_width if page_width else 1.0
+    scale_y = float(img_h) / page_height if page_height else 1.0
+    x = max(0, round(min(left, right) * scale_x))
+    y = max(0, round(min(top, bottom) * scale_y))
+    w = max(1, round(abs(right - left) * scale_x))
+    h = max(1, round(abs(bottom - top) * scale_y))
+    return (x, y, w, h)
+
+
+def _iter_docling_text_regions(doc: Any, img_w: int, img_h: int) -> list[DoclingTextRegion]:
+    from docling_core.types.doc import DocItemLabel  # pylint: disable=import-outside-toplevel
+
+    del DocItemLabel  # imported to ensure docling_core is present; labels compared as strings
+    text_regions: list[DoclingTextRegion] = []
+    for item, _level in doc.iterate_items():
+        label = getattr(item, "label", None)
+        label_value = str(getattr(label, "value", label) or "").lower()
+        if label_value not in _TEXT_LABELS:
+            continue
+        if not getattr(item, "prov", None):
+            continue
+        text = str(getattr(item, "text", "") or "").strip()
+        if not text:
+            continue
+        bbox = _bbox_to_pixels(item.prov[0], doc, img_w, img_h)
+        text_regions.append(DoclingTextRegion(text=text, label=label_value, bbox=bbox))
+    # Reading order: top-to-bottom, then left-to-right.
+    text_regions.sort(key=lambda region: (region.bbox[1], region.bbox[0]))
+    return text_regions
+
+
 def run_docling_pipeline(
     image_path: str | Path,
     img_w: int,
@@ -196,8 +275,12 @@ def run_docling_pipeline(
     backend: str = "auto_inline",
     device: str = "auto",
     retries: int = 3,
+    do_ocr: bool = False,
 ) -> DoclingPipelineResult:
-    """Process an image through the same Docling image path the CLI standard pipeline uses."""
+    """Process an image through the same Docling image path the CLI standard pipeline uses.
+
+    When ``do_ocr`` is True, the same pass also recognizes text; the result carries
+    ``text_regions`` (text + pixel bbox per region) and a joined ``ocr_text`` string."""
     RegionResult = _get_region_result()
     source_path = Path(image_path)
     max_attempts = max(1, int(retries))
@@ -205,7 +288,7 @@ def run_docling_pipeline(
     last_exc: Exception | None = None
 
     _build_engine_options(backend, device)
-    converter, pipeline_options = _get_converter(backend, device)
+    converter, pipeline_options = _get_converter(backend, device, do_ocr=do_ocr)
 
     convert_result = None
     regions: list = []
@@ -245,9 +328,26 @@ def run_docling_pipeline(
     if not regions:
         log.warning("run_docling_pipeline: no picture items found in DoclingDocument for %s", image_path)
 
+    text_regions: list[DoclingTextRegion] = []
+    ocr_text = ""
+    if do_ocr:
+        text_regions = _iter_docling_text_regions(convert_result.document, img_w, img_h)
+        ocr_text = "\n".join(region.text for region in text_regions).strip()
+
     debug_payload = _build_debug_payload(
         convert_result, pipeline_options=pipeline_options, preset=preset,
         backend=backend, device=device, attempts=len(errors) + 1, errors=errors,
     )
     debug_payload["region_count"] = len(regions)
-    return DoclingPipelineResult(regions=regions, debug_payload=debug_payload)
+    if do_ocr:
+        debug_payload["text_region_count"] = len(text_regions)
+        debug_payload["text_regions"] = [
+            {"text": region.text, "label": region.label, "bbox": list(region.bbox)}
+            for region in text_regions
+        ]
+    return DoclingPipelineResult(
+        regions=regions,
+        debug_payload=debug_payload,
+        text_regions=text_regions,
+        ocr_text=ocr_text,
+    )

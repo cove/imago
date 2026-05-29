@@ -20,7 +20,6 @@ from photoalbums.lib.ai_index_steps import (
     metadata_input_hash,
     objects_input_hash,
     people_input_hash,
-    propagate_to_crops_input_hash,
 )
 
 
@@ -43,10 +42,6 @@ class TestStepDependencyOrder(unittest.TestCase):
 
     def test_people_has_no_dependencies(self):
         self.assertEqual(STEPS["people"].depends_on, [])
-
-    def test_propagate_depends_on_metadata_and_people(self):
-        self.assertIn("metadata", STEPS["propagate-to-crops"].depends_on)
-        self.assertIn("people", STEPS["propagate-to-crops"].depends_on)
 
     def test_metadata_output_keys(self):
         keys = STEPS["metadata"].output_keys
@@ -101,20 +96,6 @@ class TestInputHashIsolation(unittest.TestCase):
     def test_objects_hash_empty_when_disabled(self):
         settings = {**self.BASE_SETTINGS, "enable_objects": False}
         self.assertEqual(objects_input_hash(settings, {}), "")
-
-    def test_propagate_hash_includes_crop_paths_signature(self):
-        settings_a = {**self.BASE_SETTINGS, "crop_paths_signature": "crops-a"}
-        settings_b = {**self.BASE_SETTINGS, "crop_paths_signature": "crops-b"}
-        self.assertNotEqual(
-            propagate_to_crops_input_hash(settings_a, {}),
-            propagate_to_crops_input_hash(settings_b, {}),
-        )
-
-    def test_propagate_hash_includes_metadata_output_hash(self):
-        h_without = propagate_to_crops_input_hash(self.BASE_SETTINGS, {})
-        h_with = propagate_to_crops_input_hash(self.BASE_SETTINGS, {"metadata": "metadata-hash-abc"})
-        self.assertNotEqual(h_without, h_with)
-
 
 class TestStepRunner(unittest.TestCase):
     SETTINGS = {
@@ -176,27 +157,19 @@ class TestStepRunner(unittest.TestCase):
         runner = self._make_runner(forced_steps={"people"})
 
         people_call_count = [0]
-        propagate_call_count = [0]
 
         def do_people():
             people_call_count[0] += 1
             return {"people": [{"name": "Alice"}]}
-
-        def do_propagate():
-            propagate_call_count[0] += 1
-            return {"crops_updated": 1}
 
         runner.run(
             "metadata",
             lambda: {"ocr": {}, "caption": {}, "location": {}, "locations_shown": [], "location_shown_ran": False},
         )
         runner.run("people", do_people)
-        runner.run("propagate-to-crops", do_propagate)
 
         self.assertEqual(people_call_count[0], 1, "people must run when forced")
-        self.assertEqual(propagate_call_count[0], 1, "propagate must run when people reran")
         self.assertTrue(runner.reran["people"])
-        self.assertTrue(runner.reran["propagate-to-crops"])
 
     def test_hash_match_skips_step_and_cascades_skip_to_downstream(self):
         """When all hashes match, all steps should be skipped."""
@@ -276,8 +249,8 @@ class TestForcedStepsPropagation(unittest.TestCase):
         "crop_paths_signature": "",
     }
 
-    def test_forced_metadata_step_causes_propagate_to_run(self):
-        """--steps metadata: people skips (hash match), metadata and propagate run."""
+    def test_forced_metadata_step_skips_fresh_people(self):
+        """--steps metadata: people skips (hash match), metadata runs."""
         base_runner = StepRunner(
             settings=self.SETTINGS,
             existing_pipeline_state={},
@@ -302,7 +275,6 @@ class TestForcedStepsPropagation(unittest.TestCase):
 
         metadata_called = [False]
         people_called = [False]
-        propagate_called = [False]
 
         runner.run(
             "metadata",
@@ -312,14 +284,11 @@ class TestForcedStepsPropagation(unittest.TestCase):
             ),
         )
         runner.run("people", lambda: people_called.__setitem__(0, True) or {"people": []})
-        runner.run("propagate-to-crops", lambda: propagate_called.__setitem__(0, True) or {"crops_updated": 0})
 
         self.assertTrue(metadata_called[0], "metadata must run when forced")
         self.assertFalse(people_called[0], "people must be skipped when hash matches and not forced")
-        self.assertTrue(propagate_called[0], "propagate must run when metadata reran")
         self.assertTrue(runner.reran["metadata"])
         self.assertFalse(runner.reran["people"])
-        self.assertTrue(runner.reran["propagate-to-crops"])
 
 
 if __name__ == "__main__":

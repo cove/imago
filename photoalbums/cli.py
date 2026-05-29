@@ -330,11 +330,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _run_process_group(parser: argparse.ArgumentParser, args, commands) -> int:
-    from .lib.pipeline import PIPELINE_STEPS, validate_step_ids
+    from .lib.pipeline import PIPELINE_STEPS, format_pipeline_dag, validate_step_ids
 
     if bool(getattr(args, "list_steps", False)):
+        print("Execution order:")
         for i, step in enumerate(PIPELINE_STEPS, 1):
             print(f"  [{i}] {step.id}  —  {step.label}")
+        print("\nDependency graph (depends_on; drives re-run staleness, not order):")
+        for line in format_pipeline_dag(PIPELINE_STEPS):
+            print(f"  {line}")
         return 0
 
     if args.step_id and args.skip_ids:
