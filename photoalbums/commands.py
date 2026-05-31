@@ -1237,6 +1237,7 @@ def _dispatch_pipeline_step(
             )
         case "face-reconcile":
             _run_pipeline_face_reconcile_step(
+                view_path=view_path,
                 xmp_path=xmp_path,
                 force_this_step=force_this_step,
                 counters=counters,
@@ -1559,6 +1560,7 @@ def _run_pipeline_immich_face_refresh_step(
 
 def _run_pipeline_face_reconcile_step(
     *,
+    view_path: Path,
     xmp_path: Path,
     force_this_step: bool,
     counters: dict[str, dict],
@@ -1579,6 +1581,7 @@ def _run_pipeline_face_reconcile_step(
     step_just_ran.add("face-reconcile")
     deps["write_pipeline_step"](xmp_path, "face-reconcile")
     _print_outcome("done", stale_dep)
+    _print_processed_crop_summaries(view_path, deps)
 
 
 def _run_pipeline_propagate_scan_context_step(
@@ -1689,6 +1692,7 @@ def _run_pipeline_propagate_to_crops_step(
     step_just_ran.add("propagate-to-crops")
     deps["write_pipeline_step"](xmp_path, "propagate-to-crops")
     _print_outcome(f"done ({crops_updated} crop(s) updated)" if crops_updated else "done (no crops)", stale_dep)
+    _print_processed_crop_summaries(view_path, deps)
 
 
 def _run_pipeline_ai_index_step(
@@ -1865,7 +1869,7 @@ def run_process_pipeline(
     face_session = RenderFaceRefreshSession(photos_root=root)
 
     # Build IndexRunners once so engine caches are shared across pages
-    from .lib.ai_index_runner import IndexRunner, run_propagate_to_crops
+    from .lib.ai_index_runner import IndexRunner, _find_crop_paths_for_page, run_propagate_to_crops
 
     ai_runner = IndexRunner(
         _pipeline_ai_runner_argv(root, gps_only=gps_only, refresh_gps=refresh_gps, force=force, debug=debug)
@@ -1893,6 +1897,7 @@ def run_process_pipeline(
         "merge_persons_xmp": merge_persons_xmp,
         "patch_ocr_fields": patch_ocr_fields,
         "propagate_scan_context_to_view": propagate_scan_context_to_view,
+        "find_crop_paths_for_page": _find_crop_paths_for_page,
         "run_propagate_to_crops": run_propagate_to_crops,
         "persist_verify_crops_state": persist_verify_crops_state,
         "read_pipeline_state": read_pipeline_state,
@@ -2064,12 +2069,16 @@ def _process_pipeline_pages(
 
 
 def _show_image_preview(view_path: Path, primary_scan: Path) -> None:
-    import shutil
-    import subprocess
-
     image = view_path if view_path.is_file() else primary_scan if primary_scan.is_file() else None
     if image is None:
         return
+    _show_image_preview_for_path(image)
+
+
+def _show_image_preview_for_path(image: Path) -> None:
+    import shutil
+    import subprocess
+
     width = max(20, shutil.get_terminal_size().columns // 8)
     if shutil.which("chafa"):
         # chafa auto-detects kitty/sixel/truecolor; works correctly with Ghostty
@@ -2152,6 +2161,20 @@ def _print_outcome(outcome: str, stale_dep: str) -> None:
 
 
 def _print_ai_index_discovery_summary(*, sidecar_path: Path) -> None:
+    _print_image_metadata_summary(sidecar_path=sidecar_path, label="ai-index")
+
+
+def _print_processed_crop_summaries(view_path: Path, deps: dict) -> None:
+    crop_paths = list(deps["find_crop_paths_for_page"](view_path))
+    for crop_path in crop_paths:
+        if not crop_path.is_file():
+            continue
+        _pipeline_line(f"    crop image: {crop_path.name}")
+        _show_image_preview_for_path(crop_path)
+        _print_image_metadata_summary(sidecar_path=crop_path.with_suffix(".xmp"), label="crop")
+
+
+def _print_image_metadata_summary(*, sidecar_path: Path, label: str) -> None:
     from .lib.xmp_sidecar import read_ai_sidecar_state
 
     state = read_ai_sidecar_state(sidecar_path)
@@ -2160,19 +2183,19 @@ def _print_ai_index_discovery_summary(*, sidecar_path: Path) -> None:
     detections = dict(state.get("detections") or {})
     caption = str(state.get("description") or "").strip()
     if caption:
-        _pipeline_line(f"    ai-index caption: {caption}")
+        _pipeline_line(f"    {label} caption: {caption}")
     dc_date = str(state.get("dc_date") or "").strip()
     if dc_date:
-        _pipeline_line(f"    ai-index date: {dc_date}")
+        _pipeline_line(f"    {label} date: {dc_date}")
     location_text = _ai_index_location_text(state)
     if location_text:
-        _pipeline_line(f"    ai-index shown_location: {location_text}")
-    _print_ai_index_gps_summary(state)
+        _pipeline_line(f"    {label} shown_location: {location_text}")
+    _print_image_gps_summary(state, label=label)
     locations_shown = list(detections.get("locations_shown") or [])
     if locations_shown:
         names = _location_shown_names(locations_shown)
         if names:
-            _pipeline_line(f"    ai-index locations_shown: {', '.join(names)}")
+            _pipeline_line(f"    {label} locations_shown: {', '.join(names)}")
 
 
 def _location_shown_names(locations_shown: list) -> list[str]:
@@ -2196,11 +2219,11 @@ def _ai_index_location_text(state: dict) -> str:
     return ", ".join(part for part in location_parts if part)
 
 
-def _print_ai_index_gps_summary(state: dict) -> None:
+def _print_image_gps_summary(state: dict, *, label: str) -> None:
     gps_lat = str(state.get("gps_latitude") or "").strip()
     gps_lon = str(state.get("gps_longitude") or "").strip()
     if gps_lat or gps_lon:
-        _pipeline_line(f"    ai-index gps: {gps_lat or '?'} {gps_lon or '?'}")
+        _pipeline_line(f"    {label} gps: {gps_lat or '?'} {gps_lon or '?'}")
 
 
 def _format_verify_crops_detail(verify_result: dict[str, object]) -> str:
