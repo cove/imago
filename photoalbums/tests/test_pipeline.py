@@ -230,6 +230,95 @@ class TestEffectivePipelineStepIds(unittest.TestCase):
         self.assertEqual(redo_ids, {"verify-crops"})
 
 
+class TestProcessedCropSummaries(unittest.TestCase):
+    def test_propagate_to_crops_logs_each_crop_preview_and_metadata(self):
+        import tempfile
+
+        from photoalbums.commands import _run_pipeline_propagate_to_crops_step
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_path = root / "Test_2024_B01_P02_V.jpg"
+            crop_path = root / "Test_2024_B01_P02_D01-00_V.jpg"
+            crop_path.write_bytes(b"jpg")
+            deps = {
+                "find_crop_paths_for_page": MagicMock(return_value=[crop_path]),
+                "read_pipeline_step": MagicMock(return_value=None),
+                "run_propagate_to_crops": MagicMock(return_value={"crops_updated": 1}),
+                "write_pipeline_step": MagicMock(),
+            }
+            counters = {"propagate-to-crops": {"run": 0, "skipped": 0, "failed": 0, "detail": []}}
+            step_just_ran: set[str] = set()
+
+            with (
+                patch("photoalbums.commands._print_outcome"),
+                patch("photoalbums.commands._pipeline_line"),
+                patch("photoalbums.commands._show_image_preview_for_path") as preview,
+                patch("photoalbums.commands._print_image_metadata_summary") as metadata,
+            ):
+                _run_pipeline_propagate_to_crops_step(
+                    view_path=view_path,
+                    xmp_path=view_path.with_suffix(".xmp"),
+                    force_this_step=False,
+                    counters=counters,
+                    step_just_ran=step_just_ran,
+                    stale_dep="",
+                    deps=deps,
+                )
+
+        deps["run_propagate_to_crops"].assert_called_once_with(view_path)
+        deps["find_crop_paths_for_page"].assert_called_once_with(view_path)
+        preview.assert_called_once_with(crop_path)
+        metadata.assert_called_once_with(sidecar_path=crop_path.with_suffix(".xmp"), label="crop")
+        self.assertEqual(counters["propagate-to-crops"]["run"], 1)
+        self.assertEqual(step_just_ran, {"propagate-to-crops"})
+
+    def test_face_reconcile_logs_final_crop_preview_and_metadata(self):
+        import tempfile
+        from types import SimpleNamespace
+
+        from photoalbums.commands import _run_pipeline_face_reconcile_step
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            view_path = root / "Test_2024_B01_P02_V.jpg"
+            crop_path = root / "Test_2024_B01_P02_D01-00_V.jpg"
+            crop_path.write_bytes(b"jpg")
+            deps = {
+                "find_crop_paths_for_page": MagicMock(return_value=[crop_path]),
+                "read_pipeline_step": MagicMock(return_value=None),
+                "write_pipeline_step": MagicMock(),
+            }
+            counters = {"face-reconcile": {"run": 0, "skipped": 0, "failed": 0, "detail": []}}
+            step_just_ran: set[str] = set()
+            reconcile_result = SimpleNamespace(clusters=[object()], pending_writes=[object()], conflicts=[])
+
+            with (
+                patch("photoalbums.lib.face_region_reconciler.reconcile_page", return_value=reconcile_result) as reconcile,
+                patch("photoalbums.commands._print_outcome"),
+                patch("photoalbums.commands._pipeline_line"),
+                patch("photoalbums.commands._show_image_preview_for_path") as preview,
+                patch("photoalbums.commands._print_image_metadata_summary") as metadata,
+            ):
+                _run_pipeline_face_reconcile_step(
+                    view_path=view_path,
+                    xmp_path=view_path.with_suffix(".xmp"),
+                    force_this_step=False,
+                    counters=counters,
+                    step_just_ran=step_just_ran,
+                    stale_dep="",
+                    deps=deps,
+                )
+
+        reconcile.assert_called_once_with(view_path.with_suffix(".xmp"), dry_run=False)
+        deps["find_crop_paths_for_page"].assert_called_once_with(view_path)
+        preview.assert_called_once_with(crop_path)
+        metadata.assert_called_once_with(sidecar_path=crop_path.with_suffix(".xmp"), label="crop")
+        self.assertEqual(counters["face-reconcile"]["run"], 1)
+        self.assertEqual(counters["face-reconcile"]["detail"], ["1 clusters, 1 writes, 0 conflicts"])
+        self.assertEqual(step_just_ran, {"face-reconcile"})
+
+
 class TestIsStepStale(unittest.TestCase):
     def _make_state(self, **entries):
         """Build a pipeline_state dict with completed timestamps."""
