@@ -13815,6 +13815,51 @@
     "status": "ok",
     "sublocation": ""
   },
+  "cockington, devon, united kingdom": {
+    "city": "Paignton",
+    "country": "United Kingdom",
+    "display_name": "Cockington, Paignton, Torbay, Devon and Torbay, England, TQ2 6XA, United Kingdom",
+    "latitude": "50.4634530",
+    "longitude": "-3.5593290",
+    "query": "Cockington, Devon, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-TOB",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Torbay",
+        "postcode": "TQ2 6XA",
+        "state": "England",
+        "state_district": "Devon and Torbay",
+        "suburb": "Cockington",
+        "town": "Paignton"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "50.4434530",
+        "50.4834530",
+        "-3.5793290",
+        "-3.5393290"
+      ],
+      "category": "place",
+      "display_name": "Cockington, Paignton, Torbay, Devon and Torbay, England, TQ2 6XA, United Kingdom",
+      "importance": 0.2733828520337679,
+      "lat": "50.4634530",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-3.5593290",
+      "name": "Cockington",
+      "osm_id": 254495572,
+      "osm_type": "node",
+      "place_id": 283791689,
+      "place_rank": 19,
+      "type": "suburb"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
   "cockington, torquay": {
     "display_name": "Torquay, Rathmore Road, Torre, Torquay, Torbay, Devon and Torbay, England, TQ2 6NU, United Kingdom",
     "latitude": "50.4610509",
@@ -57919,6 +57964,48 @@
   "the new cathedral, coventry, united kingdom": {
     "query": "The New Cathedral, Coventry, United Kingdom",
     "status": "miss"
+  },
+  "the new forest, hampshire, united kingdom": {
+    "city": "",
+    "country": "United Kingdom",
+    "display_name": "New Forest National Park, Hampshire, England, United Kingdom",
+    "latitude": "50.8557268",
+    "longitude": "-1.5956844",
+    "query": "The New Forest, Hampshire, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-HAM",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Hampshire",
+        "protected_area": "New Forest National Park",
+        "state": "England"
+      },
+      "addresstype": "protected_area",
+      "boundingbox": [
+        "50.7059678",
+        "51.0055038",
+        "-1.8034762",
+        "-1.3012726"
+      ],
+      "category": "boundary",
+      "display_name": "New Forest National Park, Hampshire, England, United Kingdom",
+      "importance": 0.4815992033722637,
+      "lat": "50.8557268",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-1.5956844",
+      "name": "New Forest National Park",
+      "osm_id": 2678988,
+      "osm_type": "relation",
+      "place_id": 282638229,
+      "place_rank": 25,
+      "type": "protected_area"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
   },
   "the new hong kong bank": {
     "query": "The New Hong Kong Bank",
