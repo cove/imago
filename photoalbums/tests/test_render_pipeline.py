@@ -357,6 +357,22 @@ class TestRunRenderPipelineProvenance(unittest.TestCase):
             view_doc_id = read_document_id(view_xmp)
             self.assertTrue(view_doc_id.startswith("xmp:uuid:"))
 
+    def test_render_provenance_assigns_source_document_id_when_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dirs = _make_test_album(root)
+            scan = dirs["scan"]
+            view_xmp = dirs["view_xmp"]
+
+            from photoalbums.stitch_oversized_pages import write_render_provenance
+
+            write_render_provenance(view_xmp, [str(scan)])
+
+            self.assertTrue(read_document_id(scan.with_suffix(".xmp")).startswith("xmp:uuid:"))
+            xml = view_xmp.read_text(encoding="utf-8")
+            self.assertIn("DerivedFrom", xml)
+            self.assertIn(scan.name, xml)
+
     def test_provenance_survives_later_step_failure(self):
         """Creation-time provenance is present even if detect-regions fails."""
         with tempfile.TemporaryDirectory() as tmp:

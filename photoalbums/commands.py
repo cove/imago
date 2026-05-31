@@ -1757,6 +1757,36 @@ def _run_pipeline_verify_crops_step(
     _print_verify_crops_summary(view_path, verify_result)
 
 
+def _run_sequence_page_dates_post_pass(all_pages: list[tuple], counters: dict[str, dict]) -> None:
+    """Slew each album's _Pages/_Archive dates monotonically across its date anchors.
+
+    Runs once per album after the per-page loop so every page has already been
+    date-estimated; the anchors it reads are therefore complete. Running it per page
+    would let an early page overwrite later pages' dc:date before their own ai-index
+    runs, suppressing their estimates.
+    """
+    from .lib.page_date_sequence import sequence_album_page_dates
+
+    seen: set = set()
+    for archive, _view_dir, _photos_dir, _group in all_pages:
+        if archive in seen:
+            continue
+        seen.add(archive)
+        _pipeline_line(f"sequence-page-dates {Path(archive).name}")
+        try:
+            result = sequence_album_page_dates(archive)
+        except Exception as exc:
+            counters["sequence-page-dates"]["failed"] += 1
+            _pipeline_line(f"  ... ERROR: {exc}", level=logging.ERROR)
+            continue
+        for warning in list(result.get("warnings") or []):
+            _pipeline_line(f"  sequence-page-dates warning: {warning}")
+        written = int(result.get("sidecars_written") or 0)
+        counters["sequence-page-dates"]["run"] += 1
+        counters["sequence-page-dates"]["detail"].append(f"{written} sidecars written")
+        _pipeline_line(f"  ... done ({written} sidecar(s) written)")
+
+
 def run_process_pipeline(
     *,
     album_id: str,
@@ -1833,7 +1863,10 @@ def run_process_pipeline(
         return 1
 
     active_steps = [s for s in PIPELINE_STEPS if s.id not in effective_skip_ids]
-    total_steps = len(active_steps)
+    # sequence-page-dates is an album-level pass run once after the per-page loop, so it
+    # is excluded from the per-page step list and the [N/total] numbering below.
+    page_steps = [s for s in active_steps if s.id != "sequence-page-dates"]
+    total_steps = len(page_steps)
     album_label = album_id or ""
     print_pipeline_plan(PIPELINE_STEPS, effective_skip_ids, effective_redo_ids, album_label, len(all_pages))
 
@@ -1913,7 +1946,7 @@ def run_process_pipeline(
     with lmstudio_token_logging(log_lmstudio_tokens):
         _process_pipeline_pages(
             all_pages,
-            active_steps=active_steps,
+            active_steps=page_steps,
             total_steps=total_steps,
             effective_redo_ids=effective_redo_ids,
             counters=counters,
@@ -1930,6 +1963,9 @@ def run_process_pipeline(
             _view_page_output_path=_view_page_output_path,
             deps=deps,
         )
+
+    if "sequence-page-dates" not in effective_skip_ids:
+        _run_sequence_page_dates_post_pass(all_pages, counters)
 
     _print_process_pipeline_summary(active_steps, counters)
 

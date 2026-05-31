@@ -385,13 +385,23 @@ def _metadata_region_caption_maps(
 def _metadata_region_caption(photo: Any) -> str:
     if isinstance(photo, dict):
         caption = str(photo.get("caption") or "").strip()
-        corrected = str(photo.get("corrected_caption") or "").strip()
     else:
         caption = str(getattr(photo, "caption", "") or "").strip()
-        corrected = str(getattr(photo, "corrected_caption", "") or "").strip()
-    if corrected and corrected != caption:
-        return corrected
     return caption
+
+
+def _metadata_corrected_caption_subjects(photos: list[Any]) -> list[str]:
+    subjects: list[str] = []
+    for photo in photos:
+        if isinstance(photo, dict):
+            caption = str(photo.get("caption") or "").strip()
+            corrected = str(photo.get("corrected_caption") or "").strip()
+        else:
+            caption = str(getattr(photo, "caption", "") or "").strip()
+            corrected = str(getattr(photo, "corrected_caption", "") or "").strip()
+        if corrected and corrected.casefold() != caption.casefold():
+            subjects.append(corrected)
+    return subjects
 
 
 def _metadata_photo_fields_dict(photo: dict) -> tuple[str, str, dict[str, Any]]:
@@ -432,7 +442,7 @@ def _metadata_photo_payload(photo: Any) -> dict[str, Any]:
     else:
         caption, corrected, payload = _metadata_photo_fields_obj(photo)
     if corrected and corrected != caption:
-        payload["OriginalCapation"] = caption
+        payload["OriginalCaption"] = caption
     return payload
 
 
@@ -894,6 +904,7 @@ def _metadata_step_build_output(
 ) -> dict[str, Any]:
     ocr_kw = extract_keywords(str(state["ocr_text"]), max_keywords=15)
     metadata_photos = [_metadata_photo_payload(photo) for photo in result.photos]
+    subjects = _dedupe(list(result.subjects or []) + _metadata_corrected_caption_subjects(result.photos))
     return {
         "ocr": {
             "engine": metadata_engine.engine,
@@ -911,7 +922,7 @@ def _metadata_step_build_output(
             "estimated_people_count": result.people_count,
             "photos": metadata_photos,
         },
-        "subjects": list(result.subjects or []),
+        "subjects": subjects,
         "location": state["location_payload"],
         "locations_shown": state["locations_shown"],
         "location_shown_ran": state["locations_shown_ran"],

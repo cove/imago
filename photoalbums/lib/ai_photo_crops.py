@@ -686,7 +686,12 @@ def _write_page_crop_region(
         photos_dir,
         archive_max_derived=archive_max_derived,
     )
-    if output_path.exists() and not force and not force_restoration:
+    if (
+        output_path.exists()
+        and _crop_sidecar_complete(output_path.with_suffix(".xmp"))
+        and not force
+        and not force_restoration
+    ):
         return False
 
     rect = _crop_region_rect(region=region, view_path=view_path, img_w=img_w, img_h=img_h, stats=stats)
@@ -990,7 +995,7 @@ def _write_open_page_crop_regions(
 
 
 def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_count: int) -> None:
-    """Remove _D##-00_V.jpg crops (and sidecars) not produced by the current region set."""
+    """Remove crop outputs not produced by the current region set."""
     if not photos_dir.is_dir():
         return
     page_prefix = crop_page_prefix(view_path)
@@ -1001,18 +1006,32 @@ def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_cou
         _crop_output_stem(view_path, archive_max_derived + index) for index in range(1, current_region_count + 1)
     }
 
-    orphan_pattern = re.compile(rf"^{re.escape(page_prefix)}_D(\d+)-00_V$")
+    orphan_pattern = re.compile(rf"^{re.escape(page_prefix)}_D(?P<derived>\d+)-\d+_V$")
     for f in list(photos_dir.iterdir()):
         if f.suffix.lower() not in {".jpg", ".jpeg", ".xmp"}:
             continue
         candidate_stem = f.stem
-        if orphan_pattern.match(candidate_stem) and candidate_stem not in expected_stems:
+        match = orphan_pattern.match(candidate_stem)
+        if match is None:
+            continue
+        if int(match.group("derived")) <= archive_max_derived:
+            continue
+        if candidate_stem not in expected_stems:
             f.unlink(missing_ok=True)
             log.debug("Removed orphaned crop file: %s", f.name)
+
+
+def _crop_sidecar_complete(xmp_path: Path) -> bool:
+    from .xmp_sidecar import read_pipeline_step
+
+    return read_pipeline_step(xmp_path, "photo_restoration") is not None
 
 
 def _has_complete_crop_outputs(view_path: Path, photos_dir: Path, region_count: int) -> bool:
     expected_outputs = _expected_crop_output_paths(view_path, photos_dir, region_count)
     if not expected_outputs:
         return True
-    return all(output_path.is_file() and output_path.with_suffix(".xmp").is_file() for output_path in expected_outputs)
+    return all(
+        output_path.is_file() and _crop_sidecar_complete(output_path.with_suffix(".xmp"))
+        for output_path in expected_outputs
+    )

@@ -181,12 +181,17 @@ def merge_persons_xmp(
     if sidecar_path.exists():
         try:
             tree = ET.parse(str(sidecar_path))
-        except ET.ParseError:
-            tree = None
-        if tree is not None:
-            _merge_into_tree(tree, names, description=description)  # type: ignore[arg-type]
-            tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
-            return sidecar_path
+        except ET.ParseError as exc:
+            # Don't overwrite an existing-but-unparseable sidecar with a persons-only
+            # skeleton; that would drop dc:description, imago:*, regions, etc. Surface
+            # the error so the corrupt file is preserved for inspection.
+            raise RuntimeError(
+                f"Refusing to write person names: existing sidecar {sidecar_path} is "
+                f"not valid XML ({exc}). Repair or remove it before re-running."
+            ) from exc
+        _merge_into_tree(tree, names, description=description)  # type: ignore[arg-type]
+        tree.write(str(sidecar_path), encoding="UTF-8", xml_declaration=True)
+        return sidecar_path
 
     _write_minimal(sidecar_path, names, description=description)
     return sidecar_path
@@ -699,8 +704,15 @@ def merge_face_regions_xmp(
     if sidecar_path.exists():
         try:
             tree = ET.parse(str(sidecar_path))
-        except ET.ParseError:
-            tree = None
+        except ET.ParseError as exc:
+            # Never silently rebuild an existing-but-unparseable sidecar from scratch:
+            # the minimal skeleton below would carry only face regions and drop every
+            # other field (dc:description, exif GPS/date, imago:*). Surface the error
+            # so the corrupt file is preserved for inspection instead of overwritten.
+            raise RuntimeError(
+                f"Refusing to write face regions: existing sidecar {sidecar_path} is "
+                f"not valid XML ({exc}). Repair or remove it before re-running."
+            ) from exc
 
     if tree is not None:
         root = tree.getroot()

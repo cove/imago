@@ -303,6 +303,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 },
                 image_width=200,
                 image_height=100,
+                write_face_regions=True,
             )
 
             xml = out.read_text(encoding="utf-8")
@@ -358,6 +359,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 },
                 image_width=200,
                 image_height=100,
+                write_face_regions=True,
             )
 
             # Old compact mwg-rs:RegionInfo is migrated to ExifTool's canonical mwg-rs:Regions.
@@ -417,6 +419,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                 },
                 image_width=200,
                 image_height=100,
+                write_face_regions=True,
             )
 
             self.assertEqual(_image_region_ids(out), ["photo-1"])

@@ -76,8 +76,15 @@ def date_estimate_system_prompt() -> str:
     return _DATE_SYSTEM_PROMPT
 
 
+# The date JSON is tiny, but reasoning ("thinking") models emit a long preamble
+# before the structured answer. A small cap truncates them (finish_reason=length,
+# empty content) before they reach the date. Non-reasoning models stop as soon as
+# the JSON is emitted, so a generous cap is harmless for them.
+DEFAULT_DATE_MAX_TOKENS = 2048
+
+
 def _date_params() -> dict[str, object]:
-    return {"max_tokens": 96, "temperature": 0.0, "timeout_seconds": 300.0}
+    return {"max_tokens": DEFAULT_DATE_MAX_TOKENS, "temperature": 0.0, "timeout_seconds": 300.0}
 
 
 def _date_prompt_metadata(resolved_params: dict[str, object]) -> dict[str, object]:
@@ -154,7 +161,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
         engine: str = "lmstudio",
         model_name: str = "",
         lmstudio_base_url: str = "",
-        max_tokens: int = 96,
+        max_tokens: int = DEFAULT_DATE_MAX_TOKENS,
         temperature: float = 0.0,
     ) -> None:
         params = _date_params()
@@ -175,7 +182,9 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
             str(lmstudio_base_url or "").strip(),
             default=default_lmstudio_base_url(),
         )
-        self.max_tokens = max(32, int(max_tokens if max_tokens is not None else params.get("max_tokens", 96)))
+        self.max_tokens = max(
+            32, int(max_tokens if max_tokens is not None else params.get("max_tokens", DEFAULT_DATE_MAX_TOKENS))
+        )
         self.temperature = max(0.0, float(temperature if temperature is not None else params.get("temperature", 0.0)))
         self.timeout_seconds = float(params.get("timeout_seconds", DEFAULT_LMSTUDIO_TIMEOUT_SECONDS))
         self._resolved_model_name = ""
@@ -213,7 +222,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
                 metadata={
                     **_date_prompt_metadata(
                         {
-                            "max_tokens": min(128, int(self.max_tokens)),
+                            "max_tokens": int(self.max_tokens),
                             "temperature": float(self.temperature),
                             "timeout_seconds": float(self.timeout_seconds),
                         }
@@ -232,7 +241,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
                         {"role": "user", "content": prompt},
                     ],
                     "response_format": _date_estimate_response_format(),
-                    "max_tokens": min(128, int(self.max_tokens)),
+                    "max_tokens": int(self.max_tokens),
                     "temperature": float(self.temperature),
                     "stream": False,
                 }
@@ -268,7 +277,7 @@ class DateEstimateEngine(LMStudioModelResolverMixin):
             metadata.update(
                 _date_prompt_metadata(
                     {
-                        "max_tokens": min(128, int(self.max_tokens)),
+                        "max_tokens": int(self.max_tokens),
                         "temperature": float(self.temperature),
                         "timeout_seconds": float(self.timeout_seconds),
                     }
