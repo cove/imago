@@ -241,7 +241,13 @@ def find_archive_scans_for_page(page_xmp: Path) -> list[Path]:
 
 
 def find_crop_xmps_for_page(page_xmp: Path) -> list[Path]:
-    """Return sorted list of crop XMPs (_D##-##_V.xmp) in the _Photos/ dir for this page."""
+    """Return sorted crop XMPs (_D##-##_V.xmp) belonging to the page's *current* crop set.
+
+    Only crops whose derived number maps to a current page photo region are returned,
+    i.e. ``archive_max < D## <= archive_max + region_count``. Stale orphan crops left
+    over from a previous detection run (whose D## falls outside that range) are
+    excluded, so the face step never touches superseded crops.
+    """
     if not is_pages_dir(page_xmp.parent):
         return []
     photos_dir = photos_dir_for_album_dir(page_xmp.parent)
@@ -249,7 +255,23 @@ def find_crop_xmps_for_page(page_xmp: Path) -> list[Path]:
         return []
     prefix = _page_prefix(page_xmp)
     pattern = re.compile(rf"^{re.escape(prefix)}_D\d{{2}}-\d{{2}}_V\.xmp$", re.IGNORECASE)
-    return sorted(p for p in photos_dir.iterdir() if pattern.match(p.name))
+    candidates = sorted(p for p in photos_dir.iterdir() if pattern.match(p.name))
+
+    region_count = len(read_page_photo_regions(page_xmp))
+    if region_count == 0:
+        # No current regions known (e.g. page not yet detected); fall back to the
+        # filename-only set rather than dropping everything.
+        return candidates
+
+    archive_max = _archive_max_derived(page_xmp)
+    current: list[Path] = []
+    for crop_xmp in candidates:
+        derived_n = _derived_number_from_xmp(crop_xmp)
+        if derived_n is None:
+            continue
+        if archive_max < derived_n <= archive_max + region_count:
+            current.append(crop_xmp)
+    return current
 
 
 # ---------------------------------------------------------------------------
@@ -1019,8 +1041,13 @@ def merge_iptc_face_box(
     if xmp_path.is_file():
         try:
             tree: ET.ElementTree = ET.parse(str(xmp_path))  # type: ignore[assignment]
-        except ET.ParseError:
-            tree = _build_minimal_xmp_tree()
+        except ET.ParseError as exc:
+            # Don't rebuild a minimal regions-only skeleton over an existing file: that
+            # discards every non-region field. Surface the error instead.
+            raise RuntimeError(
+                f"Refusing to write face region: existing sidecar {xmp_path} is not "
+                f"valid XML ({exc}). Repair or remove it before re-running."
+            ) from exc
     else:
         tree = _build_minimal_xmp_tree()
 

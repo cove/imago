@@ -65,6 +65,11 @@ def _make_steps() -> list[PipelineStep]:
             depends_on=["immich-face-refresh"],
         ),
         PipelineStep(
+            id="sequence-page-dates",
+            label="Slew _Archive/_Pages dates monotonically across album date anchors",
+            depends_on=["ai-index"],
+        ),
+        PipelineStep(
             id="verify-crops",
             label="Review each page's crops against the page image and page/crop XMP context",
             depends_on=["propagate-to-crops"],

@@ -413,6 +413,16 @@ class TestMergeIptcFaceBox(unittest.TestCase):
         boxes = read_iptc_face_boxes(xmp)
         self.assertEqual(len(boxes), 2)
 
+    def test_corrupt_existing_sidecar_raises_and_is_preserved(self):
+        """A corrupt existing sidecar must not be rebuilt as a regions-only skeleton
+        (which would drop dc:description, GPS, date). It raises and is preserved."""
+        xmp = self.tmpdir / "broken.xmp"
+        corrupt = "<x:xmpmeta><unterminated>"
+        xmp.write_text(corrupt)
+        with self.assertRaises(RuntimeError):
+            merge_iptc_face_box(xmp, "Alice", 0.1, 0.2, 0.3, 0.4)
+        self.assertEqual(xmp.read_text(), corrupt)
+
 
 # ---------------------------------------------------------------------------
 # Integration tests: source discovery
@@ -462,6 +472,39 @@ class TestSourceDiscovery(unittest.TestCase):
 
         crops = find_crop_xmps_for_page(page_xmp)
         self.assertEqual(len(crops), 2)
+
+    def test_find_crop_xmps_excludes_stale_orphans_outside_region_range(self):
+        """Once page regions are known, crops whose D## falls outside the current
+        region range (stale orphans from a previous detection run) are excluded."""
+        from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
+        from photoalbums.lib.xmp_sidecar import write_region_list
+
+        page_xmp = self._page_xmp()
+        _write_xmp(page_xmp, _empty_xmp())
+        # 3 current page photo regions; no archive D-files → current set is D01..D03.
+        write_region_list(
+            page_xmp,
+            [
+                RegionWithCaption(RegionResult(index=i, x=i * 100, y=0, width=100, height=100), "")
+                for i in range(3)
+            ],
+            800,
+            600,
+        )
+        for name in (
+            "Family_2020_B01_P05_D01-00_V.xmp",
+            "Family_2020_B01_P05_D02-00_V.xmp",
+            "Family_2020_B01_P05_D03-00_V.xmp",
+            "Family_2020_B01_P05_D08-01_V.xmp",  # stale orphan, outside region range
+        ):
+            _write_xmp(self.photos_dir / name, _empty_xmp())
+
+        crops = [p.name for p in find_crop_xmps_for_page(page_xmp)]
+        self.assertEqual(crops, [
+            "Family_2020_B01_P05_D01-00_V.xmp",
+            "Family_2020_B01_P05_D02-00_V.xmp",
+            "Family_2020_B01_P05_D03-00_V.xmp",
+        ])
 
     def test_missing_dirs_return_empty(self):
         # page_xmp not in a pages dir

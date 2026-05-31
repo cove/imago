@@ -503,12 +503,17 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
                 img_h,
             )
 
+            # Produce a real crop with a complete sidecar first.
+            self.assertEqual(crop_page_regions(view_jpg, photos_dir), 1)
             existing_crop = photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg"
+            self.assertTrue(existing_crop.with_suffix(".xmp").is_file())
+
+            # Mark the JPG so we can detect whether it gets rewritten.
             existing_crop.write_bytes(b"existing")
 
+            # A crop whose JPG exists AND whose sidecar is complete is skipped.
             count = crop_page_regions(view_jpg, photos_dir)
             self.assertEqual(count, 0)
-            # File still has original content
             self.assertEqual(existing_crop.read_bytes(), b"existing")
 
     def test_existing_file_overwritten_with_force(self):
@@ -1399,6 +1404,51 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
             self.assertTrue(missing_crop.exists())
             self.assertTrue(missing_sidecar.exists())
 
+    def test_empty_sidecar_triggers_rerun_even_when_jpg_exists(self):
+        """A crop whose .jpg exists but whose .xmp is a bare DocumentID-only stub
+        is regenerated rather than skipped."""
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P26_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100},
+                ],
+                img_w,
+                img_h,
+            )
+
+            self.assertEqual(crop_page_regions(view_jpg, photos_dir), 2)
+
+            # Leave the crop JPG in place but replace its sidecar with a bare
+            # DocumentID-only stub (as an interrupted/legacy run would leave it).
+            stub_crop = photos_dir / "Egypt_1975_B00_P26_D02-00_V.jpg"
+            stub_sidecar = stub_crop.with_suffix(".xmp")
+            stub_sidecar.write_text(
+                "<?xml version='1.0' encoding='utf-8'?>\n"
+                '<x:xmpmeta xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"'
+                ' xmlns:x="adobe:ns:meta/"'
+                ' xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/" x:xmptk="imago">\n'
+                "  <rdf:RDF>\n"
+                '    <rdf:Description rdf:about=""'
+                ' xmpMM:DocumentID="xmp:uuid:deadbeef-0000-0000-0000-000000000000" />\n'
+                "  </rdf:RDF>\n"
+                "</x:xmpmeta>"
+            )
+            self.assertTrue(stub_crop.exists())
+
+            # Re-run: the stub-sidecar crop is regenerated; the intact one is skipped.
+            count2 = crop_page_regions(view_jpg, photos_dir)
+            self.assertEqual(count2, 1)
+            self.assertIsNotNone(read_pipeline_step(stub_sidecar, "photo_restoration"))
+
     def test_orphan_cleanup_on_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             img_w, img_h = 200, 100
@@ -1456,6 +1506,11 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
             _make_minimal_jpeg(view_jpg, img_w, img_h)
             (archive_dir / "Egypt_1975_B00_P01_D01-01.png").write_bytes(b"derived")
             (archive_dir / "Egypt_1975_B00_P01_D03-01.tif").write_bytes(b"derived")
+            archive_view = photos_dir / "Egypt_1975_B00_P01_D01-01_V.jpg"
+            archive_view_xmp = archive_view.with_suffix(".xmp")
+            photos_dir.mkdir()
+            archive_view.write_bytes(b"archive-derived-view")
+            archive_view_xmp.write_bytes(b"archive-derived-sidecar")
 
             _write_region_xmp(
                 view_xmp,
@@ -1485,6 +1540,8 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
 
             self.assertEqual(count2, 2)
             self.assertFalse(orphan.exists())
+            self.assertEqual(archive_view.read_bytes(), b"archive-derived-view")
+            self.assertEqual(archive_view_xmp.read_bytes(), b"archive-derived-sidecar")
             self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D04-00_V.jpg").exists())
             self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D05-00_V.jpg").exists())
 

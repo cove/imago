@@ -2907,7 +2907,7 @@ def _region_caption_text(rwc, *, photo_number: int, metadata_photos_by_number: d
     if region_caption or photo_number <= 0:
         return region_caption
     ai_entry = metadata_photos_by_number.get(photo_number) or {}
-    return str(ai_entry.get("corrected_caption") or ai_entry.get("caption") or "").strip()
+    return str(ai_entry.get("caption") or ai_entry.get("OriginalCaption") or ai_entry.get("OriginalCapation") or "").strip()
 
 def _set_region_optional_attrs(li: ET.Element, region, *, photo_number: int) -> None:
     caption_hint = str(getattr(region, "caption_hint", "") or "").strip()

@@ -566,6 +566,9 @@ def write_render_provenance(view_xmp_path: str | Path, scan_files: list[str | Pa
     if primary is None:
         return
 
+    for scan in ordered:
+        assign_document_id(Path(scan).with_suffix(".xmp"))
+
     primary_doc_id = read_document_id(Path(primary).with_suffix(".xmp"))
     pantry_sources = []
     for scan in ordered:

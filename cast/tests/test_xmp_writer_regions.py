@@ -336,13 +336,32 @@ def test_old_compact_mwgrs_region_info_migrates_photo_regions_on_write(tmp_path:
     assert _parse_mp_regions(xmp) == [{"name": "Alice", "rectangle": "0.100000, 0.100000, 0.200000, 0.200000"}]
 
 
-def test_corrupt_xmp_creates_new_sidecar(tmp_path: Path) -> None:
+def test_corrupt_xmp_raises_and_is_preserved(tmp_path: Path) -> None:
+    """An existing-but-unparseable sidecar must NOT be silently rebuilt as a
+    regions-only skeleton (that would discard dc:description, GPS, date, etc.).
+    The writer raises and leaves the original bytes untouched for inspection."""
+    import pytest
+
     xmp = tmp_path / "photo.xmp"
-    xmp.write_text("not valid xml <<<", encoding="utf-8")
+    corrupt = "not valid xml <<<"
+    xmp.write_text(corrupt, encoding="utf-8")
 
     regions = [{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.2, "rh": 0.2}]
-    merge_face_regions_xmp(xmp, regions)
+    with pytest.raises(RuntimeError):
+        merge_face_regions_xmp(xmp, regions)
 
-    parsed = _parse_face_regions(xmp)
-    assert len(parsed) == 1
-    assert parsed[0]["name"] == "Alice"
+    # Original corrupt bytes preserved (not overwritten with a regions-only stub).
+    assert xmp.read_text(encoding="utf-8") == corrupt
+
+
+def test_persons_corrupt_xmp_raises_and_is_preserved(tmp_path: Path) -> None:
+    """merge_persons_xmp must not overwrite a corrupt sidecar with a persons-only
+    skeleton; it should raise and preserve the file."""
+    import pytest
+
+    xmp = tmp_path / "p.xmp"
+    corrupt = "<x:xmpmeta><oops>"
+    xmp.write_text(corrupt, encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        merge_persons_xmp(xmp, ["Alice"])
+    assert xmp.read_text(encoding="utf-8") == corrupt

@@ -70,6 +70,36 @@ class TestAIDate(unittest.TestCase):
         self.assertEqual(attempted_models, ["bad-model", "good-model"])
         self.assertEqual(engine.effective_model_name, "good-model")
 
+    def test_default_date_token_budget_exceeds_legacy_cap(self):
+        # Reasoning models truncated at the old 128-token cap before emitting the date.
+        self.assertGreater(ai_date.DEFAULT_DATE_MAX_TOKENS, 128)
+
+    def test_date_request_uses_full_token_budget_without_clamp(self):
+        """The configured max_tokens must reach the request unchanged (no 128 clamp),
+        so reasoning models have room to emit the date JSON after their preamble."""
+        captured: dict[str, object] = {}
+
+        def fake_request(url, *, payload=None, timeout):
+            captured["max_tokens"] = payload["max_tokens"]
+            return {
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": '{"date":"1988"}'}}
+                ]
+            }
+
+        with (
+            mock.patch.object(ai_date, "default_caption_models", return_value=["m"]),
+            mock.patch.object(ai_date, "default_caption_model", return_value="m"),
+            mock.patch.object(ai_date, "_lmstudio_request_json", side_effect=fake_request),
+        ):
+            engine = ai_date.DateEstimateEngine(
+                engine="lmstudio", lmstudio_base_url="http://127.0.0.1:1234", max_tokens=4096
+            )
+            result = engine.estimate(ocr_text="1988", album_title="Album")
+
+        self.assertEqual(result.date, "1988")
+        self.assertEqual(captured["max_tokens"], 4096)
+
 
 if __name__ == "__main__":
     unittest.main()

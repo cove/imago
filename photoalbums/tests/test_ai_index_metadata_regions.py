@@ -20,7 +20,12 @@ if str(REPO_ROOT) not in sys.path:
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from photoalbums.lib.ai_index_analysis import _metadata_photo_payload, _update_region_captions_from_metadata
+from photoalbums.lib.ai_index_analysis import (
+    _metadata_photo_payload,
+    _metadata_step_build_output,
+    _update_region_captions_from_metadata,
+)
+from photoalbums.lib.ai_metadata import MetadataPhotoResult, MetadataResult
 from photoalbums.lib.ai_view_regions import RegionResult, RegionWithCaption
 from photoalbums.lib.xmp_sidecar import read_region_list, write_region_list
 
@@ -117,7 +122,7 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             self.assertEqual(regions[0]["caption"], "")
             self.assertEqual(regions[1]["caption"], "")
 
-    def test_corrected_caption_replaces_region_caption(self):
+    def test_corrected_caption_does_not_replace_region_caption(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "page.jpg"
             _make_minimal_jpeg(image)
@@ -135,7 +140,7 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             )
 
             regions = read_region_list(xmp_path, 800, 600)
-            self.assertEqual(regions[0]["caption"], "Karnten, Austria")
+            self.assertEqual(regions[0]["caption"], "KARNTEN, AUSTRIA")
 
     def test_metadata_photo_payload_keeps_original_caption_in_detections(self):
         payload = _metadata_photo_payload(
@@ -147,8 +152,30 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             }
         )
 
-        self.assertEqual(payload["caption"], "Karnten, Austria")
-        self.assertEqual(payload["OriginalCapation"], "KARNTEN, AUSTRIA")
+        self.assertEqual(payload["caption"], "KARNTEN, AUSTRIA")
+        self.assertEqual(payload["corrected_caption"], "Karnten, Austria")
+        self.assertEqual(payload["OriginalCaption"], "KARNTEN, AUSTRIA")
+
+    def test_metadata_output_adds_corrected_caption_to_subjects(self):
+        engine = mock.Mock()
+        engine.engine = "lmstudio"
+        engine.effective_model_name = "test-model"
+        output = _metadata_step_build_output(
+            MetadataResult(
+                photos=[
+                    MetadataPhotoResult(
+                        photo_number=1,
+                        caption="CHINESE PAVILLION AT KEW GARDENS",
+                        corrected_caption="Chinese Pavilion at Kew Gardens",
+                    )
+                ],
+                subjects=["pagoda"],
+            ),
+            {"ocr_text": "CHINESE PAVILLION AT KEW GARDENS", "location_payload": {}, "locations_shown": [], "locations_shown_ran": False},
+            engine,
+        )
+
+        self.assertEqual(output["subjects"], ["pagoda", "Chinese Pavilion at Kew Gardens"])
 
     def test_ai_caption_overwrites_existing_hint(self):
         """The metadata AI's numbered caption is the authoritative region name."""
@@ -377,7 +404,7 @@ class TestWriteRegionListAppliesStoredAIPhotos(unittest.TestCase):
             self.assertEqual(regions[1]["caption"], "Regent Street, London")
             self.assertEqual(regions[1]["photo_number"], 2)
 
-    def test_write_region_list_prefers_stored_corrected_caption(self):
+    def test_write_region_list_prefers_stored_original_caption(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "page.jpg"
             _make_minimal_jpeg(image)
@@ -413,7 +440,7 @@ class TestWriteRegionListAppliesStoredAIPhotos(unittest.TestCase):
             )
 
             regions = read_region_list(xmp_path, 800, 600)
-            self.assertEqual(regions[0]["caption"], "Karnten, Austria")
+            self.assertEqual(regions[0]["caption"], "KARNTEN, AUSTRIA")
 
     def test_explicit_caption_takes_precedence_over_stored(self):
         """If the caller explicitly sets RegionWithCaption.caption, it wins
