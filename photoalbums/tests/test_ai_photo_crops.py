@@ -1365,11 +1365,18 @@ class TestCropPageRegionsPipelineState(_NoOpRestorationMixin, unittest.TestCase)
             # First call
             crop_page_regions(view_jpg, photos_dir)
 
+            orphan_jpg = photos_dir / "Egypt_1975_B00_P01_D99-00_V.jpg"
+            orphan_xmp = orphan_jpg.with_suffix(".xmp")
+            orphan_jpg.write_bytes(b"orphan")
+            orphan_xmp.write_bytes(b"orphan")
+
             # Force re-run
-            count = crop_page_regions(view_jpg, photos_dir, force=True)
+            with self.assertLogs("photoalbums.lib.ai_photo_crops", level="INFO") as logs:
+                count = crop_page_regions(view_jpg, photos_dir, force=True)
             self.assertEqual(count, 1)
             # State still written after force run
             self.assertIsNotNone(read_pipeline_step(view_xmp, "crop_regions"))
+            self.assertTrue(any("Removed orphaned crop file: Egypt_1975_B00_P01_D99-00_V.jpg" in msg for msg in logs.output))
 
     def test_missing_outputs_rerun_even_when_pipeline_state_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
