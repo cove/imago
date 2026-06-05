@@ -1018,7 +1018,7 @@ def _remove_orphaned_crops(view_path: Path, photos_dir: Path, current_region_cou
             continue
         if candidate_stem not in expected_stems:
             f.unlink(missing_ok=True)
-            log.debug("Removed orphaned crop file: %s", f.name)
+            log.info("Removed orphaned crop file: %s", f.name)
 
 
 def _crop_sidecar_complete(xmp_path: Path) -> bool:
