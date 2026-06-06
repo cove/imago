@@ -3295,6 +3295,54 @@
     "query": "Aqueducts, Europe",
     "status": "miss"
   },
+  "arc de triomphe, paris, france": {
+    "city": "Paris",
+    "country": "France",
+    "display_name": "Arc de Triomphe, Passage du Souvenir, Quartier des Ternes, 17th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75017, France",
+    "latitude": "48.8737791",
+    "longitude": "2.2950372",
+    "query": "Arc de Triomphe, Paris, France",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FR-IDF",
+        "ISO3166-2-lvl6": "FR-75C",
+        "city": "Paris",
+        "city_block": "Quartier des Ternes",
+        "city_district": "Paris",
+        "country": "France",
+        "country_code": "fr",
+        "postcode": "75017",
+        "region": "Metropolitan France",
+        "road": "Passage du Souvenir",
+        "state": "Ile-de-France",
+        "suburb": "17th Arrondissement",
+        "tourism": "Arc de Triomphe"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "48.8735201",
+        "48.8740363",
+        "2.2947196",
+        "2.2953512"
+      ],
+      "category": "tourism",
+      "display_name": "Arc de Triomphe, Passage du Souvenir, Quartier des Ternes, 17th Arrondissement, Paris, Ile-de-France, Metropolitan France, 75017, France",
+      "importance": 0.579484195672536,
+      "lat": "48.8737791",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "2.2950372",
+      "name": "Arc de Triomphe",
+      "osm_id": 226413508,
+      "osm_type": "way",
+      "place_id": 97269969,
+      "place_rank": 30,
+      "type": "attraction"
+    },
+    "source": "nominatim",
+    "state": "Ile-de-France",
+    "status": "ok",
+    "sublocation": "Passage du Souvenir"
+  },
   "arch de triomphe": {
     "city": "Bucharest",
     "country": "Romania",
@@ -3651,6 +3699,36 @@
     "latitude": "34.8045487",
     "longitude": "-86.9711698",
     "query": "Athens, Alabama, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-AL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Limestone County",
+        "postcode": "35613",
+        "state": "Alabama",
+        "town": "Athens"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "34.6857079",
+        "34.8408571",
+        "-87.0857293",
+        "-86.8637213"
+      ],
+      "category": "boundary",
+      "display_name": "Athens, Limestone County, Alabama, 35613, United States",
+      "importance": 0.4923264559525533,
+      "lat": "34.8045487",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.9711698",
+      "name": "Athens",
+      "osm_id": 110976,
+      "osm_type": "relation",
+      "place_id": 343027256,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Alabama",
     "status": "ok",
@@ -4577,6 +4655,52 @@
     "query": "Barnum's Bear Ranch",
     "status": "miss"
   },
+  "batalha monastery, batalha, portugal": {
+    "city": "Batalha",
+    "country": "Portugal",
+    "display_name": "Batalha Monastery, Batalha, Portugal, Batalha, Portugal",
+    "latitude": "39.6592101",
+    "longitude": "-8.8258275",
+    "query": "Batalha Monastery, Batalha, Portugal",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl6": "PT-10",
+        "city_district": "Batalha",
+        "country": "Portugal",
+        "country_code": "pt",
+        "county": "Leiria",
+        "hamlet": "Arneiro",
+        "historic": "Monastery of Batalha",
+        "neighbourhood": "Urbanização do Pinhal Manso",
+        "postcode": "2240-447",
+        "road": "Rua Nossa Senhora do Caminho",
+        "town": "Batalha"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "39.6584875",
+        "39.6599876",
+        "-8.8263671",
+        "-8.8247728"
+      ],
+      "category": "historic",
+      "display_name": "Monastery of Batalha, Rua Nossa Senhora do Caminho, Urbanização do Pinhal Manso, Arneiro, Batalha, Leiria, 2240-447, Portugal",
+      "importance": 0.46552270554444963,
+      "lat": "39.6592101",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-8.8258275",
+      "name": "Monastery of Batalha",
+      "osm_id": 444670165,
+      "osm_type": "way",
+      "place_id": 296394591,
+      "place_rank": 30,
+      "type": "monastery"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Rua Nossa Senhora do Caminho"
+  },
   "batalha monastery, portugal": {
     "city": "Batalha",
     "country": "Portugal",
@@ -5421,6 +5545,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "beidaihe, hebei, china": {
+    "city": "Qinhuangdao",
+    "country": "China",
+    "display_name": "Beidaihe District, Qinhuangdao, Hebei, 066100, China",
+    "latitude": "39.8605725",
+    "longitude": "119.4354373",
+    "query": "Beidaihe, Hebei, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-HE",
+        "city": "Qinhuangdao",
+        "country": "China",
+        "country_code": "cn",
+        "district": "Beidaihe District",
+        "postcode": "066100",
+        "state": "Hebei"
+      },
+      "addresstype": "district",
+      "boundingbox": [
+        "39.6612871",
+        "39.9150248",
+        "119.3130042",
+        "119.7171634"
+      ],
+      "category": "boundary",
+      "display_name": "Beidaihe District, Qinhuangdao, Hebei, 066100, China",
+      "importance": 0.46514647657456487,
+      "lat": "39.8605725",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "119.4354373",
+      "name": "Beidaihe District",
+      "osm_id": 2989650,
+      "osm_type": "relation",
+      "place_id": 222199856,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Hebei",
+    "status": "ok",
+    "sublocation": ""
+  },
   "beihai park, beijing, china": {
     "display_name": "北海公园, 什刹海街道, 首都功能核心区, 西城区, 北京市, 100032, 中国",
     "latitude": "39.9264023",
@@ -5428,6 +5594,49 @@
     "query": "Beihai Park, Beijing, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "beijing zoo, beijing, china": {
+    "city": "Xicheng District",
+    "country": "China",
+    "display_name": "Beijing Zoo, Beijing, China, Xicheng District, China",
+    "latitude": "39.9410410",
+    "longitude": "116.3295423",
+    "query": "Beijing Zoo, Beijing, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-BJ",
+        "city": "Xicheng District",
+        "country": "China",
+        "country_code": "cn",
+        "postcode": "100032",
+        "road": "西直门外大街",
+        "suburb": "Zhanlanlu Subdistrict",
+        "tourism": "Beijing Zoo"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "39.9371822",
+        "39.9449264",
+        "116.3221801",
+        "116.3369000"
+      ],
+      "category": "tourism",
+      "display_name": "Beijing Zoo, 西直门外大街, Zhanlanlu Subdistrict, 首都功能核心区, Xicheng District, Beijing, 100032, China",
+      "importance": 0.45706795194016775,
+      "lat": "39.9410410",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "116.3295423",
+      "name": "Beijing Zoo",
+      "osm_id": 29222967,
+      "osm_type": "way",
+      "place_id": 219921504,
+      "place_rank": 30,
+      "type": "zoo"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "西直门外大街"
   },
   "beijing zoo, china": {
     "city": "Xicheng District",
@@ -6569,6 +6778,53 @@
     "query": "Boishi Theatre, Russia",
     "status": "miss"
   },
+  "bolshoi theatre, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Bolshoi Theatre, Moscow, Russia, Moscow, Russia",
+    "latitude": "55.7601296",
+    "longitude": "37.6186118",
+    "query": "Bolshoi Theatre, Moscow, Russia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "RU-MOW",
+        "amenity": "Bolshoi Theatre",
+        "city": "Moscow",
+        "country": "Russia",
+        "country_code": "ru",
+        "house_number": "1",
+        "postcode": "125009",
+        "quarter": "2",
+        "region": "Central Federal District",
+        "road": "Театральная площадь",
+        "state": "Moscow",
+        "suburb": "Tverskoy District"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "55.7600796",
+        "55.7601796",
+        "37.6185618",
+        "37.6186618"
+      ],
+      "category": "amenity",
+      "display_name": "Bolshoi Theatre, 1, Театральная площадь, 2, Tverskoy District, Moscow, Central Federal District, 125009, Russia",
+      "importance": 0.5958958673990975,
+      "lat": "55.7601296",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "37.6186118",
+      "name": "Bolshoi Theatre",
+      "osm_id": 6061084593,
+      "osm_type": "node",
+      "place_id": 196982300,
+      "place_rank": 30,
+      "type": "theatre"
+    },
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "1 Театральная площадь"
+  },
   "boone hall": {
     "city": "Macon",
     "country": "United States",
@@ -6640,6 +6896,51 @@
       "osm_id": 195417062,
       "osm_type": "way",
       "place_id": 343328312,
+      "place_rank": 30,
+      "type": "attraction"
+    },
+    "source": "nominatim",
+    "state": "South Carolina",
+    "status": "ok",
+    "sublocation": "Old Ivy Way"
+  },
+  "boone hall plantation, south carolina, united states": {
+    "city": "Mount Pleasant",
+    "country": "United States",
+    "display_name": "Boone Hall Plantation, Old Ivy Way, Brickyard Plantation, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+    "latitude": "32.8541556",
+    "longitude": "-79.8171075",
+    "query": "Boone Hall Plantation, South Carolina, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-SC",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Charleston County",
+        "postcode": "29466",
+        "residential": "Brickyard Plantation",
+        "road": "Old Ivy Way",
+        "state": "South Carolina",
+        "tourism": "Boone Hall Plantation",
+        "town": "Mount Pleasant"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "32.8446510",
+        "32.8634085",
+        "-79.8271471",
+        "-79.8057501"
+      ],
+      "category": "tourism",
+      "display_name": "Boone Hall Plantation, Old Ivy Way, Brickyard Plantation, Mount Pleasant, Charleston County, South Carolina, 29466, United States",
+      "importance": 2.8699931334355954e-05,
+      "lat": "32.8541556",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-79.8171075",
+      "name": "Boone Hall Plantation",
+      "osm_id": 195417062,
+      "osm_type": "way",
+      "place_id": 342752757,
       "place_rank": 30,
       "type": "attraction"
     },
@@ -8422,6 +8723,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "brussels, belgium": {
+    "city": "Brussels",
+    "country": "Belgium",
+    "display_name": "Brussels, Brussels-Capital, Belgium",
+    "latitude": "50.8467372",
+    "longitude": "4.3524930",
+    "query": "Brussels, Belgium",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "BE-BRU",
+        "city": "Brussels",
+        "country": "Belgium",
+        "country_code": "be",
+        "county": "Brussels-Capital",
+        "region": "Brussels-Capital"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "50.7963454",
+        "50.9139045",
+        "4.3137681",
+        "4.4370662"
+      ],
+      "category": "boundary",
+      "display_name": "Brussels, Brussels-Capital, Belgium",
+      "importance": 0.7402455933272529,
+      "lat": "50.8467372",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "4.3524930",
+      "name": "Brussels",
+      "osm_id": 58274,
+      "osm_type": "relation",
+      "place_id": 106190594,
+      "place_rank": 14,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "bucharest": {
     "city": "Bucharest",
     "country": "Romania",
@@ -8883,6 +9225,36 @@
     "latitude": "37.5780965",
     "longitude": "-122.3473099",
     "query": "Burlingame, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "San Mateo County",
+        "postcode": "94010",
+        "state": "California",
+        "town": "Burlingame"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "37.5682796",
+        "37.6064685",
+        "-122.4037216",
+        "-122.3308389"
+      ],
+      "category": "boundary",
+      "display_name": "Burlingame, San Mateo County, California, 94010, United States",
+      "importance": 0.5026147992613494,
+      "lat": "37.5780965",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.3473099",
+      "name": "Burlingame",
+      "osm_id": 9949457,
+      "osm_type": "relation",
+      "place_id": 322880338,
+      "place_rank": 16,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -11314,6 +11686,10 @@
     "query": "Chandelier Tree, Drive-Thru Tree Park, Pine Hill, California, United States",
     "status": "miss"
   },
+  "chandelier tree, oregon, united states": {
+    "query": "Chandelier Tree, Oregon, United States",
+    "status": "miss"
+  },
   "chandelier tree, united states": {
     "city": "Leggett",
     "country": "United States",
@@ -11845,6 +12221,10 @@
   },
   "chenou, henan province, china": {
     "query": "Chenou, Henan Province, China",
+    "status": "miss"
+  },
+  "chepapequiddick, massachusetts, united states": {
+    "query": "Chepapequiddick, Massachusetts, United States",
     "status": "miss"
   },
   "chicago": {
@@ -16315,6 +16695,10 @@
     "query": "Dean & Tawnya's Home, Indianapolis, Indiana, United States",
     "status": "miss"
   },
+  "decemberists square, saint petersburg, russia": {
+    "query": "Decemberists Square, Saint Petersburg, Russia",
+    "status": "miss"
+  },
   "decembrists square, saint petersburg, russia": {
     "query": "Decembrists Square, Saint Petersburg, Russia",
     "status": "miss"
@@ -17451,6 +17835,46 @@
     "query": "Drepung Monastery",
     "source": "nominatim",
     "status": "ok"
+  },
+  "dresden, germany": {
+    "city": "Dresden",
+    "country": "Germany",
+    "display_name": "Dresden, Saxony, Germany",
+    "latitude": "51.0493286",
+    "longitude": "13.7381437",
+    "query": "Dresden, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-SN",
+        "city": "Dresden",
+        "country": "Germany",
+        "country_code": "de",
+        "state": "Saxony"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "50.9749317",
+        "51.1777202",
+        "13.5793237",
+        "13.9660626"
+      ],
+      "category": "boundary",
+      "display_name": "Dresden, Saxony, Germany",
+      "importance": 0.7441063589631615,
+      "lat": "51.0493286",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "13.7381437",
+      "name": "Dresden",
+      "osm_id": 191645,
+      "osm_type": "relation",
+      "place_id": 417875506,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Saxony",
+    "status": "ok",
+    "sublocation": ""
   },
   "dubai, united arab emirates": {
     "city": "",
@@ -19149,6 +19573,10 @@
     "state": "Florida",
     "status": "ok"
   },
+  "epcot, walt disney world, florida, united states": {
+    "query": "EPCOT, Walt Disney World, Florida, United States",
+    "status": "miss"
+  },
   "ernie & dolly": {
     "city": "Kulpmont",
     "country": "United States",
@@ -20240,6 +20668,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "florence, italy": {
+    "city": "Florence",
+    "country": "Italy",
+    "display_name": "Florence, Tuscany, Italy",
+    "latitude": "43.7697955",
+    "longitude": "11.2556404",
+    "query": "Florence, Italy",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "IT-52",
+        "ISO3166-2-lvl6": "IT-FI",
+        "city": "Florence",
+        "country": "Italy",
+        "country_code": "it",
+        "county": "Florence",
+        "state": "Tuscany"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "43.7258716",
+        "43.8354631",
+        "11.1497598",
+        "11.3389044"
+      ],
+      "category": "boundary",
+      "display_name": "Florence, Tuscany, Italy",
+      "importance": 0.7721083386731102,
+      "lat": "43.7697955",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "11.2556404",
+      "name": "Florence",
+      "osm_id": 42602,
+      "osm_type": "relation",
+      "place_id": 81785107,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Tuscany",
+    "status": "ok",
+    "sublocation": ""
+  },
   "florida, united states": {
     "city": "",
     "country": "United States",
@@ -20526,6 +20996,47 @@
     "state": "Paraná",
     "status": "ok",
     "sublocation": "km 16.5 Rodovia das Cataratas"
+  },
+  "foz do iguaçu, brazil": {
+    "city": "Foz do Iguaçu",
+    "country": "Brazil",
+    "display_name": "Foz do Iguacu, Brazil, Foz do Iguacu, Parana, Brazil",
+    "latitude": "-25.5304023",
+    "longitude": "-54.5830692",
+    "query": "Foz do Iguaçu, Brazil",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "BR-PR",
+        "country": "Brazil",
+        "country_code": "br",
+        "municipality": "Foz do Iguaçu",
+        "region": "South Region",
+        "state": "Paraná"
+      },
+      "addresstype": "municipality",
+      "boundingbox": [
+        "-25.6975601",
+        "-25.2114940",
+        "-54.6198550",
+        "-54.2940195"
+      ],
+      "category": "boundary",
+      "display_name": "Foz do Iguaçu, Paraná, South Region, Brazil",
+      "importance": 0.5582133353901544,
+      "lat": "-25.5304023",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-54.5830692",
+      "name": "Foz do Iguaçu",
+      "osm_id": 297473,
+      "osm_type": "relation",
+      "place_id": 6596017,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Paraná",
+    "status": "ok",
+    "sublocation": ""
   },
   "framingham, mass": {
     "city": "Framingham",
@@ -23397,6 +23908,10 @@
     "query": "Griffith Park, Indianapolis, Indiana, United States",
     "status": "miss"
   },
+  "griffith park, indianapolis, united states": {
+    "query": "Griffith Park, Indianapolis, United States",
+    "status": "miss"
+  },
   "griffith park, indianapolis, usa": {
     "query": "Griffith Park, Indianapolis, USA",
     "status": "miss"
@@ -23568,6 +24083,49 @@
     "state": "Rhineland-Palatinate",
     "status": "ok"
   },
+  "guča, serbia": {
+    "city": "Lucani Municipality",
+    "country": "Serbia",
+    "display_name": "Guca, Lucani Municipality, Moravica Administrative District, Central Serbia, 32230, Serbia",
+    "latitude": "43.7772932",
+    "longitude": "20.2269416",
+    "query": "Guča, Serbia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl6": "RS-17",
+        "city": "Lucani Municipality",
+        "country": "Serbia",
+        "country_code": "rs",
+        "county": "Moravica Administrative District",
+        "postcode": "32230",
+        "province": "Central Serbia",
+        "town": "Guca"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "43.7725325",
+        "43.7852812",
+        "20.2225883",
+        "20.2322455"
+      ],
+      "category": "boundary",
+      "display_name": "Guca, Lucani Municipality, Moravica Administrative District, Central Serbia, 32230, Serbia",
+      "importance": 0.4555254752192445,
+      "lat": "43.7772932",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "20.2269416",
+      "name": "Guca",
+      "osm_id": 8065870,
+      "osm_type": "relation",
+      "place_id": 57740784,
+      "place_rank": 18,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "hagia sophia museum, istanbul, turkey": {
     "city": "Istanbul",
     "country": "Turkey",
@@ -23710,6 +24268,47 @@
     },
     "source": "nominatim",
     "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "hannover, germany": {
+    "city": "Hanover",
+    "country": "Germany",
+    "display_name": "Hanover, Region Hannover, Lower Saxony, Germany",
+    "latitude": "52.3744779",
+    "longitude": "9.7385532",
+    "query": "Hannover, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-NI",
+        "city": "Hanover",
+        "country": "Germany",
+        "country_code": "de",
+        "county": "Region Hannover",
+        "state": "Lower Saxony"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "52.3051373",
+        "52.4543349",
+        "9.6044487",
+        "9.9185652"
+      ],
+      "category": "boundary",
+      "display_name": "Hanover, Region Hannover, Lower Saxony, Germany",
+      "importance": 0.7210693104911785,
+      "lat": "52.3744779",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "9.7385532",
+      "name": "Hanover",
+      "osm_id": 59418,
+      "osm_type": "relation",
+      "place_id": 140839121,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Lower Saxony",
     "status": "ok",
     "sublocation": ""
   },
@@ -26316,6 +26915,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "iguazu falls, argentina/brazil": {
+    "query": "Iguazu Falls, Argentina/Brazil",
+    "status": "miss"
+  },
   "iguazu falls, brazil": {
     "city": "Foz do Iguaçu",
     "country": "Brazil",
@@ -27038,6 +27641,50 @@
     "query": "International Congress Centre, Berlin, Germany",
     "status": "miss"
   },
+  "intramuros, manila, philippines": {
+    "city": "Manila",
+    "country": "Philippines",
+    "display_name": "Intramuros, Fifth District, Manila, Capital District, Metro Manila, 1002, Philippines",
+    "latitude": "14.5909588",
+    "longitude": "120.9746537",
+    "query": "Intramuros, Manila, Philippines",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl3": "PH-00",
+        "city": "Manila",
+        "city_district": "Fifth District",
+        "country": "Philippines",
+        "country_code": "ph",
+        "postcode": "1002",
+        "quarter": "Intramuros",
+        "region": "Metro Manila",
+        "state_district": "Capital District"
+      },
+      "addresstype": "quarter",
+      "boundingbox": [
+        "14.5828894",
+        "14.5960191",
+        "120.9673210",
+        "120.9810822"
+      ],
+      "category": "boundary",
+      "display_name": "Intramuros, Fifth District, Manila, Capital District, Metro Manila, 1002, Philippines",
+      "importance": 0.4789467094710231,
+      "lat": "14.5909588",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "120.9746537",
+      "name": "Intramuros",
+      "osm_id": 103707,
+      "osm_type": "relation",
+      "place_id": 260905310,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "ipanema beach, brazil": {
     "city": "Pontal do Paraná",
     "country": "Brazil",
@@ -27711,12 +28358,45 @@
     "sublocation": ""
   },
   "jiayuguan, gansu, china": {
-    "display_name": "嘉峪关市, 甘肃省, 735100, 中国",
+    "city": "Jiayuguan",
+    "country": "China",
+    "display_name": "Jiayuguan, Gansu, 735100, China",
     "latitude": "39.7722294",
     "longitude": "98.2885388",
     "query": "Jiayuguan, Gansu, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-GS",
+        "city": "Jiayuguan",
+        "country": "China",
+        "country_code": "cn",
+        "postcode": "735100",
+        "state": "Gansu"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "39.6524292",
+        "39.9946938",
+        "97.8484409",
+        "98.5200771"
+      ],
+      "category": "boundary",
+      "display_name": "Jiayuguan, Gansu, 735100, China",
+      "importance": 0.5332090105702832,
+      "lat": "39.7722294",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "98.2885388",
+      "name": "Jiayuguan",
+      "osm_id": 165664,
+      "osm_type": "relation",
+      "place_id": 219433115,
+      "place_rank": 10,
+      "type": "administrative"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Gansu",
+    "status": "ok",
+    "sublocation": ""
   },
   "jiuquan, gansu, china": {
     "display_name": "酒泉市, 甘肃省, 735000, 中国",
@@ -27911,12 +28591,49 @@
     "sublocation": "大昭寺广场"
   },
   "jokhang temple, lhasa, tibet, china": {
-    "display_name": "ཇོ་ཁང། 大昭寺, 八廓街, བར་སྐོར། 八廓街, 八廓社区, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
+    "city": "Chengguan District",
+    "country": "China",
+    "display_name": "Jokhang Temple, Lhasa, Tibet, China, Chengguan District, Tibet, China",
     "latitude": "29.6528598",
     "longitude": "91.1317978",
     "query": "Jokhang Temple, Lhasa, Tibet, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-XZ",
+        "amenity": "Jokhang Monastery",
+        "city": "Chengguan District",
+        "country": "China",
+        "country_code": "cn",
+        "postcode": "850000",
+        "retail": "བར་སྐོར། 八廓街",
+        "road": "大昭寺广场",
+        "state": "Tibet",
+        "suburb": "Chomsigkang"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "29.6523105",
+        "29.6534322",
+        "91.1310668",
+        "91.1326218"
+      ],
+      "category": "amenity",
+      "display_name": "Jokhang Monastery, 大昭寺广场, བར་སྐོར། 八廓街, Chomsigkang, Barkor Subdistrict, Chengguan District, Lhasa, Tibet, 850000, China",
+      "importance": 0.52366103230568,
+      "lat": "29.6528598",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "91.1317978",
+      "name": "Jokhang Monastery",
+      "osm_id": 2358701,
+      "osm_type": "relation",
+      "place_id": 241775385,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Tibet",
+    "status": "ok",
+    "sublocation": "大昭寺广场"
   },
   "jokhang temple, tibet": {
     "display_name": "ཇོ་ཁང། 大昭寺, 大昭寺广场, བར་སྐོར། 八廓街, ཁྲོམ་གཟིགས་ཁང། 冲赛康, 八廓街道, 城关区 ཁྲིན་ཀོན་ཆུས།, 拉萨市 ལྷ་ས་གྲོང་ཁྱེར།, 西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 850000, 中国",
@@ -28934,6 +29651,55 @@
     "state": "England",
     "status": "ok",
     "sublocation": ""
+  },
+  "kennedy space center, florida, united states": {
+    "city": "Merritt Island",
+    "country": "United States",
+    "display_name": "Kennedy Space Center Visitor Complex, 9500, Space Commerce Way, Merritt Island, Brevard County, Florida, 32953, United States",
+    "latitude": "28.5242796",
+    "longitude": "-80.6818558",
+    "query": "Kennedy Space Center, Florida, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-FL",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Brevard County",
+        "house_number": "9500",
+        "postcode": "32953",
+        "road": "Space Commerce Way",
+        "state": "Florida",
+        "tourism": "Kennedy Space Center Visitor Complex",
+        "town": "Merritt Island"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "28.5225209",
+        "28.5260719",
+        "-80.6844483",
+        "-80.6792655"
+      ],
+      "category": "tourism",
+      "display_name": "Kennedy Space Center Visitor Complex, 9500, Space Commerce Way, Merritt Island, Brevard County, Florida, 32953, United States",
+      "importance": 0.4000978874196021,
+      "lat": "28.5242796",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-80.6818558",
+      "name": "Kennedy Space Center Visitor Complex",
+      "osm_id": 166133965,
+      "osm_type": "way",
+      "place_id": 301453194,
+      "place_rank": 30,
+      "type": "theme_park"
+    },
+    "source": "nominatim",
+    "state": "Florida",
+    "status": "ok",
+    "sublocation": "9500 Space Commerce Way"
+  },
+  "kensington close west, london, united kingdom": {
+    "query": "Kensington Close West, London, United Kingdom",
+    "status": "miss"
   },
   "keswick - the lake district, england": {
     "query": "Keswick - The Lake District, England",
@@ -30039,6 +30805,51 @@
     "query": "Kurfürstendamm - The Main Street in West Berlin, Berlin, Germany",
     "status": "miss"
   },
+  "kyoto tower, kyoto, japan": {
+    "city": "Kyoto",
+    "country": "Japan",
+    "display_name": "Kyoto Tower, Kyoto, Japan, Kyoto, Japan",
+    "latitude": "34.9875524",
+    "longitude": "135.7593295",
+    "query": "Kyoto Tower, Kyoto, Japan",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "JP-26",
+        "city": "Kyoto",
+        "country": "Japan",
+        "country_code": "jp",
+        "neighbourhood": "Higashishiokojicho",
+        "postcode": "600-8218",
+        "province": "Kyoto Prefecture",
+        "road": "木津屋橋通",
+        "suburb": "Shimogyo Ward",
+        "tourism": "Kyoto Tower"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "34.9875024",
+        "34.9876024",
+        "135.7592795",
+        "135.7593795"
+      ],
+      "category": "tourism",
+      "display_name": "Kyoto Tower, 木津屋橋通, Higashishiokojicho, Shimogyo Ward, Kyoto, Kyoto Prefecture, 600-8218, Japan",
+      "importance": 0.3692588589939114,
+      "lat": "34.9875524",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "135.7593295",
+      "name": "Kyoto Tower",
+      "osm_id": 1494857741,
+      "osm_type": "node",
+      "place_id": 269114823,
+      "place_rank": 30,
+      "type": "viewpoint"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "木津屋橋通"
+  },
   "kyoto, japan": {
     "city": "Kyoto",
     "country": "Japan",
@@ -30872,6 +31683,47 @@
     "status": "ok",
     "sublocation": ""
   },
+  "lake louise, alberta, canada": {
+    "city": "",
+    "country": "Canada",
+    "display_name": "Lake Louise, Improvement District No. 9, Alberta, Canada",
+    "latitude": "51.4249668",
+    "longitude": "-116.1775350",
+    "query": "Lake Louise, Alberta, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-AB",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Improvement District No. 9",
+        "hamlet": "Lake Louise",
+        "state": "Alberta"
+      },
+      "addresstype": "hamlet",
+      "boundingbox": [
+        "51.4049668",
+        "51.4449668",
+        "-116.1975350",
+        "-116.1575350"
+      ],
+      "category": "place",
+      "display_name": "Lake Louise, Improvement District No. 9, Alberta, Canada",
+      "importance": 0.5200563866485242,
+      "lat": "51.4249668",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-116.1775350",
+      "name": "Lake Louise",
+      "osm_id": 2665400241,
+      "osm_type": "node",
+      "place_id": 377945550,
+      "place_rank": 20,
+      "type": "hamlet"
+    },
+    "source": "nominatim",
+    "state": "Alberta",
+    "status": "ok",
+    "sublocation": ""
+  },
   "lake louise, canada": {
     "city": "",
     "country": "Canada",
@@ -30910,6 +31762,49 @@
     },
     "source": "nominatim",
     "state": "Alberta",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "lake maggiore, italy": {
+    "city": "",
+    "country": "Italy",
+    "display_name": "Lake Maggiore, Verbano-Cusio-Ossola, Piedmont, 28900, Italy",
+    "latitude": "45.9510936",
+    "longitude": "8.6341652",
+    "query": "Lake Maggiore, Italy",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "IT-21",
+        "ISO3166-2-lvl6": "IT-VB",
+        "country": "Italy",
+        "country_code": "it",
+        "county": "Verbano-Cusio-Ossola",
+        "lake": "Lake Maggiore",
+        "postcode": "28900",
+        "state": "Piedmont"
+      },
+      "addresstype": "lake",
+      "boundingbox": [
+        "45.7224279",
+        "46.1798998",
+        "8.4805596",
+        "8.8657105"
+      ],
+      "category": "water",
+      "display_name": "Lake Maggiore, Verbano-Cusio-Ossola, Piedmont, 28900, Italy",
+      "importance": 0.5514316911178918,
+      "lat": "45.9510936",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "8.6341652",
+      "name": "Lake Maggiore",
+      "osm_id": 11758,
+      "osm_type": "relation",
+      "place_id": 75993993,
+      "place_rank": 20,
+      "type": "lake"
+    },
+    "source": "nominatim",
+    "state": "Piedmont",
     "status": "ok",
     "sublocation": ""
   },
@@ -31392,6 +32287,48 @@
     },
     "source": "nominatim",
     "state": "New Mexico",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "las palmas de gran canaria, spain": {
+    "city": "Las Palmas",
+    "country": "Spain",
+    "display_name": "Las Palmas, Canary Islands, Spain",
+    "latitude": "28.1288694",
+    "longitude": "-15.4349015",
+    "query": "Las Palmas de Gran Canaria, Spain",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "ES-CN",
+        "ISO3166-2-lvl6": "ES-GC",
+        "city": "Las Palmas",
+        "country": "Spain",
+        "country_code": "es",
+        "province": "Las Palmas",
+        "state": "Canary Islands"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "28.0244326",
+        "28.1814260",
+        "-15.5272490",
+        "-15.3948989"
+      ],
+      "category": "boundary",
+      "display_name": "Las Palmas, Canary Islands, Spain",
+      "importance": 0.617007958099539,
+      "lat": "28.1288694",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-15.4349015",
+      "name": "Las Palmas",
+      "osm_id": 340783,
+      "osm_type": "relation",
+      "place_id": 297963211,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Canary Islands",
     "status": "ok",
     "sublocation": ""
   },
@@ -34638,6 +35575,48 @@
     "query": "Mall of Madrid (implied by context/image), Madrid, Spain",
     "status": "miss"
   },
+  "managua, nicaragua": {
+    "city": "Managua",
+    "country": "Nicaragua",
+    "display_name": "Managua, Nicaragua, Managua, Nicaragua",
+    "latitude": "12.1547116",
+    "longitude": "-86.2737250",
+    "query": "Managua, Nicaragua",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "NI-MN",
+        "ISO3166-2-lvl6": "NI-MN",
+        "country": "Nicaragua",
+        "country_code": "ni",
+        "municipality": "Managua",
+        "postcode": "10000 (código maestro)",
+        "state": "Managua"
+      },
+      "addresstype": "municipality",
+      "boundingbox": [
+        "12.0211822",
+        "12.2242728",
+        "-86.3918528",
+        "-86.1257099"
+      ],
+      "category": "boundary",
+      "display_name": "Managua, 10000 (código maestro), Nicaragua",
+      "importance": 0.6043906147631235,
+      "lat": "12.1547116",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-86.2737250",
+      "name": "Managua",
+      "osm_id": 5835475,
+      "osm_type": "relation",
+      "place_id": 309246769,
+      "place_rank": 12,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Managua",
+    "status": "ok",
+    "sublocation": ""
+  },
   "manhattan skyline, new york city, united states": {
     "query": "Manhattan skyline, New York City, United States",
     "status": "miss"
@@ -34739,6 +35718,35 @@
     "latitude": "14.5904492",
     "longitude": "120.9803621",
     "query": "Manila, Philippines",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl3": "PH-00",
+        "city": "Manila",
+        "country": "Philippines",
+        "country_code": "ph",
+        "region": "Metro Manila",
+        "state_district": "Capital District"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "14.5508249",
+        "14.6395473",
+        "120.7917034",
+        "121.0261685"
+      ],
+      "category": "boundary",
+      "display_name": "Manila, Capital District, Metro Manila, Philippines",
+      "importance": 0.7085026198224194,
+      "lat": "14.5904492",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "120.9803621",
+      "name": "Manila",
+      "osm_id": 103703,
+      "osm_type": "relation",
+      "place_id": 259917870,
+      "place_rank": 11,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "",
     "status": "ok",
@@ -34759,6 +35767,49 @@
   "mao zedong statue, tiananmen square, beijing, china": {
     "query": "Mao Zedong Statue, Tiananmen Square, Beijing, China",
     "status": "miss"
+  },
+  "maracaibo, venezuela": {
+    "city": "Maracaibo",
+    "country": "Venezuela",
+    "display_name": "Maracaibo, Parroquia Cacique Mara, Municipio Maracaibo, Zulia State, 4012, Venezuela",
+    "latitude": "10.6498095",
+    "longitude": "-71.6443596",
+    "query": "Maracaibo, Venezuela",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "VE-V",
+        "city": "Maracaibo",
+        "country": "Venezuela",
+        "country_code": "ve",
+        "county": "Municipio Maracaibo",
+        "municipality": "Parroquia Cacique Mara",
+        "postcode": "4012",
+        "state": "Zulia State"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "10.4898095",
+        "10.8098095",
+        "-71.8043596",
+        "-71.4843596"
+      ],
+      "category": "place",
+      "display_name": "Maracaibo, Parroquia Cacique Mara, Municipio Maracaibo, Zulia State, 4012, Venezuela",
+      "importance": 0.5882644990516349,
+      "lat": "10.6498095",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-71.6443596",
+      "name": "Maracaibo",
+      "osm_id": 4556016892,
+      "osm_type": "node",
+      "place_id": 309578999,
+      "place_rank": 16,
+      "type": "city"
+    },
+    "source": "nominatim",
+    "state": "Zulia State",
+    "status": "ok",
+    "sublocation": ""
   },
   "mariazell basilica, austria": {
     "query": "Mariazell Basilica, Austria",
@@ -34975,6 +36026,52 @@
   "market place, lhasa, tibet, china": {
     "query": "Market Place, Lhasa, Tibet, China",
     "status": "miss"
+  },
+  "market square, helsinki, finland": {
+    "city": "Helsinki",
+    "country": "Finland",
+    "display_name": "Market Square, Kaartinkaupunki, Southern major district, Helsinki, Helsinki sub-region, Uusimaa, Mainland Finland, 00170, Finland",
+    "latitude": "60.1671972",
+    "longitude": "24.9532650",
+    "query": "Market Square, Helsinki, Finland",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "FI-18",
+        "city": "Helsinki",
+        "city_district": "Southern major district",
+        "country": "Finland",
+        "country_code": "fi",
+        "municipality": "Helsinki sub-region",
+        "postcode": "00170",
+        "region": "Mainland Finland",
+        "road": "Market Square",
+        "state": "Uusimaa",
+        "suburb": "Kaartinkaupunki"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "60.1665408",
+        "60.1678355",
+        "24.9525423",
+        "24.9561239"
+      ],
+      "category": "highway",
+      "display_name": "Market Square, Kaartinkaupunki, Southern major district, Helsinki, Helsinki sub-region, Uusimaa, Mainland Finland, 00170, Finland",
+      "importance": 0.43087867614901804,
+      "lat": "60.1671972",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "24.9532650",
+      "name": "Market Square",
+      "osm_id": 457948795,
+      "osm_type": "way",
+      "place_id": 168128758,
+      "place_rank": 26,
+      "type": "pedestrian"
+    },
+    "source": "nominatim",
+    "state": "Uusimaa",
+    "status": "ok",
+    "sublocation": "Market Square"
   },
   "market square, warsaw, poland": {
     "city": "Warsaw",
@@ -35666,6 +36763,46 @@
     "source": "nominatim",
     "state": "Cairo",
     "status": "ok"
+  },
+  "merv, turkmenistan": {
+    "city": "Mary City",
+    "country": "Turkmenistan",
+    "display_name": "Mary City, Mary Region, Turkmenistan",
+    "latitude": "37.5940358",
+    "longitude": "61.8397935",
+    "query": "Merv, Turkmenistan",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "TM-M",
+        "city": "Mary City",
+        "country": "Turkmenistan",
+        "country_code": "tm",
+        "state": "Mary Region"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "37.5481928",
+        "37.6543620",
+        "61.7784301",
+        "61.9198054"
+      ],
+      "category": "boundary",
+      "display_name": "Mary City, Mary Region, Turkmenistan",
+      "importance": 0.5112913645959383,
+      "lat": "37.5940358",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "61.8397935",
+      "name": "Mary City",
+      "osm_id": 15661097,
+      "osm_type": "relation",
+      "place_id": 212301817,
+      "place_rank": 10,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Mary Region",
+    "status": "ok",
+    "sublocation": ""
   },
   "mexicali, mexico": {
     "city": "Mexicali",
@@ -37050,6 +38187,46 @@
     "status": "ok",
     "sublocation": ""
   },
+  "nara, japan": {
+    "city": "Nara",
+    "country": "Japan",
+    "display_name": "Nara, Nara Prefecture, Japan",
+    "latitude": "34.6845445",
+    "longitude": "135.8048359",
+    "query": "Nara, Japan",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "JP-29",
+        "city": "Nara",
+        "country": "Japan",
+        "country_code": "jp",
+        "province": "Nara Prefecture"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "34.5580470",
+        "34.7577390",
+        "135.7131270",
+        "136.0710790"
+      ],
+      "category": "boundary",
+      "display_name": "Nara, Nara Prefecture, Japan",
+      "importance": 0.6062730387027173,
+      "lat": "34.6845445",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "135.8048359",
+      "name": "Nara",
+      "osm_id": 3227707,
+      "osm_type": "relation",
+      "place_id": 268044898,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "narita, japan": {
     "city": "Narita",
     "country": "Japan",
@@ -37846,12 +39023,49 @@
     "status": "miss"
   },
   "new world hotel, hong kong": {
-    "display_name": "千禧新世界香港酒店 New World Millennium Hong Kong Hotel, 72, 麼地道 Mody Road, 尖沙咀東 East Tsim Sha Tsui, 油尖旺區 Yau Tsim Mong District, 九龍 Kowloon, 香港 Hong Kong, 中国",
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "New World Millennium Hong Kong Hotel, 72, Mody Road, East Tsim Sha Tsui, Yau Tsim Mong District, Kowloon, Hong Kong, China",
     "latitude": "22.2994543",
     "longitude": "114.1796977",
     "query": "New World Hotel, Hong Kong",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl3": "CN-HK",
+        "city": "Hong Kong",
+        "country": "China",
+        "country_code": "cn",
+        "house_number": "72",
+        "quarter": "East Tsim Sha Tsui",
+        "region": "Kowloon",
+        "road": "Mody Road",
+        "suburb": "Yau Tsim Mong District",
+        "tourism": "New World Millennium Hong Kong Hotel"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "22.2991101",
+        "22.2998156",
+        "114.1793700",
+        "114.1800002"
+      ],
+      "category": "tourism",
+      "display_name": "New World Millennium Hong Kong Hotel, 72, Mody Road, East Tsim Sha Tsui, Yau Tsim Mong District, Kowloon, Hong Kong, China",
+      "importance": 0.205345191009919,
+      "lat": "22.2994543",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "114.1796977",
+      "name": "New World Millennium Hong Kong Hotel",
+      "osm_id": 56754241,
+      "osm_type": "way",
+      "place_id": 236872234,
+      "place_rank": 30,
+      "type": "hotel"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "",
+    "status": "ok",
+    "sublocation": "72 Mody Road"
   },
   "new world hotel, hong kong, china": {
     "city": "Hong Kong",
@@ -38859,6 +40073,49 @@
     "query": "Northern Territories, Hong Kong",
     "status": "miss"
   },
+  "northern territories, hong kong, china": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Northern Subsidiary Dam, Tai Po, Tai Po District, New Territories, Hong Kong, China",
+    "latitude": "22.4598815",
+    "longitude": "114.2605678",
+    "query": "Northern Territories, Hong Kong, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl3": "CN-HK",
+        "city": "Hong Kong",
+        "country": "China",
+        "country_code": "cn",
+        "dam": "Northern Subsidiary Dam",
+        "region": "New Territories",
+        "suburb": "Tai Po District",
+        "town": "Tai Po"
+      },
+      "addresstype": "dam",
+      "boundingbox": [
+        "22.4586809",
+        "22.4607702",
+        "114.2599553",
+        "114.2612402"
+      ],
+      "category": "waterway",
+      "display_name": "Northern Subsidiary Dam, Tai Po, Tai Po District, New Territories, Hong Kong, China",
+      "importance": 0.13339882429236283,
+      "lat": "22.4598815",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "114.2605678",
+      "name": "Northern Subsidiary Dam",
+      "osm_id": 501774075,
+      "osm_type": "way",
+      "place_id": 237053380,
+      "place_rank": 20,
+      "type": "dam"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
+  },
   "notre dame cathedral, paris, france": {
     "city": "Paris",
     "country": "France",
@@ -39030,6 +40287,53 @@
     "state": "Novgorod Oblast",
     "status": "ok",
     "sublocation": ""
+  },
+  "novodevichy convent, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "Novodevichy Convent, 1, Novodevichy Passage, 531, Khamovniki District, Moscow, Central Federal District, 119435, Russia",
+    "latitude": "55.7260283",
+    "longitude": "37.5557710",
+    "query": "Novodevichy Convent, Moscow, Russia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "RU-MOW",
+        "amenity": "Novodevichy Convent",
+        "city": "Moscow",
+        "country": "Russia",
+        "country_code": "ru",
+        "house_number": "1",
+        "postcode": "119435",
+        "quarter": "531",
+        "region": "Central Federal District",
+        "road": "Novodevichy Passage",
+        "state": "Moscow",
+        "suburb": "Khamovniki District"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "55.7248625",
+        "55.7272248",
+        "37.5529467",
+        "37.5588079"
+      ],
+      "category": "amenity",
+      "display_name": "Novodevichy Convent, 1, Novodevichy Passage, 531, Khamovniki District, Moscow, Central Federal District, 119435, Russia",
+      "importance": 0.511184702464633,
+      "lat": "55.7260283",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "37.5557710",
+      "name": "Novodevichy Convent",
+      "osm_id": 1543094,
+      "osm_type": "relation",
+      "place_id": 195619574,
+      "place_rank": 30,
+      "type": "monastery"
+    },
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": "1 Novodevichy Passage"
   },
   "nymphenburg castle": {
     "city": "Munich",
@@ -39670,6 +40974,46 @@
   "oldest theatre in bulgaria, sofia, bulgaria": {
     "query": "Oldest Theatre in Bulgaria, Sofia, Bulgaria",
     "status": "miss"
+  },
+  "oliveira do hospital, portugal": {
+    "city": "Oliveira do Hospital",
+    "country": "Portugal",
+    "display_name": "Oliveira do Hospital, Coimbra, Portugal",
+    "latitude": "40.3791858",
+    "longitude": "-7.8572148",
+    "query": "Oliveira do Hospital, Portugal",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl6": "PT-06",
+        "country": "Portugal",
+        "country_code": "pt",
+        "county": "Coimbra",
+        "municipality": "Oliveira do Hospital"
+      },
+      "addresstype": "municipality",
+      "boundingbox": [
+        "40.2594265",
+        "40.4986119",
+        "-7.9817356",
+        "-7.7582128"
+      ],
+      "category": "boundary",
+      "display_name": "Oliveira do Hospital, Coimbra, Portugal",
+      "importance": 0.46498457158692574,
+      "lat": "40.3791858",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-7.8572148",
+      "name": "Oliveira do Hospital",
+      "osm_id": 5395071,
+      "osm_type": "relation",
+      "place_id": 293920735,
+      "place_rank": 14,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "oliveiro do hospital, portugal": {
     "query": "Oliveiro do Hospital, Portugal",
@@ -40750,6 +42094,52 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Royal Staircase"
+  },
+  "palacio del congreso, buenos aires, argentina": {
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "display_name": "Palacio del Congreso, Buenos Aires, Argentina, Buenos Aires, Autonomous City of Buenos Aires, Argentina",
+    "latitude": "-34.6098236",
+    "longitude": "-58.3927321",
+    "query": "Palacio del Congreso, Buenos Aires, Argentina",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "AR-C",
+        "city": "Buenos Aires",
+        "country": "Argentina",
+        "country_code": "ar",
+        "house_number": "51",
+        "office": "National Congress of Argentina",
+        "postcode": "C1033AAH",
+        "road": "Avenida Entre Ríos",
+        "state": "Autonomous City of Buenos Aires",
+        "state_district": "Comuna 3",
+        "suburb": "Balvanera"
+      },
+      "addresstype": "office",
+      "boundingbox": [
+        "-34.6103165",
+        "-34.6093084",
+        "-58.3932574",
+        "-58.3921503"
+      ],
+      "category": "office",
+      "display_name": "National Congress of Argentina, 51, Avenida Entre Ríos, Balvanera, Buenos Aires, Comuna 3, Autonomous City of Buenos Aires, C1033AAH, Argentina",
+      "importance": 8.279926756690345e-05,
+      "lat": "-34.6098236",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-58.3927321",
+      "name": "National Congress of Argentina",
+      "osm_id": 2468981,
+      "osm_type": "relation",
+      "place_id": 17449584,
+      "place_rank": 30,
+      "type": "government"
+    },
+    "source": "nominatim",
+    "state": "Autonomous City of Buenos Aires",
+    "status": "ok",
+    "sublocation": "51 Avenida Entre Ríos"
   },
   "palais garnier, paris, france": {
     "city": "Paris",
@@ -45011,6 +46401,45 @@
     "state": "Community of Madrid",
     "status": "ok"
   },
+  "puerto rico": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Puerto Rico, United States",
+    "latitude": "18.2247706",
+    "longitude": "-66.4858295",
+    "query": "Puerto Rico",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-PR",
+        "country": "United States",
+        "country_code": "us",
+        "state": "Puerto Rico"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "17.7306659",
+        "18.6663822",
+        "-68.1109184",
+        "-65.1100908"
+      ],
+      "category": "boundary",
+      "display_name": "Puerto Rico, United States",
+      "importance": 0.780195936484418,
+      "lat": "18.2247706",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-66.4858295",
+      "name": "Puerto Rico",
+      "osm_id": 4422604,
+      "osm_type": "relation",
+      "place_id": 308928802,
+      "place_rank": 8,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Puerto Rico",
+    "status": "ok",
+    "sublocation": ""
+  },
   "pulteney bridge, bath, united kingdom": {
     "city": "Bath",
     "country": "United Kingdom",
@@ -46277,6 +47706,10 @@
     "state": "Rio de Janeiro",
     "status": "ok",
     "sublocation": ""
+  },
+  "rio-niterói bridge, brazil": {
+    "query": "Rio-Niterói Bridge, Brazil",
+    "status": "miss"
   },
   "river at henley-on-thames": {
     "city": "South Oxfordshire",
@@ -49450,6 +50883,47 @@
     "query": "Sandrington, Hampshire, England",
     "status": "miss"
   },
+  "santa barbara, california, united states": {
+    "city": "Santa Barbara",
+    "country": "United States",
+    "display_name": "Santa Barbara, Santa Barbara County, California, United States",
+    "latitude": "34.4221319",
+    "longitude": "-119.7026670",
+    "query": "Santa Barbara, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Santa Barbara",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Santa Barbara County",
+        "state": "California"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "34.3360290",
+        "34.4639220",
+        "-119.8597910",
+        "-119.6399059"
+      ],
+      "category": "boundary",
+      "display_name": "Santa Barbara, Santa Barbara County, California, United States",
+      "importance": 0.6392154578460826,
+      "lat": "34.4221319",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-119.7026670",
+      "name": "Santa Barbara",
+      "osm_id": 112224,
+      "osm_type": "relation",
+      "place_id": 321115355,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "santa barbara, california, usa": {
     "city": "Santa Barbara",
     "country": "United States",
@@ -50529,6 +52003,10 @@
     "status": "ok",
     "sublocation": ""
   },
+  "sequoia & yosemite national parks, united states": {
+    "query": "Sequoia & Yosemite National Parks, United States",
+    "status": "miss"
+  },
   "sequoia & yosemite national parks, usa": {
     "query": "Sequoia & Yosemite National Parks, USA",
     "status": "miss"
@@ -51112,6 +52590,50 @@
     "query": "Shigatse, Tibet, China",
     "source": "nominatim",
     "status": "ok"
+  },
+  "shilin stone forest, yunnan, china": {
+    "city": "Kunming",
+    "country": "China",
+    "display_name": "Shilin Stone Forest, G324;G326;S209, Shilin Yi Autonomous County, Kunming, Yunnan, 652200, China",
+    "latitude": "24.8392398",
+    "longitude": "103.3328576",
+    "query": "Shilin Stone Forest, Yunnan, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-YN",
+        "amenity": "Shilin Stone Forest",
+        "city": "Kunming",
+        "country": "China",
+        "country_code": "cn",
+        "county": "Shilin Yi Autonomous County",
+        "postcode": "652200",
+        "road": "G324;G326;S209",
+        "state": "Yunnan"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "24.8383992",
+        "24.8400098",
+        "103.3318071",
+        "103.3338617"
+      ],
+      "category": "amenity",
+      "display_name": "Shilin Stone Forest, G324;G326;S209, Shilin Yi Autonomous County, Kunming, Yunnan, 652200, China",
+      "importance": 6.800564583805626e-05,
+      "lat": "24.8392398",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "103.3328576",
+      "name": "Shilin Stone Forest",
+      "osm_id": 182015104,
+      "osm_type": "way",
+      "place_id": 242899348,
+      "place_rank": 30,
+      "type": "bus_station"
+    },
+    "source": "nominatim",
+    "state": "Yunnan",
+    "status": "ok",
+    "sublocation": "G324;G326;S209"
   },
   "shopping mall in skopje": {
     "query": "Shopping Mall in Skopje",
@@ -52225,6 +53747,50 @@
     "query": "Square of America, Seville, Spain",
     "status": "miss"
   },
+  "sri mariamman temple, kuala lumpur, malaysia": {
+    "city": "Kuala Lumpur",
+    "country": "Malaysia",
+    "display_name": "Sri Mahamariamman Temple, 163, Jalan Tun H.S. Lee, Bukit Bintang, Kuala Lumpur, 50000, Malaysia",
+    "latitude": "3.1434383",
+    "longitude": "101.6962607",
+    "query": "Sri Mariamman Temple, Kuala Lumpur, Malaysia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "MY-14",
+        "amenity": "Sri Mahamariamman Temple",
+        "city": "Kuala Lumpur",
+        "country": "Malaysia",
+        "country_code": "my",
+        "house_number": "163",
+        "postcode": "50000",
+        "road": "Jalan Tun H.S. Lee",
+        "suburb": "Bukit Bintang"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "3.1432442",
+        "3.1436340",
+        "101.6960280",
+        "101.6965145"
+      ],
+      "category": "amenity",
+      "display_name": "Sri Mahamariamman Temple, 163, Jalan Tun H.S. Lee, Bukit Bintang, Kuala Lumpur, 50000, Malaysia",
+      "importance": 0.38288639822487014,
+      "lat": "3.1434383",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "101.6962607",
+      "name": "Sri Mahamariamman Temple",
+      "osm_id": 1248817862,
+      "osm_type": "way",
+      "place_id": 256388266,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "163 Jalan Tun H.S. Lee"
+  },
   "st george church": {
     "city": "دهستان زولاچای",
     "country": "Iran",
@@ -52549,6 +54115,53 @@
   "st john's college, king's college chapel, cambridge, uk": {
     "query": "St John's College, King's College Chapel, Cambridge, UK",
     "status": "miss"
+  },
+  "st mark's basilica, venice, italy": {
+    "city": "Venice",
+    "country": "Italy",
+    "display_name": "St Mark's Basilica, Piazzetta San Marco, San Marco, Venezia-Murano-Burano, Venice, Venezia, Veneto, 30124, Italy",
+    "latitude": "45.4345479",
+    "longitude": "12.3398218",
+    "query": "St Mark's Basilica, Venice, Italy",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "IT-34",
+        "ISO3166-2-lvl6": "IT-VE",
+        "amenity": "St Mark's Basilica",
+        "city": "Venice",
+        "country": "Italy",
+        "country_code": "it",
+        "county": "Venezia",
+        "neighbourhood": "San Marco",
+        "postcode": "30124",
+        "road": "Piazzetta San Marco",
+        "state": "Veneto",
+        "suburb": "Venezia-Murano-Burano"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "45.4342293",
+        "45.4348810",
+        "12.3392458",
+        "12.3404273"
+      ],
+      "category": "amenity",
+      "display_name": "St Mark's Basilica, Piazzetta San Marco, San Marco, Venezia-Murano-Burano, Venice, Venezia, Veneto, 30124, Italy",
+      "importance": 0.5522636013361958,
+      "lat": "45.4345479",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "12.3398218",
+      "name": "St Mark's Basilica",
+      "osm_id": 138800932,
+      "osm_type": "way",
+      "place_id": 78711474,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "Veneto",
+    "status": "ok",
+    "sublocation": "Piazzetta San Marco"
   },
   "st michael's mount, cornwall, united kingdom": {
     "city": "Marazion",
@@ -53723,6 +55336,48 @@
     "query": "St. Stephen's Cathedral, Zagreb, Croatia",
     "status": "miss"
   },
+  "st. thomas, u.s. virgin islands": {
+    "city": "Charlotte Amalie",
+    "country": "United States",
+    "display_name": "Saint Thomas, Charlotte Amalie, Saint Thomas - Saint John District, United States Virgin Islands, United States",
+    "latitude": "18.3429082",
+    "longitude": "-64.9188997",
+    "query": "St. Thomas, U.S. Virgin Islands",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-VI",
+        "city": "Charlotte Amalie",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Saint Thomas - Saint John District",
+        "island": "Saint Thomas",
+        "state": "United States Virgin Islands"
+      },
+      "addresstype": "island",
+      "boundingbox": [
+        "18.3024284",
+        "18.3833342",
+        "-65.0421288",
+        "-64.8317848"
+      ],
+      "category": "boundary",
+      "display_name": "Saint Thomas, Charlotte Amalie, Saint Thomas - Saint John District, United States Virgin Islands, United States",
+      "importance": 0.5472444720430647,
+      "lat": "18.3429082",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-64.9188997",
+      "name": "Saint Thomas",
+      "osm_id": 2754159,
+      "osm_type": "relation",
+      "place_id": 308049114,
+      "place_rank": 25,
+      "type": "census"
+    },
+    "source": "nominatim",
+    "state": "United States Virgin Islands",
+    "status": "ok",
+    "sublocation": ""
+  },
   "st. thomas, u.s. virgin islands, united states virgin islands": {
     "city": "Charlotte Amalie",
     "country": "United States",
@@ -53932,6 +55587,37 @@
     "latitude": "49.3020684",
     "longitude": "-123.1413263",
     "query": "Stanley Park, Vancouver, British Columbia, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-BC",
+        "city": "Vancouver",
+        "country": "Canada",
+        "country_code": "ca",
+        "county": "Metro Vancouver Regional District",
+        "park": "Stanley Park",
+        "state": "British Columbia",
+        "suburb": "West End"
+      },
+      "addresstype": "park",
+      "boundingbox": [
+        "49.2899772",
+        "49.3140767",
+        "-123.1588350",
+        "-123.1164060"
+      ],
+      "category": "leisure",
+      "display_name": "Stanley Park, West End, Vancouver, Metro Vancouver Regional District, British Columbia, Canada",
+      "importance": 0.4821420033835039,
+      "lat": "49.3020684",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-123.1413263",
+      "name": "Stanley Park",
+      "osm_id": 37063023,
+      "osm_type": "way",
+      "place_id": 377044076,
+      "place_rank": 24,
+      "type": "park"
+    },
     "source": "nominatim",
     "state": "British Columbia",
     "status": "ok",
@@ -57253,6 +58939,51 @@
     "query": "The Great Hall of Winchester Cathedral, Winchester, Hampshire, England",
     "status": "miss"
   },
+  "the great kremlin palace, moscow, russia": {
+    "city": "Moscow",
+    "country": "Russia",
+    "display_name": "The Great Kremlin Palace, Moscow, Russia, Moscow, Russia",
+    "latitude": "55.7502042",
+    "longitude": "37.6162129",
+    "query": "The Great Kremlin Palace, Moscow, Russia",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "RU-MOW",
+        "building": "Grand Kremlin Palace",
+        "city": "Moscow",
+        "country": "Russia",
+        "country_code": "ru",
+        "locality": "Кремль",
+        "postcode": "103073",
+        "region": "Central Federal District",
+        "state": "Moscow",
+        "suburb": "Tverskoy District"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "55.7495127",
+        "55.7508733",
+        "37.6141532",
+        "37.6170791"
+      ],
+      "category": "building",
+      "display_name": "Grand Kremlin Palace, Кремль, Tverskoy District, Moscow, Central Federal District, 103073, Russia",
+      "importance": 0.485109193440741,
+      "lat": "55.7502042",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "37.6162129",
+      "name": "Grand Kremlin Palace",
+      "osm_id": 225033,
+      "osm_type": "relation",
+      "place_id": 195594962,
+      "place_rank": 30,
+      "type": "palace"
+    },
+    "source": "nominatim",
+    "state": "Moscow",
+    "status": "ok",
+    "sublocation": ""
+  },
   "the great sphinx & the pyramids": {
     "query": "The Great Sphinx & The Pyramids",
     "status": "miss"
@@ -57564,6 +59295,52 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Back Street"
+  },
+  "the jade temple, china": {
+    "city": "Jing'an District",
+    "country": "China",
+    "display_name": "Jade Buddha Temple, 170, Anyuan Road, Chadaijiao, Jiangninglu Subdistrict, Jing'an District, Shanghai, 200060, China",
+    "latitude": "31.2436872",
+    "longitude": "121.4397844",
+    "query": "The Jade Temple, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-SH",
+        "amenity": "Jade Buddha Temple",
+        "city": "Jing'an District",
+        "country": "China",
+        "country_code": "cn",
+        "house_number": "170",
+        "postcode": "200060",
+        "quarter": "Chadaijiao",
+        "road": "Anyuan Road",
+        "state": "Shanghai",
+        "suburb": "Jiangninglu Subdistrict"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "31.2427677",
+        "31.2444163",
+        "121.4385534",
+        "121.4411424"
+      ],
+      "category": "amenity",
+      "display_name": "Jade Buddha Temple, 170, Anyuan Road, Chadaijiao, Jiangninglu Subdistrict, Jing'an District, Shanghai, 200060, China",
+      "importance": 0.45356092873116677,
+      "lat": "31.2436872",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "121.4397844",
+      "name": "Jade Buddha Temple",
+      "osm_id": 404699628,
+      "osm_type": "way",
+      "place_id": 225084344,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
+    "source": "nominatim",
+    "state": "Shanghai",
+    "status": "ok",
+    "sublocation": "170 Anyuan Road"
   },
   "the jupiter room in the new hermitage, saint petersburg, russia": {
     "query": "The Jupiter Room in the New Hermitage, Saint Petersburg, Russia",
@@ -59486,6 +61263,50 @@
     "status": "ok",
     "sublocation": ""
   },
+  "tianchi, xinjiang, china": {
+    "city": "Ürümqi",
+    "country": "China",
+    "display_name": "Tianchi, Xinjiang, China, Urumqi, Xinjiang, China",
+    "latitude": "43.7494839",
+    "longitude": "88.2225976",
+    "query": "Tianchi, Xinjiang, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-XJ",
+        "city": "Ürümqi",
+        "country": "China",
+        "country_code": "cn",
+        "district": "Dabancheng District",
+        "lake": "Southern Tianchi Lake",
+        "postcode": "830000",
+        "state": "Xinjiang",
+        "suburb": "Chaiwopu Subdistrict"
+      },
+      "addresstype": "lake",
+      "boundingbox": [
+        "43.7483621",
+        "43.7507034",
+        "88.2210415",
+        "88.2242921"
+      ],
+      "category": "water",
+      "display_name": "Southern Tianchi Lake, Chaiwopu Subdistrict, Dabancheng District, Ürümqi, Xinjiang, 830000, China",
+      "importance": 0.13338833524071106,
+      "lat": "43.7494839",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "88.2225976",
+      "name": "Southern Tianchi Lake",
+      "osm_id": 263523722,
+      "osm_type": "way",
+      "place_id": 213791222,
+      "place_rank": 20,
+      "type": "lake"
+    },
+    "source": "nominatim",
+    "state": "Xinjiang",
+    "status": "ok",
+    "sublocation": ""
+  },
   "tibet": {
     "display_name": "西藏自治区 བོད་རང་སྐྱོང་ལྗོངས།, 中国",
     "latitude": "29.8556443",
@@ -59934,6 +61755,52 @@
     "source": "nominatim",
     "state": "",
     "status": "ok"
+  },
+  "topkapi palace museum, istanbul, turkey": {
+    "city": "Istanbul",
+    "country": "Turkey",
+    "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+    "latitude": "41.0113440",
+    "longitude": "28.9832034",
+    "query": "Topkapi Palace Museum, Istanbul, Turkey",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "TR-34",
+        "city": "Istanbul",
+        "country": "Turkey",
+        "country_code": "tr",
+        "postcode": "34122",
+        "province": "Istanbul",
+        "region": "Marmara Region",
+        "road": "Courtyard of the Eunuchs",
+        "suburb": "Cankurtaran Mahallesi",
+        "tourism": "Topkapi Palace",
+        "town": "Fatih"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "41.0112940",
+        "41.0113940",
+        "28.9831534",
+        "28.9832534"
+      ],
+      "category": "tourism",
+      "display_name": "Topkapi Palace, Courtyard of the Eunuchs, Cankurtaran Mahallesi, Istanbul, Fatih, Istanbul, Marmara Region, 34122, Turkey",
+      "importance": 0.5545465133420028,
+      "lat": "41.0113440",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "28.9832034",
+      "name": "Topkapi Palace",
+      "osm_id": 10284696709,
+      "osm_type": "node",
+      "place_id": 60132665,
+      "place_rank": 30,
+      "type": "museum"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": "Courtyard of the Eunuchs"
   },
   "topkapi palace, istanbul": {
     "city": "Istanbul",
@@ -61948,6 +63815,10 @@
     "status": "ok",
     "sublocation": "Utah Street"
   },
+  "utah or colorado, united states": {
+    "query": "Utah or Colorado, United States",
+    "status": "miss"
+  },
   "utah or colorado, usa": {
     "query": "Utah or Colorado, USA",
     "status": "miss"
@@ -62767,6 +64638,47 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Victoria Embankment"
+  },
+  "victoria harbour, hong kong, china": {
+    "city": "Hong Kong",
+    "country": "China",
+    "display_name": "Victoria Harbour, Hong Kong, China",
+    "latitude": "22.3235534",
+    "longitude": "114.1145688",
+    "query": "Victoria Harbour, Hong Kong, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl3": "CN-HK",
+        "city": "Hong Kong",
+        "country": "China",
+        "country_code": "cn",
+        "region": "Hong Kong",
+        "strait": "Victoria Harbour"
+      },
+      "addresstype": "strait",
+      "boundingbox": [
+        "22.2749734",
+        "22.3721705",
+        "114.0790568",
+        "114.2385743"
+      ],
+      "category": "natural",
+      "display_name": "Victoria Harbour, Hong Kong, China",
+      "importance": 0.4952159569321277,
+      "lat": "22.3235534",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "114.1145688",
+      "name": "Victoria Harbour",
+      "osm_id": 8252641,
+      "osm_type": "relation",
+      "place_id": 237014042,
+      "place_rank": 22,
+      "type": "strait"
+    },
+    "source": "nominatim",
+    "state": "",
+    "status": "ok",
+    "sublocation": ""
   },
   "victoria peak": {
     "city": "Hong Kong",
@@ -64241,9 +66153,43 @@
     "city": "Berlin",
     "country": "Germany",
     "display_name": "West Berlin, Germany, Berlin, Germany",
-    "latitude": "52.5728583",
+    "latitude": "52.5728582",
     "longitude": "13.3027652",
     "query": "West Berlin, Germany",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "DE-BE",
+        "borough": "Reinickendorf",
+        "building": "Otis, Niederlassung Berlin (West)",
+        "city": "Berlin",
+        "country": "Germany",
+        "country_code": "de",
+        "house_number": "39",
+        "neighbourhood": "Cité Guynemer",
+        "postcode": "13403",
+        "road": "Otisstraße",
+        "suburb": "Tegel"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "52.5726991",
+        "52.5730137",
+        "13.3025167",
+        "13.3030119"
+      ],
+      "category": "building",
+      "display_name": "Otis, Niederlassung Berlin (West), 39, Otisstraße, Cité Guynemer, Tegel, Reinickendorf, Berlin, 13403, Germany",
+      "importance": 0.438511447606017,
+      "lat": "52.5728582",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "13.3027652",
+      "name": "Otis, Niederlassung Berlin (West)",
+      "osm_id": 39909141,
+      "osm_type": "way",
+      "place_id": 146341386,
+      "place_rank": 30,
+      "type": "office"
+    },
     "source": "nominatim",
     "state": "",
     "status": "ok",
@@ -64400,6 +66346,41 @@
     "latitude": "51.4993990",
     "longitude": "-0.1273910",
     "query": "Westminster Abbey, London, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "amenity": "Westminster Abbey",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "house_number": "20",
+        "postcode": "SW1P 3PA",
+        "quarter": "Westminster",
+        "road": "Dean's Yard",
+        "state": "England",
+        "suburb": "Millbank"
+      },
+      "addresstype": "amenity",
+      "boundingbox": [
+        "51.4990755",
+        "51.4997271",
+        "-0.1285472",
+        "-0.1262342"
+      ],
+      "category": "amenity",
+      "display_name": "Westminster Abbey, 20, Dean's Yard, Westminster, Millbank, City of Westminster, Greater London, England, SW1P 3PA, United Kingdom",
+      "importance": 0.6470641664354434,
+      "lat": "51.4993990",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1273910",
+      "name": "Westminster Abbey",
+      "osm_id": 364313092,
+      "osm_type": "way",
+      "place_id": 280392979,
+      "place_rank": 30,
+      "type": "place_of_worship"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -64668,12 +66649,48 @@
     "status": "ok"
   },
   "wild goose pagoda, xi'an, china": {
-    "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
+    "city": "Yanta District",
+    "country": "China",
+    "display_name": "Wild Goose Pagoda, Xi'an, China, Yanta District, Shaanxi, China",
     "latitude": "34.2197968",
     "longitude": "108.9594259",
     "query": "Wild Goose Pagoda, Xi'an, China",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CN-SN",
+        "city": "Yanta District",
+        "country": "China",
+        "country_code": "cn",
+        "man_made": "Big Wild Goose Pagoda",
+        "postcode": "710064",
+        "road": "雁塔西步行街",
+        "state": "Shaanxi",
+        "suburb": "Dayanta"
+      },
+      "addresstype": "man_made",
+      "boundingbox": [
+        "34.2196773",
+        "34.2199163",
+        "108.9592796",
+        "108.9595723"
+      ],
+      "category": "man_made",
+      "display_name": "Big Wild Goose Pagoda, 雁塔西步行街, Dayanta, Yanta District, Xi'an, Shaanxi, 710064, China",
+      "importance": 0.46411425267709566,
+      "lat": "34.2197968",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "108.9594259",
+      "name": "Big Wild Goose Pagoda",
+      "osm_id": 92223044,
+      "osm_type": "way",
+      "place_id": 218678613,
+      "place_rank": 30,
+      "type": "tower"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "Shaanxi",
+    "status": "ok",
+    "sublocation": "雁塔西步行街"
   },
   "wild goose pagoda, xi'an, shaanxi, china": {
     "display_name": "大雁塔, 雁塔西步行街, 大雁塔街道, 雁塔区, 西安市, 陕西省, 710064, 中国",
@@ -65273,6 +67290,53 @@
     "state": "England",
     "status": "ok",
     "sublocation": "Castle Hill"
+  },
+  "windsor castle, windsor, united kingdom": {
+    "city": "Windsor",
+    "country": "United Kingdom",
+    "display_name": "Windsor Castle, Chapter Mews, Clewer New Town, Clewer Village, Windsor, Royal Borough of Windsor and Maidenhead, England, SL4 1RQ, United Kingdom",
+    "latitude": "51.4837886",
+    "longitude": "-0.6040419",
+    "query": "Windsor Castle, Windsor, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-WNM",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Royal Borough of Windsor and Maidenhead",
+        "historic": "Windsor Castle",
+        "postcode": "SL4 1RQ",
+        "road": "Chapter Mews",
+        "state": "England",
+        "suburb": "Clewer New Town",
+        "town": "Windsor",
+        "village": "Clewer Village"
+      },
+      "addresstype": "historic",
+      "boundingbox": [
+        "51.4828451",
+        "51.4847470",
+        "-0.6083270",
+        "-0.5999439"
+      ],
+      "category": "historic",
+      "display_name": "Windsor Castle, Chapter Mews, Clewer New Town, Clewer Village, Windsor, Royal Borough of Windsor and Maidenhead, England, SL4 1RQ, United Kingdom",
+      "importance": 0.6031049175365536,
+      "lat": "51.4837886",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.6040419",
+      "name": "Windsor Castle",
+      "osm_id": 23580556,
+      "osm_type": "way",
+      "place_id": 280908057,
+      "place_rank": 30,
+      "type": "castle"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Chapter Mews"
   },
   "winnipeg to vancouver, canada": {
     "query": "Winnipeg to Vancouver, Canada",

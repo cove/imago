@@ -24,6 +24,7 @@ from .prompt_debug import PromptDebugSession
 from .xmp_sidecar import _dedupe
 
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
+_ALBUM_YEAR_RE = re.compile(r"(?:^|[_\s])(?P<start>\d{4})(?:-(?P<end>\d{4}))?(?:[_\s]B\d+|$)")
 
 
 @dataclass
@@ -388,6 +389,61 @@ def _metadata_region_caption(photo: Any) -> str:
     else:
         caption = str(getattr(photo, "caption", "") or "").strip()
     return caption
+
+
+def _album_year_range(image_path: Path, album_title: str) -> tuple[int, int] | None:
+    for source in [*image_path.parts, album_title]:
+        match = _ALBUM_YEAR_RE.search(str(source or ""))
+        if match:
+            start = int(match.group("start"))
+            return start, int(match.group("end") or start)
+    return None
+
+
+def _metadata_date_year(date_text: str) -> int | None:
+    match = re.match(r"(?P<year>\d{4})", str(date_text or "").strip())
+    return int(match.group("year")) if match else None
+
+
+def _metadata_photo_date_evidence_text(photo: Any) -> str:
+    return "\n".join(
+        str(getattr(photo, field, "") or "").strip()
+        for field in ("caption", "corrected_caption", "scene_ocr")
+        if str(getattr(photo, field, "") or "").strip()
+    )
+
+
+def _metadata_date_has_visible_year_evidence(photo: Any, year: int) -> bool:
+    evidence_text = _metadata_photo_date_evidence_text(photo)
+    return bool(re.search(rf"(?<!\d){year}(?!\d)", evidence_text))
+
+
+def _adjust_metadata_date_to_album_range(photo: Any, start_year: int, end_year: int) -> str:
+    date_text = str(getattr(photo, "est_date", "") or "").strip()
+    year = _metadata_date_year(date_text)
+    if year is not None and _metadata_date_has_visible_year_evidence(photo, year):
+        return date_text
+    return _clamp_metadata_date_to_album_range(date_text, start_year, end_year)
+
+
+def _clamp_metadata_date_to_album_range(date_text: str, start_year: int, end_year: int) -> str:
+    text = str(date_text or "").strip()
+    year = _metadata_date_year(text)
+    if year is None:
+        return text
+    if start_year <= year <= end_year:
+        return text
+    clamped_year = start_year if year < start_year else end_year
+    return f"{clamped_year}{text[4:]}"
+
+
+def _clamp_metadata_dates_to_album_range(result: MetadataResult, image_path: Path, album_title: str) -> None:
+    album_range = _album_year_range(image_path, album_title)
+    if album_range is None:
+        return
+    start_year, end_year = album_range
+    for photo in result.photos:
+        photo.est_date = _adjust_metadata_date_to_album_range(photo, start_year, end_year)
 
 
 def _metadata_corrected_caption_subjects(photos: list[Any]) -> list[str]:
@@ -871,9 +927,15 @@ def _metadata_step_update_state(
     state: dict[str, Any],
     image_path: Path,
     caption_source_path: Path | None,
+    album_title: str,
     geocoder: NominatimGeocoder | None,
     geocode_recorder,
 ) -> None:
+    _clamp_metadata_dates_to_album_range(
+        result,
+        Path(caption_source_path) if caption_source_path else image_path,
+        album_title,
+    )
     _extract_metadata_text_fields(result, state)
     primary_location = _metadata_primary_location(result)
     state["location_payload"] = _metadata_step_location_payload(primary_location, geocoder, geocode_recorder)
@@ -990,6 +1052,7 @@ def _run_metadata_analysis_step(
             state=state,
             image_path=image_path,
             caption_source_path=caption_source_path,
+            album_title=album_title,
             geocoder=geocoder,
             geocode_recorder=geocode_recorder,
         )

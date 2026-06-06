@@ -18,7 +18,7 @@ def _touch(path: Path) -> None:
     path.write_bytes(b"test-image")
 
 
-def _write_page_sidecar(path: Path, *, dc_date: str = "") -> None:
+def _write_page_sidecar(path: Path, *, dc_date: str = "", create_date: str | None = None) -> None:
     xmp_sidecar.write_xmp_sidecar(
         path,
         person_names=[],
@@ -27,7 +27,7 @@ def _write_page_sidecar(path: Path, *, dc_date: str = "") -> None:
         ocr_text="",
         dc_date=dc_date,
         date_time_original=dc_date,
-        create_date=dc_date,
+        create_date=dc_date if create_date is None else create_date,
         replace_dc_date=bool(dc_date),
     )
 
@@ -48,12 +48,16 @@ class TestPageDateSequence(unittest.TestCase):
             root = Path(tmp)
             archive = root / "Family_1970-1974_B01_Archive"
             pages = root / "Family_1970-1974_B01_Pages"
+            photos = root / "Family_1970-1974_B01_Photos"
             archive.mkdir()
             pages.mkdir()
+            photos.mkdir()
 
             for page in ("01", "02", "03"):
                 _touch(archive / f"Family_1970-1974_B01_P{page}_S01.tif")
                 _touch(pages / f"Family_1970-1974_B01_P{page}_V.jpg")
+            _touch(archive / "Family_1970-1974_B01_P03_D06-02.png")
+            _touch(photos / "Family_1970-1974_B01_P03_D06-00_V.jpg")
 
             _write_page_sidecar(pages / "Family_1970-1974_B01_P02_V.xmp", dc_date="1972-06-03")
             _write_page_sidecar(pages / "Family_1970-1974_B01_P03_V.xmp")
@@ -66,19 +70,62 @@ class TestPageDateSequence(unittest.TestCase):
             page_02 = pages / "Family_1970-1974_B01_P02_V.xmp"
             page_03 = pages / "Family_1970-1974_B01_P03_V.xmp"
             archive_01 = archive / "Family_1970-1974_B01_P01_S01.xmp"
+            archive_png_03 = archive / "Family_1970-1974_B01_P03_D06-02.xmp"
+            photo_03 = photos / "Family_1970-1974_B01_P03_D06-00_V.xmp"
 
             self.assertTrue(page_01.is_file())
             self.assertTrue(archive_01.is_file())
+            self.assertTrue(archive_png_03.is_file())
+            self.assertTrue(photo_03.is_file())
             self.assertLess(_read_sort_time(page_01), _read_sort_time(page_02))
             self.assertLess(_read_sort_time(page_02), _read_sort_time(page_03))
+            self.assertEqual(_read_sort_time(archive_png_03), _read_sort_time(page_03))
+            self.assertGreater(_read_sort_time(photo_03), _read_sort_time(page_03))
             self.assertEqual(_read_sort_time(page_02).date().isoformat(), "1972-06-03")
             self.assertEqual(_read_sort_time(page_02).hour, 12)
             self.assertEqual(_read_text(page_02, IMAGO_NS, "OriginalEstimatedDate"), "1972-06-03")
             self.assertIn("page", _read_text(page_02, IMAGO_NS, "OriginalEstimatedDateProvenance").casefold())
             self.assertIn("page", _read_text(page_02, IMAGO_NS, "EstimatedDateProvenance").casefold())
+            self.assertIn("output order", _read_text(photo_03, IMAGO_NS, "EstimatedDateProvenance").casefold())
             self.assertIn("slew", _read_text(page_03, IMAGO_NS, "EstimatedDateProvenance").casefold())
             self.assertGreaterEqual(cast(int, result["sidecars_written"]), 4)
             self.assertEqual(result["warnings"], [])
+
+    def test_sequence_album_page_dates_keeps_photo_order_before_next_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Family_1970-1974_B01_Archive"
+            pages = root / "Family_1970-1974_B01_Pages"
+            photos = root / "Family_1970-1974_B01_Photos"
+            archive.mkdir()
+            pages.mkdir()
+            photos.mkdir()
+
+            for page in ("01", "02"):
+                _touch(archive / f"Family_1970-1974_B01_P{page}_S01.tif")
+                _touch(pages / f"Family_1970-1974_B01_P{page}_V.jpg")
+            _touch(photos / "Family_1970-1974_B01_P01_D02-00_V.jpg")
+            _touch(photos / "Family_1970-1974_B01_P01_D01-03_V.mp4")
+            _touch(photos / "Family_1970-1974_B01_P01_D01-00_V.jpg")
+
+            _write_page_sidecar(pages / "Family_1970-1974_B01_P01_V.xmp", dc_date="1973")
+            _write_page_sidecar(pages / "Family_1970-1974_B01_P02_V.xmp", dc_date="1971")
+
+            from photoalbums.lib.page_date_sequence import sequence_album_page_dates
+
+            sequence_album_page_dates(archive)
+
+            page_01 = pages / "Family_1970-1974_B01_P01_V.xmp"
+            photo_01 = photos / "Family_1970-1974_B01_P01_D01-00_V.xmp"
+            video_01 = photos / "Family_1970-1974_B01_P01_D01-03_V.xmp"
+            photo_02 = photos / "Family_1970-1974_B01_P01_D02-00_V.xmp"
+            page_02 = pages / "Family_1970-1974_B01_P02_V.xmp"
+
+            self.assertLess(_read_sort_time(page_01), _read_sort_time(photo_01))
+            self.assertLess(_read_sort_time(photo_01), _read_sort_time(video_01))
+            self.assertLess(_read_sort_time(video_01), _read_sort_time(photo_02))
+            self.assertLess(_read_sort_time(photo_02), _read_sort_time(page_02))
+            self.assertIn("photo-order slots", _read_text(page_02, IMAGO_NS, "EstimatedDateProvenance").casefold())
 
     def test_sequence_album_page_dates_nudges_out_of_order_anchors(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -104,6 +151,55 @@ class TestPageDateSequence(unittest.TestCase):
             page_02 = pages / "Family_1970-1974_B01_P02_V.xmp"
             self.assertLess(_read_sort_time(page_01), _read_sort_time(page_02))
             self.assertTrue(result["warnings"])
+
+    def test_sequence_album_page_dates_uses_page_evidence_past_album_year_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Egypt_1975_B00_Archive"
+            pages = root / "Egypt_1975_B00_Pages"
+            archive.mkdir()
+            pages.mkdir()
+
+            for page in ("50", "51", "52"):
+                _touch(archive / f"Egypt_1975_B00_P{page}_S01.tif")
+                _touch(pages / f"Egypt_1975_B00_P{page}_V.jpg")
+            _write_page_sidecar(pages / "Egypt_1975_B00_P50_V.xmp", dc_date="1975-12-15")
+            _write_page_sidecar(pages / "Egypt_1975_B00_P51_V.xmp", dc_date="1976-01")
+            _write_page_sidecar(pages / "Egypt_1975_B00_P52_V.xmp")
+
+            from photoalbums.lib.page_date_sequence import sequence_album_page_dates
+
+            result = sequence_album_page_dates(archive)
+
+            page_50 = pages / "Egypt_1975_B00_P50_V.xmp"
+            page_51 = pages / "Egypt_1975_B00_P51_V.xmp"
+            page_52 = pages / "Egypt_1975_B00_P52_V.xmp"
+            self.assertEqual(_read_sort_time(page_51).year, 1976)
+            self.assertLess(_read_sort_time(page_50), _read_sort_time(page_51))
+            self.assertLess(_read_sort_time(page_51), _read_sort_time(page_52))
+            self.assertEqual(_read_sort_time(page_52).year, 1976)
+            self.assertEqual(result["warnings"], [])
+
+    def test_sequence_album_page_dates_keeps_synthetic_dates_inside_album_year_without_page_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Egypt_1975_B00_Archive"
+            pages = root / "Egypt_1975_B00_Pages"
+            archive.mkdir()
+            pages.mkdir()
+
+            for page in ("51", "52"):
+                _touch(archive / f"Egypt_1975_B00_P{page}_S01.tif")
+                _touch(pages / f"Egypt_1975_B00_P{page}_V.jpg")
+                _write_page_sidecar(pages / f"Egypt_1975_B00_P{page}_V.xmp")
+
+            from photoalbums.lib.page_date_sequence import sequence_album_page_dates
+
+            result = sequence_album_page_dates(archive)
+
+            self.assertEqual(_read_sort_time(pages / "Egypt_1975_B00_P51_V.xmp").year, 1975)
+            self.assertEqual(_read_sort_time(pages / "Egypt_1975_B00_P52_V.xmp").year, 1975)
+            self.assertEqual(result["warnings"], [])
 
     def test_post_pass_sequences_each_album_once(self):
         from photoalbums.commands import _run_sequence_page_dates_post_pass
@@ -145,6 +241,29 @@ class TestPageDateSequence(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "year"):
                 sequence_album_page_dates(archive)
+
+    def test_sequence_album_page_dates_ignores_sidecar_write_time_as_an_anchor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Family_1953-1960_B03_Archive"
+            pages = root / "Family_1953-1960_B03_Pages"
+            archive.mkdir()
+            pages.mkdir()
+
+            _touch(archive / "Family_1953-1960_B03_P42_S01.tif")
+            _touch(pages / "Family_1953-1960_B03_P42_V.jpg")
+            _write_page_sidecar(
+                pages / "Family_1953-1960_B03_P42_V.xmp",
+                create_date="2026-03-25T19:35:00Z",
+            )
+
+            from photoalbums.lib.page_date_sequence import sequence_album_page_dates
+
+            sequence_album_page_dates(archive)
+
+            year = _read_sort_time(pages / "Family_1953-1960_B03_P42_V.xmp").year
+            self.assertGreaterEqual(year, 1953)
+            self.assertLessEqual(year, 1960)
 
 
 if __name__ == "__main__":

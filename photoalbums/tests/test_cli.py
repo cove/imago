@@ -66,6 +66,7 @@ class TestPhotoalbumsCLI(unittest.TestCase):
             force_restoration=False,
             gps_only=False,
             refresh_gps=True,
+            log_thumbnail_width=None,
         )
 
     def test_process_forwards_lmstudio_token_logging(self):
@@ -79,6 +80,18 @@ class TestPhotoalbumsCLI(unittest.TestCase):
 
         self.assertEqual(rc, 0)
         self.assertTrue(fake.run_process_pipeline.call_args.kwargs["log_lmstudio_tokens"])
+
+    def test_process_forwards_log_thumbnail_width_for_chafa_previews(self):
+        fake = mock.Mock()
+        fake.run_process_pipeline.return_value = 0
+
+        from photoalbums import cli as pkg_cli
+
+        with mock.patch("photoalbums.cli._import_commands", return_value=fake):
+            rc = pkg_cli.main(["process", "--photos-root", "Photo Albums", "--log-thumbnail-width", "30"])
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(fake.run_process_pipeline.call_args.kwargs["log_thumbnail_width"], 30)
 
     def test_ai_help_forwards_to_ai_index(self):
         fake = mock.Mock()

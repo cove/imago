@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from ..naming import pages_dir_for_album_dir, parse_album_filename
+from ..naming import pages_dir_for_album_dir, parse_album_filename, photos_dir_for_album_dir
 from .xmp_sidecar import (
     DC_NS,
     EXIF_NS,
@@ -22,8 +22,10 @@ from .xmp_sidecar import (
 )
 
 _ALBUM_YEAR_RE = re.compile(r"_(?P<year>\d{4}(?:-\d{4})?)_B", re.IGNORECASE)
-_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".tif", ".tiff"}
-_SEQUENCE_STEP_VERSION = "1"
+_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+_VIDEO_SUFFIXES = {".avi", ".m4v", ".mov", ".mp4"}
+_PHOTOS_OUTPUT_SUFFIXES = _IMAGE_SUFFIXES | _VIDEO_SUFFIXES
+_SEQUENCE_STEP_VERSION = "2"
 
 
 @dataclass
@@ -39,15 +41,18 @@ class _PageDate:
 def sequence_album_page_dates(archive_dir: str | Path) -> dict[str, object]:
     archive = Path(archive_dir)
     pages = pages_dir_for_album_dir(archive)
+    photos = photos_dir_for_album_dir(archive)
     start_year, end_year = _album_year_range(archive, pages)
     archive_by_page = _archive_images_by_page(archive)
     page_images = _page_view_images_by_page(pages)
-    page_numbers = sorted(set(archive_by_page) | set(page_images))
+    photos_by_page = _photos_images_by_page(photos)
+    page_numbers = sorted(set(archive_by_page) | set(page_images) | set(photos_by_page))
     if not page_numbers:
         return {"sidecars_written": 0, "warnings": []}
 
     warnings: list[str] = []
     page_dates = _sequence_page_dates(page_numbers, page_images, start_year, end_year, warnings)
+    page_dates = _reserve_photo_sort_slots(page_dates, photos_by_page)
     written = 0
     for page_date in page_dates:
         if page_date.page in page_images:
@@ -55,6 +60,20 @@ def sequence_album_page_dates(archive_dir: str | Path) -> dict[str, object]:
             written += 1
         for archive_image in archive_by_page.get(page_date.page, []):
             _write_sequence_sidecar(archive_image.with_suffix(".xmp"), page_date)
+            written += 1
+        for photo_index, photo_image in enumerate(photos_by_page.get(page_date.page, []), 1):
+            photo_page_date = _PageDate(
+                page=page_date.page,
+                sort_time=page_date.sort_time + timedelta(seconds=photo_index),
+                original_date=page_date.original_date,
+                original_provenance=page_date.original_provenance,
+                provenance=(
+                    f"{page_date.provenance} _Photos sort date adds {photo_index} second(s) "
+                    "to preserve output order within the page."
+                ),
+                anchored=page_date.anchored,
+            )
+            _write_sequence_sidecar(photo_image.with_suffix(".xmp"), photo_page_date)
             written += 1
     return {"sidecars_written": written, "warnings": warnings}
 
@@ -99,6 +118,45 @@ def _page_view_images_by_page(pages: Path) -> dict[int, Path]:
     return by_page
 
 
+def _photos_images_by_page(photos: Path) -> dict[int, list[Path]]:
+    if not photos.is_dir():
+        return {}
+    by_page: dict[int, list[Path]] = {}
+    for image_path in sorted(path for path in photos.glob("*_V.*") if path.suffix.casefold() in _PHOTOS_OUTPUT_SUFFIXES):
+        _, _, _, page_text = parse_album_filename(image_path.name)
+        if page_text.isdigit():
+            by_page.setdefault(int(page_text), []).append(image_path)
+    return by_page
+
+
+def _reserve_photo_sort_slots(
+    page_dates: list[_PageDate],
+    photos_by_page: dict[int, list[Path]],
+) -> list[_PageDate]:
+    spaced: list[_PageDate] = []
+    previous: _PageDate | None = None
+    for page_date in page_dates:
+        sort_time = page_date.sort_time
+        provenance = page_date.provenance
+        if previous is not None:
+            previous_slots = max(1, len(photos_by_page.get(previous.page, [])) + 1)
+            minimum_time = previous.sort_time + timedelta(seconds=previous_slots)
+            if sort_time < minimum_time:
+                sort_time = minimum_time
+                provenance = f"{provenance} Viewer sort date was nudged to reserve photo-order slots."
+        spaced_page_date = _PageDate(
+            page=page_date.page,
+            sort_time=sort_time,
+            original_date=page_date.original_date,
+            original_provenance=page_date.original_provenance,
+            provenance=provenance,
+            anchored=page_date.anchored,
+        )
+        spaced.append(spaced_page_date)
+        previous = spaced_page_date
+    return spaced
+
+
 def _sequence_page_dates(
     page_numbers: list[int],
     page_images: dict[int, Path],
@@ -113,9 +171,10 @@ def _sequence_page_dates(
     }
     anchors = {page: date_text for page, date_text in anchors.items() if date_text}
     ordered_anchors = _monotonic_anchors(anchors, warnings)
-    boundaries = [(page_numbers[0] - 1, datetime(start_year, 1, 1, 12))]
+    start_boundary, end_boundary = _album_date_boundaries(start_year, end_year, ordered_anchors)
+    boundaries = [(page_numbers[0] - 1, start_boundary)]
     boundaries.extend(ordered_anchors)
-    boundaries.append((page_numbers[-1] + 1, datetime(end_year, 12, 31, 12)))
+    boundaries.append((page_numbers[-1] + 1, end_boundary))
 
     output: list[_PageDate] = []
     anchor_times = dict(ordered_anchors)
@@ -151,6 +210,23 @@ def _sequence_page_dates(
     return sorted(output, key=lambda row: row.page)
 
 
+def _album_date_boundaries(
+    start_year: int,
+    end_year: int,
+    ordered_anchors: list[tuple[int, datetime]],
+) -> tuple[datetime, datetime]:
+    start_time = datetime(start_year, 1, 1, 12)
+    end_time = datetime(end_year, 12, 31, 12)
+    if ordered_anchors:
+        first_anchor = ordered_anchors[0][1]
+        last_anchor = ordered_anchors[-1][1]
+        if first_anchor < start_time:
+            start_time = datetime(first_anchor.year, 1, 1, 12)
+        if last_anchor > end_time:
+            end_time = datetime(last_anchor.year, 12, 31, 12)
+    return start_time, end_time
+
+
 def _monotonic_anchors(anchors: dict[int, str], warnings: list[str]) -> list[tuple[int, datetime]]:
     ordered: list[tuple[int, datetime]] = []
     previous: datetime | None = None
@@ -182,7 +258,7 @@ def _read_original_page_date(sidecar: Path) -> str:
         item = dc_date.find(".//{http://www.w3.org/1999/02/22-rdf-syntax-ns#}li")
         if item is not None and item.text:
             return item.text.strip()
-    return str(desc.findtext(f"{{{XMP_NS}}}CreateDate", default="") or "").strip()
+    return ""
 
 
 def _date_text_to_sort_time(date_text: str) -> datetime:

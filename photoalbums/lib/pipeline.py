@@ -66,7 +66,7 @@ def _make_steps() -> list[PipelineStep]:
         ),
         PipelineStep(
             id="sequence-page-dates",
-            label="Slew _Archive/_Pages dates monotonically across album date anchors",
+            label="Slew _Archive/_Pages/_Photos dates monotonically across album date anchors",
             depends_on=["ai-index"],
         ),
         PipelineStep(

@@ -10,6 +10,7 @@ llama_install := if os() == "windows" {
   "echo \"llama-gemma4 only supports Windows and macOS\" && exit 1"
 }
 llama_start := "nu llama/start.nu"
+familysearch_getmyancestors := "getmyancestors @ git+https://github.com/Linekio/getmyancestors.git@1ffc7330a3b85ee98ad8c79eef36fb790c87b3d1"
 
 [default]
 default:
@@ -133,3 +134,6 @@ immich-backup *args:
 
 immich-photoalbums *args:
   {{python}} immich/create_photo_albums.py --photos-root "{{photoalbums_root}}" {{args}}
+
+familysearch-download *args:
+  uv run --with "{{familysearch_getmyancestors}}" python familysearch/download_tree.py {{args}}
