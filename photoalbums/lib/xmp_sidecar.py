@@ -2806,6 +2806,12 @@ def write_region_list(
     path = Path(xmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Snapshot the original sidecar so a failed/empty ExifTool region re-injection can
+    # never leave it stripped: the write below removes the RegionList from the file before
+    # re-adding it via a separate ExifTool subprocess, so any failure in between must roll
+    # back rather than silently drop regions (the TravelPostCards RegionList-loss bug).
+    original_bytes = path.read_bytes() if path.is_file() else None
+
     existing_regions = _read_existing_region_list(path, img_w=img_w, img_h=img_h)
     tree = _read_or_create_xmp_tree(path)
 
@@ -2852,16 +2858,22 @@ def write_region_list(
     region_entries.extend(_existing_face_region_entries(path))
 
     ET.indent(tree, space="  ")
-    tree.write(str(path), encoding="utf-8", xml_declaration=True)
-    _write_mwgrs_regions_exiftool(path, region_entries, img_w, img_h)
-    _apply_region_metadata_to_canonical_items(path, regions_with_captions, existing_regions)
-    _apply_caption_region_types(path, caption_entries)
+    try:
+        tree.write(str(path), encoding="utf-8", xml_declaration=True)
+        _write_mwgrs_regions_exiftool(path, region_entries, img_w, img_h)
+        _apply_region_metadata_to_canonical_items(path, regions_with_captions, existing_regions)
+        _apply_caption_region_types(path, caption_entries)
 
-    tree = ET.parse(str(path))  # type: ignore[assignment]
-    desc = _get_or_create_rdf_desc(tree)
-    desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
-    ET.indent(tree, space="  ")
-    tree.write(str(path), encoding="utf-8", xml_declaration=True)
+        tree = ET.parse(str(path))  # type: ignore[assignment]
+        desc = _get_or_create_rdf_desc(tree)
+        desc.set(f"{{{XMP_NS}}}ModifyDate", _xmp_datetime_now())
+        ET.indent(tree, space="  ")
+        tree.write(str(path), encoding="utf-8", xml_declaration=True)
+    except Exception:
+        # Roll back to the pre-write sidecar rather than leaving it region-stripped.
+        if original_bytes is not None:
+            path.write_bytes(original_bytes)
+        raise
 
 def _read_existing_region_list(path: Path, *, img_w: int, img_h: int) -> list[dict]:
     if not path.is_file():
@@ -3110,6 +3122,10 @@ def _write_mwgrs_regions_exiftool(path: Path, region_entries: list[dict], img_w:
         if result.returncode != 0:
             raise RuntimeError(f"ExifTool failed writing photo regions for {path}: {result.stderr.strip()}")
         _inject_mwgrs_regions(path, temp_xmp)
+        # Fail loudly if regions were expected but none were injected: a silent no-op here
+        # is what previously left sidecars region-stripped (caller rolls back on raise).
+        if payload_entries and "mwg-rs:RegionList" not in path.read_text(encoding="utf-8", errors="replace"):
+            raise RuntimeError(f"ExifTool region injection produced no RegionList for {path}")
     finally:
         json_path.unlink(missing_ok=True)
         temp_xmp.unlink(missing_ok=True)
