@@ -21,6 +21,7 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from photoalbums.lib.ai_index_analysis import (
+    _clamp_metadata_dates_to_album_range,
     _metadata_photo_payload,
     _metadata_step_build_output,
     _update_region_captions_from_metadata,
@@ -643,6 +644,59 @@ class TestMetadataResponseParsing(unittest.TestCase):
 
 class TestPerPhotoMetadataOnRegions(unittest.TestCase):
     """Tests for photo_location, photo_location_name, photo_est_date stored on regions."""
+
+    def test_out_of_album_range_photo_est_date_is_clamped(self):
+        """Unsupported model dates outside the album folder range clamp to that album's year."""
+        result = MetadataResult(
+            photos=[
+                MetadataPhotoResult(photo_number=1, est_date="1983"),
+                MetadataPhotoResult(photo_number=2, est_date="1986-04"),
+            ]
+        )
+
+        _clamp_metadata_dates_to_album_range(
+            result,
+            Path("SouthAmerica_1986_B00_Pages/SouthAmerica_1986_B00_P25_V.jpg"),
+            "",
+        )
+
+        self.assertEqual(result.photos[0].est_date, "1986")
+        self.assertEqual(result.photos[1].est_date, "1986-04")
+
+    def test_printed_out_of_album_range_photo_est_date_is_preserved(self):
+        """A visible printed date on the photo can override the album folder range."""
+        result = MetadataResult(
+            photos=[
+                MetadataPhotoResult(photo_number=1, est_date="1983", scene_ocr="NIGHT CLUB 1983"),
+                MetadataPhotoResult(photo_number=2, est_date="1985-04", caption="April 1985 reunion"),
+            ]
+        )
+
+        _clamp_metadata_dates_to_album_range(
+            result,
+            Path("SouthAmerica_1986_B00_Pages/SouthAmerica_1986_B00_P25_V.jpg"),
+            "",
+        )
+
+        self.assertEqual([photo.est_date for photo in result.photos], ["1983", "1985-04"])
+
+    def test_album_year_range_accepts_dates_inside_range(self):
+        """A multi-year family album clamps only dates outside its encoded span."""
+        result = MetadataResult(
+            photos=[
+                MetadataPhotoResult(photo_number=1, est_date="1907"),
+                MetadataPhotoResult(photo_number=2, est_date="1946-12"),
+                MetadataPhotoResult(photo_number=3, est_date="1947"),
+            ]
+        )
+
+        _clamp_metadata_dates_to_album_range(
+            result,
+            Path("Family_1907-1946_B01_Pages/Family_1907-1946_B01_P10_V.jpg"),
+            "",
+        )
+
+        self.assertEqual([photo.est_date for photo in result.photos], ["1907", "1946-12", "1946"])
 
     def test_photo_location_and_est_date_written_to_xmp(self):
         """Per-photo location and date from AI metadata are stored as region attributes."""

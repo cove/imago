@@ -1172,6 +1172,7 @@ def _dispatch_pipeline_step(
     skip_restoration,
     force_restoration,
     should_redo,
+    log_thumbnail_width,
     deps,
 ) -> int:
     match step.id:
@@ -1257,6 +1258,7 @@ def _dispatch_pipeline_step(
                 step_just_ran=step_just_ran,
                 stale_dep=stale_dep,
                 deps=deps,
+                log_thumbnail_width=log_thumbnail_width,
             )
         case "propagate-scan-context":
             _run_pipeline_propagate_scan_context_step(
@@ -1289,6 +1291,7 @@ def _dispatch_pipeline_step(
                 step_just_ran=step_just_ran,
                 stale_dep=stale_dep,
                 deps=deps,
+                log_thumbnail_width=log_thumbnail_width,
             )
         case "ai-index":
             ai_page_idx = _run_pipeline_ai_index_step(
@@ -1345,6 +1348,7 @@ def _run_process_pipeline_step(
     no_validation: bool,
     skip_restoration: bool,
     force_restoration: bool,
+    log_thumbnail_width: int | None,
     deps: dict,
 ) -> int:
     global _active_process_pipeline_prefix
@@ -1388,6 +1392,7 @@ def _run_process_pipeline_step(
             skip_restoration=skip_restoration,
             force_restoration=force_restoration,
             should_redo=should_redo,
+            log_thumbnail_width=log_thumbnail_width,
             deps=deps,
         )
     except Exception as exc:
@@ -1456,6 +1461,7 @@ def _run_pipeline_crop_regions_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     if _is_title_page_view(view_path):
         counters["crop-regions"]["skipped"] += 1
@@ -1495,6 +1501,7 @@ def _run_pipeline_face_refresh_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     refresh_targets = _iter_face_refresh_targets(view_dir, photos_dir, current_page)
     face_session.set_files(refresh_targets)
@@ -1527,6 +1534,7 @@ def _run_pipeline_immich_face_refresh_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     base_url = str(os.environ.get(deps["IMMICH_URL_ENV"]) or "").rstrip("/")
     api_key = str(os.environ.get(deps["IMMICH_API_KEY_ENV"]) or "")
@@ -1559,6 +1567,7 @@ def _run_pipeline_immich_face_refresh_step(
             for region in regions:
                 region["image_width"] = local_width
                 region["image_height"] = local_height
+        _validate_non_overlapping_immich_face_regions(img_path, regions)
         sidecar_path = img_path.with_suffix(".xmp")
         deps["merge_persons_xmp"](sidecar_path, names)
         deps["merge_face_regions_xmp"](sidecar_path, regions)
@@ -1571,6 +1580,42 @@ def _run_pipeline_immich_face_refresh_step(
     _print_outcome("done", stale_dep)
 
 
+def _validate_non_overlapping_immich_face_regions(img_path: Path, regions: list[dict]) -> None:
+    threshold = 0.90
+    for idx, region in enumerate(regions):
+        left = float(region.get("rx") or 0)
+        top = float(region.get("ry") or 0)
+        width = float(region.get("rw") or 0)
+        height = float(region.get("rh") or 0)
+        if width <= 0 or height <= 0:
+            continue
+        right = left + width
+        bottom = top + height
+        for other_idx, other in enumerate(regions[:idx]):
+            other_left = float(other.get("rx") or 0)
+            other_top = float(other.get("ry") or 0)
+            other_width = float(other.get("rw") or 0)
+            other_height = float(other.get("rh") or 0)
+            if other_width <= 0 or other_height <= 0:
+                continue
+            overlap_width = min(right, other_left + other_width) - max(left, other_left)
+            overlap_height = min(bottom, other_top + other_height) - max(top, other_top)
+            if overlap_width <= 0 or overlap_height <= 0:
+                continue
+            overlap_area = overlap_width * overlap_height
+            smaller_area = min(width * height, other_width * other_height)
+            if smaller_area > 0 and overlap_area / smaller_area >= threshold:
+                name = str(region.get("name") or "").strip() or f"region #{idx + 1}"
+                other_name = str(other.get("name") or "").strip() or f"region #{other_idx + 1}"
+                raise RuntimeError(
+                    "Immich returned overlapping duplicate face regions for "
+                    f"{img_path.name}: {other_name} {other_left:.6f},{other_top:.6f},"
+                    f"{other_width:.6f},{other_height:.6f} overlaps {name} "
+                    f"{left:.6f},{top:.6f},{width:.6f},{height:.6f} "
+                    f"by {overlap_area / smaller_area:.3f}"
+                )
+
+
 def _run_pipeline_face_reconcile_step(
     *,
     view_path: Path,
@@ -1580,6 +1625,7 @@ def _run_pipeline_face_reconcile_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     if not force_this_step and deps["read_pipeline_step"](xmp_path, "face-reconcile") is not None:
         counters["face-reconcile"]["skipped"] += 1
@@ -1594,7 +1640,7 @@ def _run_pipeline_face_reconcile_step(
     step_just_ran.add("face-reconcile")
     deps["write_pipeline_step"](xmp_path, "face-reconcile")
     _print_outcome("done", stale_dep)
-    _print_processed_crop_summaries(view_path, deps)
+    _print_processed_crop_summaries(view_path, deps, log_thumbnail_width=log_thumbnail_width)
 
 
 def _run_pipeline_propagate_scan_context_step(
@@ -1607,6 +1653,7 @@ def _run_pipeline_propagate_scan_context_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     if not force_this_step and deps["read_pipeline_step"](xmp_path, "propagate-scan-context") is not None:
         counters["propagate-scan-context"]["skipped"] += 1
@@ -1630,6 +1677,7 @@ def _run_pipeline_ocr_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     if not force_this_step and deps["read_pipeline_step"](xmp_path, "ocr") is not None:
         counters["ocr"]["skipped"] += 1
@@ -1694,6 +1742,7 @@ def _run_pipeline_propagate_to_crops_step(
     step_just_ran: set[str],
     stale_dep: str,
     deps: dict,
+    log_thumbnail_width: int | None = None,
 ) -> None:
     if not force_this_step and deps["read_pipeline_step"](xmp_path, "propagate-to-crops") is not None:
         counters["propagate-to-crops"]["skipped"] += 1
@@ -1705,7 +1754,7 @@ def _run_pipeline_propagate_to_crops_step(
     step_just_ran.add("propagate-to-crops")
     deps["write_pipeline_step"](xmp_path, "propagate-to-crops")
     _print_outcome(f"done ({crops_updated} crop(s) updated)" if crops_updated else "done (no crops)", stale_dep)
-    _print_processed_crop_summaries(view_path, deps)
+    _print_processed_crop_summaries(view_path, deps, log_thumbnail_width=log_thumbnail_width)
 
 
 def _run_pipeline_ai_index_step(
@@ -1816,6 +1865,7 @@ def run_process_pipeline(
     log_lmstudio_tokens: bool = False,
     gps_only: bool = False,
     refresh_gps: bool = False,
+    log_thumbnail_width: int | None = None,
 ) -> int:
     _configure_process_pipeline_logging()
 
@@ -1972,6 +2022,7 @@ def run_process_pipeline(
             no_validation=no_validation,
             skip_restoration=skip_restoration,
             force_restoration=force_restoration,
+            log_thumbnail_width=log_thumbnail_width,
             _require_primary_scan=_require_primary_scan,
             _view_page_output_path=_view_page_output_path,
             deps=deps,
@@ -2075,6 +2126,7 @@ def _process_pipeline_pages(
     no_validation: bool,
     skip_restoration: bool,
     force_restoration: bool,
+    log_thumbnail_width: int | None,
     _require_primary_scan,
     _view_page_output_path,
     deps: dict,
@@ -2088,7 +2140,11 @@ def _process_pipeline_pages(
             _view_page_output_path=_view_page_output_path,
         )
         _pipeline_line(f"Processing {page_context['page_label']}")
-        _show_image_preview(page_context["view_path"], page_context["primary_scan"])
+        _show_image_preview(
+            page_context["view_path"],
+            page_context["primary_scan"],
+            log_thumbnail_width=log_thumbnail_width,
+        )
         step_just_ran: set[str] = set()
         for step_idx, step in enumerate(active_steps, 1):
             ai_page_idx = _run_process_pipeline_step(
@@ -2112,23 +2168,24 @@ def _process_pipeline_pages(
                 no_validation=no_validation,
                 skip_restoration=skip_restoration,
                 force_restoration=force_restoration,
+                log_thumbnail_width=log_thumbnail_width,
                 deps=deps,
                 **page_context,
             )
 
 
-def _show_image_preview(view_path: Path, primary_scan: Path) -> None:
+def _show_image_preview(view_path: Path, primary_scan: Path, *, log_thumbnail_width: int | None = None) -> None:
     image = view_path if view_path.is_file() else primary_scan if primary_scan.is_file() else None
     if image is None:
         return
-    _show_image_preview_for_path(image)
+    _show_image_preview_for_path(image, log_thumbnail_width=log_thumbnail_width)
 
 
-def _show_image_preview_for_path(image: Path) -> None:
+def _show_image_preview_for_path(image: Path, *, log_thumbnail_width: int | None = None) -> None:
     import shutil
     import subprocess
 
-    width = max(20, shutil.get_terminal_size().columns // 8)
+    width = log_thumbnail_width if log_thumbnail_width is not None else max(20, shutil.get_terminal_size().columns // 8)
     if shutil.which("chafa"):
         # chafa auto-detects kitty/sixel/truecolor; works correctly with Ghostty
         subprocess.run(["chafa", f"--size={width}x", str(image)], check=False)
@@ -2213,13 +2270,16 @@ def _print_ai_index_discovery_summary(*, sidecar_path: Path) -> None:
     _print_image_metadata_summary(sidecar_path=sidecar_path, label="ai-index")
 
 
-def _print_processed_crop_summaries(view_path: Path, deps: dict) -> None:
+def _print_processed_crop_summaries(view_path: Path, deps: dict, *, log_thumbnail_width: int | None = None) -> None:
     crop_paths = list(deps["find_crop_paths_for_page"](view_path))
     for crop_path in crop_paths:
         if not crop_path.is_file():
             continue
         _pipeline_line(f"    crop image: {crop_path.name}")
-        _show_image_preview_for_path(crop_path)
+        if log_thumbnail_width is None:
+            _show_image_preview_for_path(crop_path)
+        else:
+            _show_image_preview_for_path(crop_path, log_thumbnail_width=log_thumbnail_width)
         _print_image_metadata_summary(sidecar_path=crop_path.with_suffix(".xmp"), label="crop")
 
 

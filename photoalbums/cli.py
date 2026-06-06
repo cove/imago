@@ -25,6 +25,13 @@ def _import_commands():
         return commands
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be greater than 0")
+    return parsed
+
+
 def _strip_remainder(argv: list[str]) -> list[str]:
     if argv and argv[0] == "--":
         return argv[1:]
@@ -311,6 +318,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--debug", action="store_true", help="Write debug artifacts for detect-regions and ai-index"
     )
     process_parser.add_argument("--log-lmstudio-tokens", action="store_true", help="Print LM Studio token ids/pieces.")
+    process_parser.add_argument(
+        "--log-thumbnail-width",
+        type=_positive_int,
+        default=None,
+        metavar="COLUMNS",
+        help="Set chafa thumbnail width in pipeline log output; defaults to terminal-based auto sizing.",
+    )
     process_parser.add_argument("--no-validation", action="store_true", help="Skip strict region validations")
     process_parser.add_argument(
         "--skip-restoration", action="store_true", help="Skip AI photo restoration in crop-regions"
@@ -366,6 +380,7 @@ def _run_process_group(parser: argparse.ArgumentParser, args, commands) -> int:
         force_restoration=bool(getattr(args, "force_restoration", False)),
         gps_only=bool(getattr(args, "gps_only", False)),
         refresh_gps=bool(getattr(args, "refresh_gps", False)),
+        log_thumbnail_width=getattr(args, "log_thumbnail_width", None),
     )
 
 

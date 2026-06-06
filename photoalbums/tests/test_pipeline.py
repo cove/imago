@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from io import StringIO
@@ -228,6 +229,31 @@ class TestEffectivePipelineStepIds(unittest.TestCase):
 
         self.assertNotIn("verify-crops", skip_ids)
         self.assertEqual(redo_ids, {"verify-crops"})
+
+
+class TestRenderImagePreview(unittest.TestCase):
+    def test_chafa_preview_keeps_terminal_based_default_width(self):
+        from photoalbums.commands import _show_image_preview_for_path
+
+        with (
+            patch("shutil.get_terminal_size", return_value=os.terminal_size((160, 50))),
+            patch("shutil.which", return_value="chafa"),
+            patch("subprocess.run") as run,
+        ):
+            _show_image_preview_for_path(Path("page.jpg"))
+
+        run.assert_called_once_with(["chafa", "--size=20x", "page.jpg"], check=False)
+
+    def test_chafa_preview_uses_requested_log_thumbnail_width_for_review_readability(self):
+        from photoalbums.commands import _show_image_preview_for_path
+
+        with (
+            patch("shutil.which", return_value="chafa"),
+            patch("subprocess.run") as run,
+        ):
+            _show_image_preview_for_path(Path("page.jpg"), log_thumbnail_width=30)
+
+        run.assert_called_once_with(["chafa", "--size=30x", "page.jpg"], check=False)
 
 
 class TestProcessedCropSummaries(unittest.TestCase):
@@ -610,6 +636,88 @@ class TestRunProcessPipelineSmoke(unittest.TestCase):
             self.assertEqual(call.args[1][0]["image_width"], 200)
             self.assertEqual(call.args[1][0]["image_height"], 100)
         write_step.assert_called_once_with(view_path.with_suffix(".xmp"), "immich-face-refresh")
+
+    def test_immich_face_refresh_fails_before_writing_duplicate_overlapping_face_regions(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Test_2024_B01_Archive"
+            pages = root / "Test_2024_B01_Pages"
+            photos = root / "Test_2024_B01_Photos"
+            archive.mkdir()
+            pages.mkdir()
+            photos.mkdir()
+            scan = archive / "Test_2024_B01_P02_S01.tif"
+            scan.write_bytes(b"abc")
+            view_path = pages / "Test_2024_B01_P02_V.jpg"
+            target = photos / "Test_2024_B01_P02_D01-00_V.jpg"
+
+            ai_runner = MagicMock()
+            ai_runner.defaults = {"caption_model": "glm-test", "lmstudio_base_url": "http://localhost:1234/v1"}
+            faces = [
+                {
+                    "imageWidth": 1000,
+                    "imageHeight": 800,
+                    "boundingBoxX1": 100,
+                    "boundingBoxY1": 80,
+                    "boundingBoxX2": 300,
+                    "boundingBoxY2": 320,
+                    "person": {"name": "Alice"},
+                },
+                {
+                    "imageWidth": 1000,
+                    "imageHeight": 800,
+                    "boundingBoxX1": 102,
+                    "boundingBoxY1": 82,
+                    "boundingBoxX2": 302,
+                    "boundingBoxY2": 322,
+                    "person": {"name": "Alicia"},
+                },
+            ]
+
+            with (
+                patch.dict("os.environ", {"IMMICH_URL": "http://immich.local:2283", "IMMICH_API_KEY": "key"}),
+                patch("photoalbums.stitch_oversized_pages.list_archive_dirs", return_value=[str(archive)]),
+                patch("photoalbums.stitch_oversized_pages.list_page_scans", return_value=[[str(scan)]]),
+                patch("photoalbums.stitch_oversized_pages.get_view_dirname", return_value=str(pages)),
+                patch("photoalbums.stitch_oversized_pages.get_photos_dirname", return_value=str(photos)),
+                patch("photoalbums.stitch_oversized_pages._require_primary_scan", return_value=str(scan)),
+                patch("photoalbums.stitch_oversized_pages._view_page_output_path", return_value=view_path),
+                patch("photoalbums.lib.xmp_sidecar.read_pipeline_state", return_value={}),
+                patch("photoalbums.lib.xmp_sidecar.write_pipeline_step") as write_step,
+                patch("photoalbums.commands._check_step_stale", return_value=(True, "crop-regions")),
+                patch("photoalbums.commands._iter_face_refresh_targets", return_value=[target]),
+                patch("cast.immich_sync.fetch_assets_by_original_filename", return_value=[{"id": "asset-001"}]),
+                patch("cast.immich_sync.fetch_asset_faces", return_value=faces),
+                patch("cast.xmp_writer.merge_persons_xmp") as merge_persons,
+                patch("cast.xmp_writer.merge_face_regions_xmp") as merge_regions,
+                patch("photoalbums.lib.ai_view_regions._image_dimensions", return_value=(200, 100)),
+                patch("photoalbums.lib.ai_render_face_refresh.RenderFaceRefreshSession"),
+                patch("photoalbums.lib.ai_index_runner.IndexRunner", return_value=ai_runner),
+            ):
+                from photoalbums.commands import run_process_pipeline
+
+                code = run_process_pipeline(
+                    album_id="",
+                    photos_root=str(root),
+                    page=None,
+                    skip_ids=[],
+                    redo_ids=[],
+                    step_id="immich-face-refresh",
+                    force=False,
+                    debug=False,
+                    no_validation=False,
+                    skip_restoration=False,
+                    force_restoration=False,
+                    gps_only=False,
+                    refresh_gps=False,
+                )
+
+        self.assertEqual(code, 1)
+        merge_persons.assert_not_called()
+        merge_regions.assert_not_called()
+        write_step.assert_not_called()
 
     def test_verify_crops_runs_after_ai_index_when_explicitly_requested(self):
         import tempfile
