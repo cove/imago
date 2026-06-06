@@ -412,6 +412,14 @@ def _ensure_crop_regions_inputs(
     )
 
 
+def _xmp_has_region_list(xmp_path: Path) -> bool:
+    """Return True if the sidecar already contains an mwg-rs RegionList."""
+    try:
+        return "mwg-rs:RegionList" in Path(xmp_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
 def _write_crop_regions_detection_result(
     xmp_path: Path,
     regions,
@@ -429,6 +437,11 @@ def _write_crop_regions_detection_result(
         write_region_list(xmp_path, regions_with_captions, img_w, img_h)
         write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "regions_found"})
         print(f"  detect-regions: {len(regions)} region(s)")
+        return
+    if _xmp_has_region_list(xmp_path):
+        # Preserve a RegionList written by an earlier detector instead of erasing it
+        # when the current detector finds nothing.
+        print("  detect-regions: no regions (preserving existing RegionList)")
         return
     write_region_list(xmp_path, [], img_w, img_h)
     existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
@@ -2396,6 +2409,10 @@ def _run_step_detect_regions(
         write_region_list(xmp_path, regions_with_captions, img_w, img_h)
         write_pipeline_step(xmp_path, "view_regions", model=model_name, extra={"result": "regions_found"})
         counters["detect-regions"]["detail"].append(f"{len(regions)} regions")
+    elif _xmp_has_region_list(xmp_path):
+        # Preserve a RegionList written by an earlier detector rather than erasing it
+        # when the current detector finds nothing.
+        counters["detect-regions"]["detail"].append("no regions (preserved existing)")
     else:
         write_region_list(xmp_path, [], img_w, img_h)
         existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
@@ -2738,6 +2755,7 @@ def _detect_view_regions_for_path(
                 img_h=img_h,
                 model_name=model_name,
                 _failed_regions_debug_path=_failed_regions_debug_path,
+                _has_xmp_regions=_has_xmp_regions,
                 read_pipeline_step=read_pipeline_step,
                 write_pipeline_step=write_pipeline_step,
                 write_region_list=write_region_list,
@@ -2814,6 +2832,7 @@ def _handle_no_detected_view_regions(
     img_h: int,
     model_name: str,
     _failed_regions_debug_path,
+    _has_xmp_regions,
     read_pipeline_step,
     write_pipeline_step,
     write_region_list,
@@ -2822,6 +2841,13 @@ def _handle_no_detected_view_regions(
         _print_failed_regions_debug_path(view_path, _failed_regions_debug_path=_failed_regions_debug_path)
         print("  No regions detected; will retry next run.")
         return True
+    if _has_xmp_regions(xmp_path):
+        # A prior detector already wrote a RegionList (and crops were derived from it).
+        # A no_regions result from the current detector must not erase it. Leave the
+        # RegionList and pipeline state intact rather than overwriting with an empty list.
+        _print_failed_regions_debug_path(view_path, _failed_regions_debug_path=_failed_regions_debug_path)
+        print("  No regions detected; preserving existing RegionList (not overwriting).")
+        return False
     write_region_list(xmp_path, [], img_w, img_h)
     existing_step = read_pipeline_step(xmp_path, "view_regions") or {}
     if str(existing_step.get("result") or "") not in {"no_regions", "validation_failed", "failed"}:

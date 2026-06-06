@@ -330,7 +330,9 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
             self.assertEqual(count, 0)
             self.assertFalse(photos_dir.exists())
 
-    def test_no_regions_pipeline_state_clears_stale_region_list(self):
+    def test_no_regions_state_clears_empty_region_list(self):
+        # When there is nothing to preserve, a no_regions pipeline result normalises
+        # the sidecar to an explicit empty RegionList and produces no crops.
         with tempfile.TemporaryDirectory() as tmp:
             view_dir = Path(tmp) / "Egypt_1975_Pages"
             view_dir.mkdir()
@@ -338,14 +340,7 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
             view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
             view_xmp = view_jpg.with_suffix(".xmp")
             _make_minimal_jpeg(view_jpg, 200, 100)
-            _write_region_xmp(
-                view_xmp,
-                [
-                    {"index": 0, "x": 200, "y": 100, "width": 200, "height": 100, "caption": "Overflow"},
-                ],
-                200,
-                100,
-            )
+            _write_region_xmp(view_xmp, [], 200, 100)
             write_pipeline_step(view_xmp, "view_regions", model="test-model", extra={"result": "no_regions"})
 
             count = crop_page_regions(view_jpg, photos_dir)
@@ -353,6 +348,37 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
             self.assertEqual(count, 0)
             self.assertEqual(read_region_list(view_xmp, 200, 100), [])
             self.assertFalse(photos_dir.exists())
+
+    def test_no_regions_state_preserves_existing_region_list(self):
+        # A no_regions result from a weaker re-detection must NOT erase a RegionList an
+        # earlier detector wrote (and that crops were derived from). The regions are
+        # preserved and still cropped. Regression test for orphaned crops on pages where
+        # Docling re-detection returned no_regions (e.g. England_1983_B01 P51/P67).
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 100, "height": 100, "caption": "Left photo"},
+                    {"index": 1, "x": 100, "y": 0, "width": 100, "height": 100, "caption": "Right photo"},
+                ],
+                img_w,
+                img_h,
+            )
+            write_pipeline_step(view_xmp, "view_regions", model="test-model", extra={"result": "no_regions"})
+
+            count = crop_page_regions(view_jpg, photos_dir)
+
+            self.assertEqual(count, 2)
+            self.assertEqual(len(read_region_list(view_xmp, img_w, img_h)), 2)
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D01-00_V.jpg").exists())
+            self.assertTrue((photos_dir / "Egypt_1975_B00_P01_D02-00_V.jpg").exists())
 
     def test_two_regions_writes_two_crops(self):
         with tempfile.TemporaryDirectory() as tmp:

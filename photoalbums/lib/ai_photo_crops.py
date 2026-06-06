@@ -783,12 +783,24 @@ def crop_page_regions(
         return 0
 
     view_regions_state = read_pipeline_step(view_xmp, "view_regions") or {}
-    if str(view_regions_state.get("result") or "").strip() == "no_regions":
-        write_region_list(view_xmp, [], img_w, img_h)
-        return 0
+    no_regions_recorded = str(view_regions_state.get("result") or "").strip() == "no_regions"
 
     # Read regions
     regions = read_region_list(view_xmp, img_w, img_h)
+
+    if no_regions_recorded and not regions:
+        # Genuinely empty: normalise the sidecar to an explicit empty RegionList.
+        write_region_list(view_xmp, [], img_w, img_h)
+        return 0
+    if no_regions_recorded and regions:
+        # A weaker re-detection recorded no_regions, but an earlier detector already
+        # wrote a RegionList that these crops were derived from. Never wipe it -- crop
+        # the regions that are still present.
+        log.warning(
+            "%s: view_regions=no_regions but %d region(s) still present; preserving them",
+            view_xmp.name,
+            len(regions),
+        )
     if not regions:
         return 0
 
