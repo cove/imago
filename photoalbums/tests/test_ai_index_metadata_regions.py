@@ -123,6 +123,25 @@ class TestUpdateRegionCaptionsFromMetadata(unittest.TestCase):
             self.assertEqual(regions[0]["caption"], "")
             self.assertEqual(regions[1]["caption"], "")
 
+    def test_rejects_metadata_photo_numbers_that_do_not_match_detected_regions(self):
+        """Model output must not attach captions to crops when it invents an extra photo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "page.jpg"
+            _make_minimal_jpeg(image)
+            xmp_path = _seed_regions_xmp(image, count=8)
+
+            _update_region_captions_from_metadata(
+                image,
+                [
+                    {"photo_number": number, "caption": f"Caption {number}"}
+                    for number in range(1, 10)
+                ],
+            )
+
+            regions = read_region_list(xmp_path, 800, 600)
+            self.assertEqual([region["caption"] for region in regions], [""] * 8)
+            self.assertEqual([region["photo_number"] for region in regions], [0] * 8)
+
     def test_corrected_caption_does_not_replace_region_caption(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "page.jpg"

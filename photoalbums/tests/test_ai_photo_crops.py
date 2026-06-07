@@ -62,6 +62,10 @@ class TestResolveRegionCaption(unittest.TestCase):
         result = resolve_region_caption("photo_8", "", "Page caption: Beach day")
         self.assertEqual(result, "Page caption: Beach day")
 
+    def test_multi_caption_page_description_does_not_apply_to_unmatched_region(self):
+        result = resolve_region_caption("", "", "Page Captions: 1. House., 2. Canal.")
+        self.assertEqual(result, "")
+
 
 class TestResolvePageDescriptionFromRegions(unittest.TestCase):
     def test_multiple_unique_captions_become_numbered_list(self):
@@ -444,6 +448,40 @@ class TestCropPageRegions(_NoOpRestorationMixin, unittest.TestCase):
             self.assertTrue(crop_xmp.exists())
             xml = crop_xmp.read_text(encoding="utf-8")
             self.assertIn("Beach day", xml)
+
+    def test_unmatched_region_does_not_inherit_multi_caption_page_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img_w, img_h = 200, 100
+            view_dir = Path(tmp) / "Egypt_1975_Pages"
+            view_dir.mkdir()
+            photos_dir = Path(tmp) / "Egypt_1975_Photos"
+            view_jpg = view_dir / "Egypt_1975_B00_P01_V.jpg"
+            view_xmp = view_jpg.with_suffix(".xmp")
+            _make_minimal_jpeg(view_jpg, img_w, img_h)
+
+            from photoalbums.lib.xmp_sidecar import read_ai_sidecar_state, write_xmp_sidecar
+
+            write_xmp_sidecar(
+                view_xmp,
+                person_names=[],
+                subjects=[],
+                description="Page Captions: 1. House., 2. Canal.",
+                ocr_text="",
+            )
+            _write_region_xmp(
+                view_xmp,
+                [
+                    {"index": 0, "x": 0, "y": 0, "width": 200, "height": 100, "caption": ""},
+                ],
+                img_w,
+                img_h,
+            )
+
+            self.assertEqual(crop_page_regions(view_jpg, photos_dir), 1)
+
+            crop_state = read_ai_sidecar_state(photos_dir / "Egypt_1975_B00_P01_D01-00_V.xmp")
+            assert crop_state is not None
+            self.assertEqual(crop_state["description"], "")
 
     def test_placeholder_region_name_uses_prefixed_page_caption(self):
         with tempfile.TemporaryDirectory() as tmp:

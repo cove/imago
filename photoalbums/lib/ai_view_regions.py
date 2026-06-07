@@ -288,6 +288,57 @@ def _best_region_for_caption(
     return distances.index(sorted_d[0])
 
 
+def _horizontal_overlap(left: tuple[int, int], right: tuple[int, int]) -> int:
+    return max(0, min(left[1], right[1]) - max(left[0], right[0]))
+
+
+def _best_region_above_caption(regions: list[RegionResult], caption: dict) -> RegionResult | None:
+    try:
+        caption_x = int(caption["x"])
+        caption_y = int(caption["y"])
+        caption_w = int(caption["width"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    caption_range = (caption_x, caption_x + max(1, caption_w))
+    candidates: list[tuple[int, int, RegionResult]] = []
+    for region in regions:
+        region_range = (region.x, region.x + region.width)
+        overlap = _horizontal_overlap(caption_range, region_range)
+        if overlap <= 0:
+            continue
+        gap = caption_y - (region.y + region.height)
+        if gap < -max(12, region.height // 20):
+            continue
+        center_dx = abs((caption_x + caption_w / 2) - (region.x + region.width / 2))
+        candidates.append((max(0, gap), int(center_dx), region))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: (row[0], row[1], row[2].index))
+    return candidates[0][2]
+
+
+def apply_spatial_caption_hints(regions: list[RegionResult], text_regions: list[dict]) -> list[RegionResult]:
+    """Attach Docling OCR caption boxes to nearby photo boxes using page geometry."""
+    if not regions or not text_regions:
+        return regions
+    captions_by_index: dict[int, str] = {}
+    for text_region in text_regions:
+        if str(text_region.get("label") or "").strip().lower() not in {"", "caption"}:
+            continue
+        text = str(text_region.get("text") or "").strip()
+        if not text:
+            continue
+        region = _best_region_above_caption(regions, text_region)
+        if region is not None:
+            captions_by_index[region.index] = text
+    if not captions_by_index:
+        return regions
+    return [
+        replace(region, caption_hint=captions_by_index.get(region.index, region.caption_hint))
+        for region in regions
+    ]
+
+
 def associate_captions(
     regions: list[RegionResult],
     captions: list[dict],
@@ -817,6 +868,7 @@ def _finalize_docling_detection(
     # When OCR ran, hand gemma a set-of-marks overlay that numbers both the photo
     # boxes (#N) and the recognized caption boxes (T#) so it can associate them.
     if text_region_dicts is not None and kept:
+        kept = apply_spatial_caption_hints(kept, text_region_dicts)
         _write_region_association_overlay_image(path, kept, text_regions=text_region_dicts)
 
     return kept

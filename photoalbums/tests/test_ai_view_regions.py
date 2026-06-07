@@ -24,6 +24,7 @@ from photoalbums.lib.ai_view_regions import (
     _has_xmp_regions,
     _read_regions_from_xmp,
     _region_association_overlay_path,
+    apply_spatial_caption_hints,
     associate_captions,
     detect_regions,
     pixel_to_mwgrs,
@@ -194,6 +195,25 @@ class TestAssociateCaptions(unittest.TestCase):
         ]
         result = associate_captions(regions, [], img_width=200)
         self.assertEqual([row.region.index for row in result], [0, 1])
+
+    def test_spatial_caption_hint_prefers_photo_above_caption(self):
+        regions = [
+            RegionResult(index=0, x=46, y=32, width=1500, height=1054),
+            RegionResult(index=1, x=52, y=1211, width=1481, height=1061),
+            RegionResult(index=5, x=1586, y=1661, width=1042, height=1490),
+            RegionResult(index=7, x=2662, y=2241, width=1492, height=1048),
+        ]
+        text_regions = [
+            {"text": "THE MAYOR'S HOUSE", "label": "caption", "x": 513, "y": 1140, "width": 545, "height": 45},
+            {"text": 'THE "ANN FRANK HOUSE"', "label": "caption", "x": 1781, "y": 3222, "width": 621, "height": 52},
+        ]
+
+        result = apply_spatial_caption_hints(regions, text_regions)
+
+        captions = {region.index: region.caption_hint for region in result}
+        self.assertEqual(captions[0], "THE MAYOR'S HOUSE")
+        self.assertEqual(captions[5], 'THE "ANN FRANK HOUSE"')
+        self.assertEqual(captions[7], "")
 
 
 class TestRegionListXmpRoundTrip(unittest.TestCase):
