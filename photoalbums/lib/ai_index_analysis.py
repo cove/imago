@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import re
 import tempfile
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ from .xmp_sidecar import _dedupe
 
 AI_MODEL_MAX_SOURCE_BYTES = 30 * 1024 * 1024
 _ALBUM_YEAR_RE = re.compile(r"(?:^|[_\s])(?P<start>\d{4})(?:-(?P<end>\d{4}))?(?:[_\s]B\d+|$)")
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -338,6 +340,13 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
     regions = read_region_list(xmp_path, img_w, img_h)
     if not regions:
         return
+    if not _metadata_photo_numbers_match_regions(photo_captions_list, len(regions)):
+        log.warning(
+            "Skipping per-region metadata update for %s: model photo_numbers do not match %d detected region(s)",
+            image_path,
+            len(regions),
+        )
+        return
 
     photo_captions, photo_numbers, photo_locations, photo_location_names, photo_est_dates = _metadata_region_caption_maps(photo_captions_list)
 
@@ -361,6 +370,12 @@ def _update_region_captions_from_metadata(image_path: Path, photo_captions_list:
 
     if updated:
         write_region_list(xmp_path, rwcs, img_w, img_h)
+
+
+def _metadata_photo_numbers_match_regions(photo_captions_list: list[dict], region_count: int) -> bool:
+    photo_numbers = [int(entry.get("photo_number") or 0) for entry in photo_captions_list]
+    expected = list(range(1, region_count + 1))
+    return sorted(photo_numbers) == expected
 
 
 def _metadata_region_caption_maps(

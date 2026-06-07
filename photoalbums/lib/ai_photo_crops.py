@@ -88,6 +88,8 @@ def resolve_region_caption(
     if hint_text:
         return hint_text
     if page_text:
+        if page_text.startswith("Page Captions:"):
+            return ""
         if region_is_placeholder and not page_text.startswith("Page caption:"):
             return f"Page caption: {page_text}"
         return page_text
@@ -535,7 +537,7 @@ def _write_crop_sidecar(
 
     page_description = str(view_state.get("description") or "").strip()
     parent_ocr_text = str(view_state.get("parent_ocr_text") or "").strip()
-    if not caption:
+    if not caption and not page_description.startswith("Page Captions:"):
         caption = page_description
 
     crop_album_title, archive_source_text = _crop_source_metadata(view_path, view_state)
