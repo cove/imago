@@ -396,8 +396,10 @@ def _fmt_duration(seconds: float) -> str:
 
 
 def _iter_crop_images(root: Path, album_filter: str, page_filter: str, crop_filter: str):
+    negate = album_filter.startswith("!")  # "!Family" -> process albums that do NOT match
+    needle = album_filter[1:] if negate else album_filter
     for photos_dir in sorted(d for d in root.iterdir() if d.is_dir() and is_photos_dir(d)):
-        if album_filter and album_filter not in photos_dir.name.casefold():
+        if needle and (needle in photos_dir.name.casefold()) == negate:
             continue
         for path in sorted(photos_dir.glob("*_V.jpg")):
             if not DERIVED_VIEW_RE.search(path.stem):
@@ -414,7 +416,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Validate crop captions + shown locations (page+crop) and write the crop XMP sidecars.",
     )
     parser.add_argument("--photos-root", default=str(PHOTO_ALBUMS_DIR), help="Photo Albums root directory.")
-    parser.add_argument("--album", default="", help="Optional substring filter against the _Photos dir name.")
+    parser.add_argument(
+        "--album",
+        default="",
+        help="Optional substring filter against the _Photos dir name. Prefix with ! to negate (e.g. !Family).",
+    )
     parser.add_argument("--page", default="", help="Optional page number filter (e.g. 03).")
     parser.add_argument("--crop", default="", help="Optional substring filter against the crop filename (e.g. D05-00).")
     parser.add_argument("--model", default="", help="Model name (defaults to configured caption model).")
