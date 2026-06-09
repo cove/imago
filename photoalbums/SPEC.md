@@ -91,7 +91,7 @@ The pipeline expects these properties of its environment and inputs to be provid
 - **Album-title hint:** a human-readable album title string used to seed the metadata extractor (see Section 5.3.1)
 
 **AI baseline specs:**
-- **OCR/caption model and host:** `google/gemma-4-31b` served by an lmstudio-compatible endpoint at `http://127.0.0.1:1234/v1` (or a `localhost` equivalent)
+- **OCR/caption model and host:** `google/gemma-4-31b-qat` served by an lmstudio-compatible endpoint at `http://127.0.0.1:1234/v1` (or a `localhost` equivalent)
 - **Layout-analysis pipeline:** Docling configured with preset `granite_docling`, backend `auto_inline`, device `auto`, retries `3`
 - **Photo-restoration pipeline:** RealRestorer at the pinned commit (Section 5.0); skipped automatically if the host has insufficient RAM
 
@@ -417,9 +417,10 @@ Call the RealRestorer pipeline with the following parameters:
 **1. OCR/Caption Extraction Engine**
 - **Service Type:** Local inference server (lmstudio)
 - **Server URL:** `http://127.0.0.1:1234/v1` (TOML config) or `http://localhost:1234/v1` (code default fallback)
-- **Model Name:** `google/gemma-4-31b` (Google Gemma 4, 31 billion parameters)
+- **Model Name:** `google/gemma-4-31b-qat` (Google Gemma 4, 31 billion parameters, QAT-quantized)
 - **Model Source:** Hugging Face / lmstudio model registry
-- **Per-purpose model lists:** `pc = ["google/gemma-4-31b"]` (people-count), `primary = ["google/gemma-4-31b"]` (general)
+- **Per-purpose model lists:** `pc = ["google/gemma-4-31b-qat"]` (people-count), `primary = ["mlx-community/gemma-4-e2b-it-4bit"]` (general)
+- **Change note (for reference):** the OCR/caption model (`pc`) originally read `google/gemma-4-31b` and was later changed to the QAT-quantized `google/gemma-4-31b-qat` variant.
 
 **2. View Region Detection (Photo Detection)**
 - **Service Type:** Docling layout analysis pipeline
@@ -466,7 +467,7 @@ This step extracts a structured metadata record per visible photograph (caption,
 
 **Baseline:**
 - **Service:** lmstudio-compatible local HTTP server at `http://127.0.0.1:1234/v1`
-- **Model:** `google/gemma-4-31b`
+- **Model:** `google/gemma-4-31b-qat`
 - **Endpoint:** `/v1/chat/completions` with `response_format` set to `json_schema` for structured output
 
 **Prompt Source:** `photoalbums/prompts/ai-index/metadata/` (`system.md`, `user.md`, `schema.json`, `params.toml`)
@@ -528,7 +529,7 @@ Album title: {album_title}
 #### 5.3.2 People Count (Per-Crop Refinement)
 For each detected crop, optionally run a separate people-counting request to refine estimates.
 
-**Baseline:** same lmstudio server and `google/gemma-4-31b` model as 5.3.1.
+**Baseline:** same lmstudio server and `google/gemma-4-31b-qat` model as 5.3.1.
 
 **Prompt Source:** `photoalbums/prompts/ai-index/people-count/` (`system.md`, `user.md`, `output.md`, `params.toml`)
 
@@ -927,7 +928,7 @@ Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` struc
             "input_hash": "sha256:..."
           }
         },
-        "caption": {"text": "Cairo temple 1975", "source": "google/gemma-4-31b"}
+        "caption": {"text": "Cairo temple 1975", "source": "google/gemma-4-31b-qat"}
       }</imago:Detections>
     </rdf:Description>
   </rdf:RDF>
@@ -989,7 +990,7 @@ Tracks document identity and provenance. `xmpMM:DerivedFrom` uses `stRef:` struc
         "objects": [
           {"class": "person", "confidence": 0.97}
         ],
-        "caption": {"text": "Temple entrance with tourists", "source": "google/gemma-4-31b"},
+        "caption": {"text": "Temple entrance with tourists", "source": "google/gemma-4-31b-qat"},
         "location": {
           "city": "Cairo", "country": "Egypt",
           "gps_latitude": 30.0288, "gps_longitude": 31.2495,
@@ -1230,8 +1231,8 @@ retries = 3
 lmstudio_base_url = "http://127.0.0.1:1234/v1"
 
 [archive_set_name.lmstudio]
-primary = ["google/gemma-4-31b"]
-pc      = ["google/gemma-4-31b"]
+primary = ["mlx-community/gemma-4-e2b-it-4bit"]
+pc      = ["google/gemma-4-31b-qat"]  # originally google/gemma-4-31b; later changed to the QAT variant
 
 [archive_set_name.restoration]
 enabled    = true
@@ -1430,7 +1431,7 @@ The following are load-bearing baseline values. If the code drifts from any of t
 | Category | Examples of baseline values to keep in sync |
 |----------|---------------------------------------------|
 | Library versions | `opencv-contrib-python`, `pillow`, `stitching`, `docling`, `torch` (Section 15.1) |
-| Models | `google/gemma-4-31b`, RealRestorer commit hash, YOLO weights path (Section 5.0) |
+| Models | `google/gemma-4-31b-qat`, RealRestorer commit hash, YOLO weights path (Section 5.0) |
 | Inference parameters | `max_tokens`, `temperature`, `timeout_seconds` per prompt (Sections 5.3.1, 5.3.2, 7.4) |
 | Stitching | `AFFINE_STITCH_ATTEMPTS` ordering, linear-fallback constants (Section 2.4) |
 | Docling | `preset`, `backend`, `device`, `retries`, `do_ocr` (Section 3.3) |
@@ -1472,7 +1473,7 @@ When any code change affects a baseline value above:
 The XMP sidecar reader/writer uses Python's standard-library `xml.etree.ElementTree`; that's an implementation choice and a reimplementation may use any equivalent XML library.
 
 ### 15.2 External Services
-- **lmstudio (local):** Hosts `google/gemma-4-31b` for OCR/caption/metadata extraction at `http://127.0.0.1:1234/v1`
+- **lmstudio (local):** Hosts `google/gemma-4-31b-qat` for OCR/caption/metadata extraction at `http://127.0.0.1:1234/v1`
 - **Nominatim (OpenStreetMap):** Forward and reverse geocoding at `https://nominatim.openstreetmap.org`
 - **Cast Service:** Face recognition / people matching (internal/custom)
 - **YOLO (Ultralytics):** Optional object detection via local `models/yolo11n.pt`

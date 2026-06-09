@@ -5,7 +5,7 @@ caption_matching_model = "primary"
 lmstudio_base_url = "http://127.0.0.1:8080/v1"
 
 [models]
-pc = [ "mlx-community/gemma-4-e2b-it-4bit"]
+pc = [ "google/gemma-4-31b-qat"]
 primary = [ "mlx-community/gemma-4-e2b-it-4bit"]
 fallback = [ "mlx-community/gemma-4-e2b-it-4bit"]
 docling = "granite-docling-258m"

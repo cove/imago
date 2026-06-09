@@ -31,6 +31,11 @@ let logs_dir = ($env.FILE_PWD | path join ".." "logs")
 let llama_log = ($logs_dir | path join "llama.log")
 mkdir $logs_dir
 
+print $"Loading model alias '($env.MODEL_ALIAS)'"
+print $"  model:  ($model)"
+print $"  mmproj: ($mmproj)"
+if not ($model | path exists) { print $"  WARNING: model file not found at ($model)" }
+
 (
   ^$server_bin
     --model $model
