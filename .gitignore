@@ -61,6 +61,9 @@ skylos_out.json
 # Process log files
 logs/
 
+# Generated face/photo crop images
+cast/data/crops/
+
 # Skill eval workspaces
 skills/*-workspace/
 .omx/
