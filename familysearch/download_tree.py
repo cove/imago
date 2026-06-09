@@ -1,9 +1,38 @@
 import argparse
 import os
 import sys
+import threading
 from pathlib import Path
 
 from getmyancestors.getmyancestors import main as getmyancestors_main
+
+
+def _make_rate_limiter_thread_safe():
+    """Serialize pyrate_limiter's try_acquire so it is safe under threads.
+
+    getmyancestors fetches person data concurrently across a ThreadPoolExecutor,
+    while every thread shares a single requests_ratelimiter Limiter. In
+    pyrate_limiter 2.x, Limiter.try_acquire reads bucket.size()/inspect_expired_items
+    and then calls bucket.get(volume - item_count) in a separate, unsynchronized
+    step. Concurrent callers race between the read and the pop, so one thread pops
+    an already-drained queue and crashes with "IndexError: pop from empty list".
+    The per-bucket RLock does not help because the race spans multiple method
+    calls. Wrapping try_acquire in a single lock makes the check-then-pop atomic.
+    """
+    from pyrate_limiter import Limiter
+
+    original = Limiter.try_acquire
+    if getattr(original, "_imago_threadsafe", False):
+        return
+    lock = threading.Lock()
+
+    def try_acquire(self, *identities):
+        with lock:
+            return original(self, *identities)
+
+    try_acquire._imago_threadsafe = True
+    Limiter.try_acquire = try_acquire
+
 
 DEFAULT_PERSON_ID = "P631-4WH"
 DEFAULT_USERNAME = "CoveSchneider"
@@ -53,6 +82,7 @@ def main():
         str(args.rate_limit),
         "--verbose",
     ]
+    _make_rate_limiter_thread_safe()
     try:
         getmyancestors_main()
     finally:
