@@ -108,6 +108,11 @@ photoalbums-list-render-pipeline-steps:
 photoalbums-render-pipeline *args:
   {{python}} -m photoalbums process --photos-root "{{photoalbums_root}}" {{args}}
 
+# Re-validate crop captions + shown locations (page+crop) and write the crop XMP sidecars.
+# Dry run by default; pass --run to write, --backup to keep a .xmp.bak. e.g. just photoalbums-recheck-crop-caption-location --album MainlandChina --run --backup
+photoalbums-recheck-crop-caption-location *args:
+  {{python}} -m photoalbums.scripts.recheck_crop_caption_location --photos-root "{{photoalbums_root}}" {{args}}
+
 photoalbums-list-scan-pipeline-steps:
   {{python}} -m photoalbums watch --list-steps
 
