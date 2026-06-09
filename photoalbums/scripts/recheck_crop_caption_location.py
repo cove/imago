@@ -18,7 +18,7 @@ XMP sidecar writer.
 Defaults to a dry run (preview only). Pass --run to write the sidecars.
 
 Usage:
-    .venv/bin/python -m photoalbums.scripts.recheck_crop_caption_location [--album X] [--page NN] [--crop D05-00] [--run]
+    uv run python -m photoalbums.scripts.recheck_crop_caption_location [--album X] [--page NN] [--crop D05-00] [--run]
 """
 
 from __future__ import annotations
@@ -441,7 +441,7 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         print(
             "ERROR: Pillow (PIL) is not importable in this interpreter. Run with the project venv, "
-            "e.g. `.venv/bin/python -m photoalbums.scripts.recheck_crop_caption_location ...`.",
+            "e.g. `uv run python -m photoalbums.scripts.recheck_crop_caption_location ...`.",
             file=sys.stderr,
         )
         return 2
