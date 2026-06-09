@@ -18601,6 +18601,10 @@
     "query": "Eastern Europe, Spain and Morocco",
     "status": "miss"
   },
+  "eastern europe, spain, and morocco": {
+    "query": "Eastern Europe, Spain, and Morocco",
+    "status": "miss"
+  },
   "eastern europe, spain, morocco": {
     "query": "Eastern Europe, Spain, Morocco",
     "status": "miss"
@@ -42096,12 +42100,49 @@
     "sublocation": "Oxford Street"
   },
   "oxford street, london, england, united kingdom": {
-    "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
-    "latitude": "51.5134858",
-    "longitude": "-0.1583865",
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Oxford Street, East Marylebone, Marylebone, City of Westminster, Greater London, England, W1C 2AU, United Kingdom",
+    "latitude": "51.5138053",
+    "longitude": "-0.1548743",
     "query": "Oxford Street, London, England, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "W1C 2AU",
+        "quarter": "East Marylebone",
+        "road": "Oxford Street",
+        "state": "England",
+        "suburb": "Marylebone"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.5137201",
+        "51.5138912",
+        "-0.1559483",
+        "-0.1538002"
+      ],
+      "category": "highway",
+      "display_name": "Oxford Street, East Marylebone, Marylebone, City of Westminster, Greater London, England, W1C 2AU, United Kingdom",
+      "importance": 0.5226832117987572,
+      "lat": "51.5138053",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1548743",
+      "name": "Oxford Street",
+      "osm_id": 42709093,
+      "osm_type": "way",
+      "place_id": 281498344,
+      "place_rank": 26,
+      "type": "primary"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Oxford Street"
   },
   "oxford street, london, uk": {
     "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
@@ -42112,12 +42153,49 @@
     "status": "ok"
   },
   "oxford street, london, united kingdom": {
-    "display_name": "Oxford Street, Marylebone, City of Westminster, Greater London, England, W1C 1LX, United Kingdom",
-    "latitude": "51.5134858",
-    "longitude": "-0.1583865",
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1D 2LS, United Kingdom",
+    "latitude": "51.5153615",
+    "longitude": "-0.1411784",
     "query": "Oxford Street, London, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "postcode": "W1D 2LS",
+        "quarter": "East Marylebone",
+        "road": "Oxford Street",
+        "state": "England",
+        "suburb": "Mayfair"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.5152614",
+        "51.5154488",
+        "-0.1418031",
+        "-0.1405518"
+      ],
+      "category": "highway",
+      "display_name": "Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1D 2LS, United Kingdom",
+      "importance": 0.5226832117987572,
+      "lat": "51.5153615",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1411784",
+      "name": "Oxford Street",
+      "osm_id": 209690397,
+      "osm_type": "way",
+      "place_id": 280048350,
+      "place_rank": 26,
+      "type": "primary"
+    },
     "source": "nominatim",
-    "status": "ok"
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Oxford Street"
   },
   "oxford street, united kingdom": {
     "city": "City of Westminster",
@@ -54254,6 +54332,10 @@
     "query": "Spain, 1988",
     "source": "nominatim",
     "status": "ok"
+  },
+  "spain, and morocco": {
+    "query": "Spain, and Morocco",
+    "status": "miss"
   },
   "spain, madrid": {
     "city": "Madrid",

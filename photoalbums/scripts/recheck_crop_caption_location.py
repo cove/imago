@@ -460,7 +460,9 @@ def main(argv: list[str] | None = None) -> int:
     if backup and dry_run:
         print("note: --backup has no effect during a dry run (nothing is written); pass --run to write + back up.")
 
-    model_name = str(args.model or "").strip() or default_caption_model()
+    model_name = str(args.model or "").strip()
+    if not model_name:
+        model_name = "google/gemma-4-12b-qat" if sys.platform == "win32" else default_caption_model()
     base_url = normalize_lmstudio_base_url(
         str(args.base_url or "").strip() or default_lmstudio_base_url() or DEFAULT_LMSTUDIO_BASE_URL
     )
