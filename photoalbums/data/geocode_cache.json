@@ -20350,6 +20350,37 @@
     "latitude": "34.0183415",
     "longitude": "-118.3002033",
     "query": "Exposition Park, Los Angeles, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "90062",
+        "state": "California",
+        "suburb": "Exposition Park"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "33.9983415",
+        "34.0383415",
+        "-118.3202033",
+        "-118.2802033"
+      ],
+      "category": "place",
+      "display_name": "Exposition Park, Los Angeles, Los Angeles County, California, 90062, United States",
+      "importance": 0.3476412868877268,
+      "lat": "34.0183415",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.3002033",
+      "name": "Exposition Park",
+      "osm_id": 7360410768,
+      "osm_type": "node",
+      "place_id": 320090707,
+      "place_rank": 19,
+      "type": "suburb"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -25877,6 +25908,37 @@
     "latitude": "34.0980031",
     "longitude": "-118.3295230",
     "query": "Hollywood, Los Angeles, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Los Angeles",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "postcode": "90028",
+        "state": "California",
+        "suburb": "Hollywood"
+      },
+      "addresstype": "suburb",
+      "boundingbox": [
+        "34.0780031",
+        "34.1180031",
+        "-118.3495230",
+        "-118.3095230"
+      ],
+      "category": "place",
+      "display_name": "Hollywood, Los Angeles, Los Angeles County, California, 90028, United States",
+      "importance": 0.7360103139294639,
+      "lat": "34.0980031",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.3295230",
+      "name": "Hollywood",
+      "osm_id": 1830231415,
+      "osm_type": "node",
+      "place_id": 318077261,
+      "place_rank": 19,
+      "type": "suburb"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
@@ -26341,6 +26403,47 @@
     },
     "source": "nominatim",
     "state": "Hawaii",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "hoover dam, nevada, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Hoover Dam, Mohave County, Arizona, United States",
+    "latitude": "36.0157189",
+    "longitude": "-114.7374858",
+    "query": "Hoover Dam, Nevada, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-AZ",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mohave County",
+        "dam": "Hoover Dam",
+        "state": "Arizona"
+      },
+      "addresstype": "dam",
+      "boundingbox": [
+        "36.0147392",
+        "36.0166947",
+        "-114.7393896",
+        "-114.7367352"
+      ],
+      "category": "waterway",
+      "display_name": "Hoover Dam, Mohave County, Arizona, United States",
+      "importance": 0.5080414280424921,
+      "lat": "36.0157189",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-114.7374858",
+      "name": "Hoover Dam",
+      "osm_id": 49938932,
+      "osm_type": "way",
+      "place_id": 324913086,
+      "place_rank": 20,
+      "type": "dam"
+    },
+    "source": "nominatim",
+    "state": "Arizona",
     "status": "ok",
     "sublocation": ""
   },
@@ -39196,6 +39299,33 @@
     "latitude": "34.5802074",
     "longitude": "-105.9960470",
     "query": "New Mexico, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-NM",
+        "country": "United States",
+        "country_code": "us",
+        "state": "New Mexico"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "31.3322006",
+        "37.0001788",
+        "-109.0502229",
+        "-103.0022266"
+      ],
+      "category": "boundary",
+      "display_name": "New Mexico, United States",
+      "importance": 0.7715192039826635,
+      "lat": "34.5802074",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-105.9960470",
+      "name": "New Mexico",
+      "osm_id": 162014,
+      "osm_type": "relation",
+      "place_id": 331457030,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "New Mexico",
     "status": "ok",
@@ -51377,6 +51507,48 @@
     "status": "ok",
     "sublocation": ""
   },
+  "santa monica beach, california, united states": {
+    "city": "Santa Monica",
+    "country": "United States",
+    "display_name": "Santa Monica State Beach, Santa Monica, Los Angeles County, California, United States",
+    "latitude": "34.0171018",
+    "longitude": "-118.5061976",
+    "query": "Santa Monica Beach, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "beach": "Santa Monica State Beach",
+        "city": "Santa Monica",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "state": "California"
+      },
+      "addresstype": "beach",
+      "boundingbox": [
+        "33.9952895",
+        "34.0256934",
+        "-118.5176239",
+        "-118.4821233"
+      ],
+      "category": "natural",
+      "display_name": "Santa Monica State Beach, Santa Monica, Los Angeles County, California, United States",
+      "importance": 0.44563783957007347,
+      "lat": "34.0171018",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.5061976",
+      "name": "Santa Monica State Beach",
+      "osm_id": 6103417,
+      "osm_type": "relation",
+      "place_id": 320841253,
+      "place_rank": 22,
+      "type": "beach"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
   "santa monica beach, los angeles, united states": {
     "city": "Santa Monica",
     "country": "United States",
@@ -51396,6 +51568,48 @@
     "latitude": "34.0171018",
     "longitude": "-118.5061976",
     "query": "Santa Monica Beach, Santa Monica, California, United States",
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "santa monica state beach, california, united states": {
+    "city": "Santa Monica",
+    "country": "United States",
+    "display_name": "Santa Monica State Beach, Santa Monica, Los Angeles County, California, United States",
+    "latitude": "34.0103373",
+    "longitude": "-118.4979073",
+    "query": "Santa Monica State Beach, California, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "Santa Monica",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Los Angeles County",
+        "protected_area": "Santa Monica State Beach",
+        "state": "California"
+      },
+      "addresstype": "protected_area",
+      "boundingbox": [
+        "33.9952895",
+        "34.0256934",
+        "-118.5176239",
+        "-118.4821233"
+      ],
+      "category": "boundary",
+      "display_name": "Santa Monica State Beach, Santa Monica, Los Angeles County, California, United States",
+      "importance": 0.44563783957007347,
+      "lat": "34.0103373",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-118.4979073",
+      "name": "Santa Monica State Beach",
+      "osm_id": 14387416,
+      "osm_type": "relation",
+      "place_id": 320910472,
+      "place_rank": 25,
+      "type": "protected_area"
+    },
     "source": "nominatim",
     "state": "California",
     "status": "ok",
