@@ -6,8 +6,10 @@ import os
 import re
 import sys
 import time
-from collections.abc import Iterable, Sequence
+import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -37,6 +39,15 @@ ASSET_BULK_UPDATE_CHUNK_SIZE = 500
 LIBRARY_SCAN_POLL_SECONDS = 5
 LIBRARY_SCAN_TIMEOUT_SECONDS = 45 * 60
 ALBUM_YEAR_PATTERN = re.compile(r"_(\d{4})(?:-(\d{4}))?_")
+IMAGO_NS = "https://imago.local/ns/1.0/"
+XMP_NS = "http://ns.adobe.com/xap/1.0/"
+EXIF_NS = "http://ns.adobe.com/exif/1.0/"
+# Sidecar fields carrying the per-page slewed sort date, in preference order.
+SIDECAR_DATE_FIELDS = (
+    (IMAGO_NS, "ViewerSortDate"),
+    (XMP_NS, "CreateDate"),
+    (EXIF_NS, "DateTimeOriginal"),
+)
 
 
 @dataclass(frozen=True)
@@ -202,6 +213,34 @@ def _album_date_iso(album_name: str) -> str | None:
     return f"{year:04d}-01-01T00:00:00.000Z"
 
 
+def _to_immich_iso(text: str) -> str | None:
+    cleaned = str(text or "").strip().replace("Z", "")
+    if not cleaned:
+        return None
+    try:
+        moment = datetime.fromisoformat(cleaned)
+    except ValueError:
+        return None
+    return moment.replace(tzinfo=None, microsecond=0).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _asset_date_iso(file_path: Path) -> str | None:
+    """Read the per-page slewed sort date from the file's .xmp sidecar."""
+    sidecar = file_path.with_suffix(".xmp")
+    if not sidecar.is_file():
+        return None
+    try:
+        root = ET.parse(sidecar).getroot()
+    except ET.ParseError:
+        return None
+    for namespace, name in SIDECAR_DATE_FIELDS:
+        value = str(root.findtext(f".//{{{namespace}}}{name}", default="") or "").strip()
+        immich_iso = _to_immich_iso(value)
+        if immich_iso:
+            return immich_iso
+    return None
+
+
 def _media_files(directory: Path, extensions: set[str]) -> list[Path]:
     return sorted(
         path
@@ -278,22 +317,22 @@ def resolve_album_asset_ids(
     *,
     allow_missing_assets: bool = False,
     progress: bool = False,
-) -> tuple[list[str], list[Path]]:
+) -> tuple[list[str], list[Path], dict[str, Path]]:
     cache: dict[str, list[dict[str, Any]]] = {}
-    asset_ids: dict[str, None] = {}
+    asset_files: dict[str, Path] = {}
     missing: list[Path] = []
     for file_path in album.files:
         asset_id = _asset_id_for_file(client, photos_root, file_path, cache, progress=progress)
         if asset_id is None:
             missing.append(file_path)
             continue
-        asset_ids.setdefault(asset_id, None)
+        asset_files.setdefault(asset_id, file_path)
 
     if missing and not allow_missing_assets:
         examples = ", ".join(str(path) for path in missing[:5])
         suffix = "" if len(missing) <= 5 else f", and {len(missing) - 5} more"
         _exit_runtime(f"{album.name}: {len(missing)} local file(s) did not match Immich assets: {examples}{suffix}")
-    return list(asset_ids), missing
+    return list(asset_files), missing, asset_files
 
 
 def _chunked(items: Sequence[str], size: int) -> Iterable[Sequence[str]]:
@@ -391,22 +430,36 @@ def set_album_asset_dates(
     album: LocalAlbum,
     asset_ids: Sequence[str],
     *,
+    asset_files: Mapping[str, Path] | None = None,
     dry_run: bool,
 ) -> str | None:
     if not asset_ids:
         return None
-    date_iso = _album_date_iso(album.name)
-    if date_iso is None:
+    # Prefer each asset's per-page slewed sort date (from its sidecar) so Immich
+    # orders the album by page; fall back to the album's first year otherwise.
+    album_date = _album_date_iso(album.name)
+    files = asset_files or {}
+    groups: dict[str, list[str]] = {}
+    for asset_id in asset_ids:
+        sidecar_path = files.get(asset_id)
+        date_iso = (_asset_date_iso(sidecar_path) if sidecar_path else None) or album_date
+        if date_iso is None:
+            continue
+        groups.setdefault(date_iso, []).append(asset_id)
+    if not groups:
         sys.stdout.write(f"{_immich_album_name(album.name)}: no year in name, skipping date update\n")
         return None
+    earliest = min(groups)
     if dry_run:
         sys.stdout.write(
-            f"DRY RUN {_immich_album_name(album.name)}: would set dateTimeOriginal={date_iso} on {len(asset_ids)} asset(s)\n"
+            f"DRY RUN {_immich_album_name(album.name)}: would set dateTimeOriginal on "
+            f"{len(asset_ids)} asset(s) across {len(groups)} date(s), earliest={earliest}\n"
         )
-        return date_iso
-    for chunk in _chunked(list(asset_ids), ASSET_BULK_UPDATE_CHUNK_SIZE):
-        client.bulk_update_assets(chunk, date_time_original=date_iso)
-    return date_iso
+        return earliest
+    for date_iso, ids in groups.items():
+        for chunk in _chunked(ids, ASSET_BULK_UPDATE_CHUNK_SIZE):
+            client.bulk_update_assets(chunk, date_time_original=date_iso)
+    return earliest
 
 
 def delete_all_albums(
@@ -448,11 +501,11 @@ def sync_photo_albums(
     wiped = delete_all_albums(client, existing_albums=existing_albums, dry_run=dry_run)
     sys.stdout.write(f"Deleted {len(wiped)} existing album(s)\n")
 
-    resolved_albums: list[tuple[LocalAlbum, list[str], list[Path]]] = []
+    resolved_albums: list[tuple[LocalAlbum, list[str], list[Path], dict[str, Path]]] = []
     for index, album in enumerate(albums, start=1):
         sys.stdout.write(f"[{index}/{len(albums)}] Resolving {_immich_album_name(album.name)} ({len(album.files)} file(s)) ")
         sys.stdout.flush()
-        asset_ids, missing = resolve_album_asset_ids(
+        asset_ids, missing, asset_files = resolve_album_asset_ids(
             client,
             photos_root,
             album,
@@ -462,9 +515,9 @@ def sync_photo_albums(
         missing_note = f", {len(missing)} missing" if missing else ""
         sys.stdout.write(f" {len(asset_ids)} asset(s){missing_note}\n")
         sys.stdout.flush()
-        resolved_albums.append((album, asset_ids, missing))
+        resolved_albums.append((album, asset_ids, missing, asset_files))
 
-    missing_albums = [(album, missing) for album, _, missing in resolved_albums if missing]
+    missing_albums = [(album, missing) for album, _, missing, _ in resolved_albums if missing]
     if missing_albums and not allow_missing_assets:
         lines = []
         for album, missing in missing_albums[:5]:
@@ -474,8 +527,8 @@ def sync_photo_albums(
         suffix = "" if len(missing_albums) <= 5 else f"\n... and {len(missing_albums) - 5} more album(s)"
         _exit_runtime("Missing Immich assets; albums were deleted but not recreated:\n" + "\n".join(lines) + suffix)
 
-    for album, asset_ids, missing in resolved_albums:
-        date_iso = set_album_asset_dates(client, album, asset_ids, dry_run=dry_run)
+    for album, asset_ids, missing, asset_files in resolved_albums:
+        date_iso = set_album_asset_dates(client, album, asset_ids, asset_files=asset_files, dry_run=dry_run)
         created_id = create_album_with_assets(client, album, asset_ids, dry_run=dry_run)
         missing_note = f", {len(missing)} missing" if missing else ""
         id_note = "" if created_id is None else f" ({created_id})"

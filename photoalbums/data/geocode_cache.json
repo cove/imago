@@ -983,6 +983,52 @@
     "status": "ok",
     "sublocation": "京成成田駅東口"
   },
+  "37.78793633,-122.40752017": {
+    "city": "San Francisco",
+    "country": "United States",
+    "display_name": "Goddess of Victory, Geary Street, Union Square, Tenderloin, South of Market, San Francisco, California, 94108, United States",
+    "latitude": "37.7879343",
+    "longitude": "-122.4075200",
+    "query": "37.78793633,-122.40752017",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "city": "San Francisco",
+        "country": "United States",
+        "country_code": "us",
+        "neighbourhood": "Union Square",
+        "postcode": "94108",
+        "quarter": "Tenderloin",
+        "road": "Geary Street",
+        "state": "California",
+        "suburb": "South of Market",
+        "tourism": "Goddess of Victory"
+      },
+      "addresstype": "tourism",
+      "boundingbox": [
+        "37.7878843",
+        "37.7879843",
+        "-122.4075700",
+        "-122.4074700"
+      ],
+      "category": "tourism",
+      "display_name": "Goddess of Victory, Geary Street, Union Square, Tenderloin, South of Market, San Francisco, California, 94108, United States",
+      "importance": 8.251392385743523e-05,
+      "lat": "37.7879343",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-122.4075200",
+      "name": "Goddess of Victory",
+      "osm_id": 11699339397,
+      "osm_type": "node",
+      "place_id": 321069008,
+      "place_rank": 30,
+      "type": "artwork"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "Geary Street"
+  },
   "39.2138905,-79.6371124": {
     "city": "",
     "country": "United States",
@@ -1025,6 +1071,49 @@
     "state": "West Virginia",
     "status": "ok",
     "sublocation": "Location Road"
+  },
+  "39.31985333,-120.57720033": {
+    "city": "",
+    "country": "United States",
+    "display_name": "12732, Crystal Lake Road, Nevada County, California, 95715, United States",
+    "latitude": "39.3206736",
+    "longitude": "-120.5772816",
+    "query": "39.31985333,-120.57720033",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-CA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Nevada County",
+        "house_number": "12732",
+        "postcode": "95715",
+        "road": "Crystal Lake Road",
+        "state": "California"
+      },
+      "addresstype": "place",
+      "boundingbox": [
+        "39.3206236",
+        "39.3207236",
+        "-120.5773316",
+        "-120.5772316"
+      ],
+      "category": "place",
+      "display_name": "12732, Crystal Lake Road, Nevada County, California, 95715, United States",
+      "importance": 9.99999999995449e-06,
+      "lat": "39.3206736",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-120.5772816",
+      "name": "",
+      "osm_id": 648630247,
+      "osm_type": "way",
+      "place_id": 385296661,
+      "place_rank": 30,
+      "type": "house"
+    },
+    "source": "nominatim",
+    "state": "California",
+    "status": "ok",
+    "sublocation": "12732 Crystal Lake Road"
   },
   "42.45616117,89.72831633": {
     "city": "",
@@ -1320,6 +1409,38 @@
     "latitude": "45.8130827",
     "longitude": "15.9769817",
     "query": "45.81309667,15.9772795",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "HR-21",
+        "city": "City of Zagreb",
+        "city_district": "Zagreb",
+        "country": "Croatia",
+        "country_code": "hr",
+        "neighbourhood": "Mjesni odbor \"August Cesarec\"",
+        "postcode": "10106",
+        "quarter": "Kaptol",
+        "suburb": "Gradska četvrt Gornji grad - Medveščak"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "45.8124898",
+        "45.8136698",
+        "15.9757151",
+        "15.9786622"
+      ],
+      "category": "highway",
+      "display_name": "Kaptol, Mjesni odbor \"August Cesarec\", Gradska četvrt Gornji grad - Medveščak, Zagreb, City of Zagreb, 10106, Croatia",
+      "importance": 0.05341281071183333,
+      "lat": "45.8130827",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "15.9769817",
+      "name": "",
+      "osm_id": 1493356,
+      "osm_type": "relation",
+      "place_id": 79529832,
+      "place_rank": 26,
+      "type": "pedestrian"
+    },
     "source": "nominatim",
     "state": "",
     "status": "ok",
@@ -1365,9 +1486,41 @@
     "city": "Arriach",
     "country": "Austria",
     "display_name": "46.75000017,13.83333333, Arriach, Carinthia, Austria",
-    "latitude": "46.7496354",
-    "longitude": "13.8377660",
+    "latitude": "46.7496355",
+    "longitude": "13.8377661",
     "query": "46.75000017,13.83333333",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "AT-2",
+        "country": "Austria",
+        "country_code": "at",
+        "county": "Bezirk Villach-Land",
+        "hamlet": "Oberwöllan",
+        "house_number": "26",
+        "postcode": "9543",
+        "state": "Carinthia",
+        "village": "Arriach"
+      },
+      "addresstype": "building",
+      "boundingbox": [
+        "46.7495948",
+        "46.7496761",
+        "13.8376966",
+        "13.8378355"
+      ],
+      "category": "building",
+      "display_name": "26, Oberwöllan, Arriach, Bezirk Villach-Land, Carinthia, 9543, Austria",
+      "importance": 4.678644998851022e-05,
+      "lat": "46.7496355",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "13.8377661",
+      "name": "",
+      "osm_id": 505947449,
+      "osm_type": "way",
+      "place_id": 69245382,
+      "place_rank": 30,
+      "type": "yes"
+    },
     "source": "nominatim",
     "state": "Carinthia",
     "status": "ok",
@@ -1660,6 +1813,52 @@
     "status": "ok",
     "sublocation": "128-130 Regent Street"
   },
+  "51.51185083,-0.13959317": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5TQ, United Kingdom",
+    "latitude": "51.5118508",
+    "longitude": "-0.1395932",
+    "query": "51.51185083,-0.13959317",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "neighbourhood": "St. James's",
+        "postcode": "W1B 5TQ",
+        "quarter": "East Marylebone",
+        "road": "Regent Street",
+        "state": "England",
+        "suburb": "Mayfair"
+      },
+      "addresstype": "road",
+      "boundingbox": [
+        "51.5117663",
+        "51.5119353",
+        "-0.1396672",
+        "-0.1395191"
+      ],
+      "category": "highway",
+      "display_name": "Regent Street, St. James's, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1B 5TQ, United Kingdom",
+      "importance": 0.5027667142776121,
+      "lat": "51.5118508",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1395932",
+      "name": "Regent Street",
+      "osm_id": 1018951418,
+      "osm_type": "way",
+      "place_id": 281515764,
+      "place_rank": 26,
+      "type": "primary"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "Regent Street"
+  },
   "51.513407,-0.15817967": {
     "city": "City of Westminster",
     "country": "United Kingdom",
@@ -1683,6 +1882,53 @@
     "state": "England",
     "status": "ok",
     "sublocation": "554 Oxford Street"
+  },
+  "51.5147885,-0.14578617": {
+    "city": "City of Westminster",
+    "country": "United Kingdom",
+    "display_name": "Swatch, 313, Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1C 2HR, United Kingdom",
+    "latitude": "51.5146383",
+    "longitude": "-0.1456660",
+    "query": "51.5147885,-0.14578617",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl8": "GB-WSM",
+        "city": "City of Westminster",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "house_number": "313",
+        "postcode": "W1C 2HR",
+        "quarter": "East Marylebone",
+        "road": "Oxford Street",
+        "shop": "Swatch",
+        "state": "England",
+        "suburb": "Mayfair"
+      },
+      "addresstype": "shop",
+      "boundingbox": [
+        "51.5145812",
+        "51.5146754",
+        "-0.1457524",
+        "-0.1455901"
+      ],
+      "category": "shop",
+      "display_name": "Swatch, 313, Oxford Street, East Marylebone, Mayfair, City of Westminster, Greater London, England, W1C 2HR, United Kingdom",
+      "importance": 9.307927061870783e-05,
+      "lat": "51.5146383",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.1456660",
+      "name": "Swatch",
+      "osm_id": 588536983,
+      "osm_type": "way",
+      "place_id": 277834736,
+      "place_rank": 30,
+      "type": "watches"
+    },
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": "313 Oxford Street"
   },
   "52.53102133,-1.26490617": {
     "city": "Sapcote",
@@ -5497,6 +5743,49 @@
     "latitude": "52.0640034",
     "longitude": "-0.4111138",
     "query": "Bedford, England, Bedfordshire",
+    "source": "nominatim",
+    "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "bedford, england, united kingdom": {
+    "city": "Bedford",
+    "country": "United Kingdom",
+    "display_name": "Bedford, England, MK40 1SU, United Kingdom",
+    "latitude": "52.1363806",
+    "longitude": "-0.4675041",
+    "query": "Bedford, England, United Kingdom",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "GB-ENG",
+        "ISO3166-2-lvl6": "GB-BDF",
+        "country": "United Kingdom",
+        "country_code": "gb",
+        "county": "Bedford",
+        "postcode": "MK40 1SU",
+        "state": "England",
+        "town": "Bedford"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "52.0963806",
+        "52.1763806",
+        "-0.5075041",
+        "-0.4275041"
+      ],
+      "category": "place",
+      "display_name": "Bedford, England, MK40 1SU, United Kingdom",
+      "importance": 0.5599345035969072,
+      "lat": "52.1363806",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-0.4675041",
+      "name": "Bedford",
+      "osm_id": 4085941,
+      "osm_type": "node",
+      "place_id": 276631996,
+      "place_rank": 18,
+      "type": "town"
+    },
     "source": "nominatim",
     "state": "England",
     "status": "ok",
@@ -17777,6 +18066,48 @@
     },
     "source": "nominatim",
     "state": "England",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "dover-foxcroft, maine, united states": {
+    "city": "Dover-Foxcroft",
+    "country": "United States",
+    "display_name": "Dover-Foxcroft, Piscataquis County, Maine, 04426, United States",
+    "latitude": "45.1834890",
+    "longitude": "-69.2276000",
+    "query": "Dover-Foxcroft, Maine, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-ME",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Piscataquis County",
+        "postcode": "04426",
+        "state": "Maine",
+        "town": "Dover-Foxcroft"
+      },
+      "addresstype": "town",
+      "boundingbox": [
+        "45.0901756",
+        "45.2726420",
+        "-69.2993230",
+        "-69.1094428"
+      ],
+      "category": "boundary",
+      "display_name": "Dover-Foxcroft, Piscataquis County, Maine, 04426, United States",
+      "importance": 0.4238774159986079,
+      "lat": "45.1834890",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-69.2276000",
+      "name": "Dover-Foxcroft",
+      "osm_id": 132615,
+      "osm_type": "relation",
+      "place_id": 364100277,
+      "place_rank": 16,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Maine",
     "status": "ok",
     "sublocation": ""
   },
@@ -35759,6 +36090,33 @@
     "latitude": "55.0012510",
     "longitude": "-97.0010380",
     "query": "Manitoba, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Manitoba"
+      },
+      "addresstype": "state",
+      "boundingbox": [
+        "48.9988611",
+        "59.9995106",
+        "-102.0075806",
+        "-88.9865273"
+      ],
+      "category": "boundary",
+      "display_name": "Manitoba, Canada",
+      "importance": 0.684813740167425,
+      "lat": "55.0012510",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.0010380",
+      "name": "Manitoba",
+      "osm_id": 390841,
+      "osm_type": "relation",
+      "place_id": 374907371,
+      "place_rank": 8,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Manitoba",
     "status": "ok",
@@ -53114,6 +53472,48 @@
     "status": "ok",
     "sublocation": "1 площадь Растрелли"
   },
+  "snoqualmie pass, washington, united states": {
+    "city": "",
+    "country": "United States",
+    "display_name": "Snoqualmie Pass, King County, Washington, 98068, United States",
+    "latitude": "47.4253852",
+    "longitude": "-121.4118890",
+    "query": "Snoqualmie Pass, Washington, United States",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "US-WA",
+        "country": "United States",
+        "country_code": "us",
+        "county": "King County",
+        "mountain_pass": "Snoqualmie Pass",
+        "postcode": "98068",
+        "state": "Washington"
+      },
+      "addresstype": "mountain_pass",
+      "boundingbox": [
+        "47.4253352",
+        "47.4254352",
+        "-121.4119390",
+        "-121.4118390"
+      ],
+      "category": "mountain_pass",
+      "display_name": "Snoqualmie Pass, King County, Washington, 98068, United States",
+      "importance": 0.359473463574925,
+      "lat": "47.4253852",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-121.4118890",
+      "name": "Snoqualmie Pass",
+      "osm_id": 35831667,
+      "osm_type": "node",
+      "place_id": 325724890,
+      "place_rank": 20,
+      "type": "yes"
+    },
+    "source": "nominatim",
+    "state": "Washington",
+    "status": "ok",
+    "sublocation": ""
+  },
   "snowqualamie pass, victoria b.c., canada": {
     "query": "Snowqualamie Pass, Victoria B.C., Canada",
     "status": "miss"
@@ -67401,6 +67801,34 @@
     "latitude": "49.8955367",
     "longitude": "-97.1384584",
     "query": "Winnipeg, Manitoba, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "city": "Winnipeg",
+        "country": "Canada",
+        "country_code": "ca",
+        "state": "Manitoba"
+      },
+      "addresstype": "city",
+      "boundingbox": [
+        "49.7135538",
+        "49.9940075",
+        "-97.3491505",
+        "-96.9565293"
+      ],
+      "category": "boundary",
+      "display_name": "Winnipeg, Manitoba, Canada",
+      "importance": 0.6773453652752945,
+      "lat": "49.8955367",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.1384584",
+      "name": "Winnipeg",
+      "osm_id": 1790696,
+      "osm_type": "relation",
+      "place_id": 374041616,
+      "place_rank": 12,
+      "type": "administrative"
+    },
     "source": "nominatim",
     "state": "Manitoba",
     "status": "ok",
@@ -67537,6 +67965,48 @@
     "query": "Woodhaven, Canada, Ontario",
     "status": "miss"
   },
+  "woodhaven, manitoba, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Woodhaven, St. James-Assiniboia, Winnipeg, Manitoba, Canada",
+    "latitude": "49.8738096",
+    "longitude": "-97.2741993",
+    "query": "Woodhaven, Manitoba, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "city": "Winnipeg",
+        "country": "Canada",
+        "country_code": "ca",
+        "neighbourhood": "Woodhaven",
+        "state": "Manitoba",
+        "suburb": "St. James-Assiniboia"
+      },
+      "addresstype": "neighbourhood",
+      "boundingbox": [
+        "49.8692929",
+        "49.8794994",
+        "-97.2802958",
+        "-97.2657948"
+      ],
+      "category": "boundary",
+      "display_name": "Woodhaven, St. James-Assiniboia, Winnipeg, Manitoba, Canada",
+      "importance": 0.13340571984435795,
+      "lat": "49.8738096",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.2741993",
+      "name": "Woodhaven",
+      "osm_id": 18469508,
+      "osm_type": "relation",
+      "place_id": 376595762,
+      "place_rank": 20,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Manitoba",
+    "status": "ok",
+    "sublocation": ""
+  },
   "woodhaven, united states": {
     "city": "Woodhaven",
     "country": "United States",
@@ -67575,6 +68045,48 @@
     },
     "source": "nominatim",
     "state": "Michigan",
+    "status": "ok",
+    "sublocation": ""
+  },
+  "woodhaven, winnipeg, manitoba, canada": {
+    "city": "Winnipeg",
+    "country": "Canada",
+    "display_name": "Woodhaven, St. James-Assiniboia, Winnipeg, Manitoba, Canada",
+    "latitude": "49.8738096",
+    "longitude": "-97.2741993",
+    "query": "Woodhaven, Winnipeg, Manitoba, Canada",
+    "raw": {
+      "address": {
+        "ISO3166-2-lvl4": "CA-MB",
+        "city": "Winnipeg",
+        "country": "Canada",
+        "country_code": "ca",
+        "neighbourhood": "Woodhaven",
+        "state": "Manitoba",
+        "suburb": "St. James-Assiniboia"
+      },
+      "addresstype": "neighbourhood",
+      "boundingbox": [
+        "49.8692929",
+        "49.8794994",
+        "-97.2802958",
+        "-97.2657948"
+      ],
+      "category": "boundary",
+      "display_name": "Woodhaven, St. James-Assiniboia, Winnipeg, Manitoba, Canada",
+      "importance": 0.13340571984435795,
+      "lat": "49.8738096",
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "lon": "-97.2741993",
+      "name": "Woodhaven",
+      "osm_id": 18469508,
+      "osm_type": "relation",
+      "place_id": 372499868,
+      "place_rank": 20,
+      "type": "administrative"
+    },
+    "source": "nominatim",
+    "state": "Manitoba",
     "status": "ok",
     "sublocation": ""
   },

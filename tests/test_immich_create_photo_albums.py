@@ -5,12 +5,26 @@ import pytest
 from immich.create_photo_albums import (
     LocalAlbum,
     _album_date_iso,
+    _asset_date_iso,
     create_album_with_assets,
     delete_all_albums,
     discover_local_albums,
     resolve_album_asset_ids,
     set_album_asset_dates,
 )
+
+SIDECAR_TEMPLATE = (
+    '<?xml version="1.0" encoding="utf-8"?>'
+    '<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+    '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+    '<rdf:Description xmlns:imago="https://imago.local/ns/1.0/">'
+    "<imago:ViewerSortDate>{date}</imago:ViewerSortDate>"
+    "</rdf:Description></rdf:RDF></x:xmpmeta>"
+)
+
+
+def _write_sidecar(image_path: Path, date: str) -> None:
+    image_path.with_suffix(".xmp").write_text(SIDECAR_TEMPLATE.format(date=date), encoding="utf-8")
 
 
 class FakeImmichClient:
@@ -22,7 +36,9 @@ class FakeImmichClient:
         self.bulk_updates: list[tuple[tuple[str, ...], str]] = []
         self.search_results: dict[str, list[dict]] = {}
 
-    def search_assets_by_original_filename(self, original_filename: str) -> list[dict]:
+    def search_assets_by_original_filename(
+        self, original_filename: str, *, visibility: str | None = None
+    ) -> list[dict]:
         self.searches.append(original_filename)
         return self.search_results.get(original_filename, [])
 
@@ -79,10 +95,11 @@ def test_resolves_assets_by_original_filename_and_path_suffix(tmp_path: Path) ->
     ]
     album = LocalAlbum("Family_1975_B01", (album_dir,), (file_path,))
 
-    asset_ids, missing = resolve_album_asset_ids(client, root, album)
+    asset_ids, missing, asset_files = resolve_album_asset_ids(client, root, album)
 
     assert asset_ids == ["right"]
     assert missing == []
+    assert asset_files == {"right": file_path}
 
 
 def test_resolve_assets_fails_loud_when_local_file_is_missing_from_immich(tmp_path: Path) -> None:
@@ -113,11 +130,12 @@ def test_resolve_assets_caches_original_filename_searches(tmp_path: Path) -> Non
     ]
     album = LocalAlbum("Family_1975_B01", (album_dir,), (first_path, second_path))
 
-    asset_ids, missing = resolve_album_asset_ids(client, root, album)
+    asset_ids, missing, asset_files = resolve_album_asset_ids(client, root, album)
 
     assert asset_ids == ["asset-1", "asset-2"]
     assert missing == []
     assert client.searches == ["duplicate.jpg"]
+    assert asset_files == {"asset-1": first_path, "asset-2": second_path}
 
 
 def test_delete_all_albums_deletes_every_existing_album() -> None:
@@ -178,3 +196,48 @@ def test_set_album_asset_dates_skips_when_name_has_no_year() -> None:
 
     assert date_iso is None
     assert client.bulk_updates == []
+
+
+def test_asset_date_iso_reads_viewer_sort_date_from_sidecar(tmp_path: Path) -> None:
+    image = tmp_path / "TravelPostCards_1973-1988_B02_P01_D01-00_V.jpg"
+    image.write_text("img", encoding="utf-8")
+    _write_sidecar(image, "1973-07-03T02:15:00")
+
+    assert _asset_date_iso(image) == "1973-07-03T02:15:00.000Z"
+    assert _asset_date_iso(tmp_path / "no_sidecar.jpg") is None
+
+
+def test_set_album_asset_dates_applies_per_asset_sidecar_dates(tmp_path: Path) -> None:
+    page01 = tmp_path / "TravelPostCards_1973-1988_B02_P01_D01-00_V.jpg"
+    page31 = tmp_path / "TravelPostCards_1973-1988_B02_P31_D01-00_V.jpg"
+    for image in (page01, page31):
+        image.write_text("img", encoding="utf-8")
+    _write_sidecar(page01, "1973-07-03T02:15:00")
+    _write_sidecar(page31, "1988-07-01T21:45:00")
+    client = FakeImmichClient()
+    album = LocalAlbum("TravelPostCards_1973-1988_B02", (tmp_path,), (page01, page31))
+    asset_files = {"a01": page01, "a31": page31}
+
+    earliest = set_album_asset_dates(
+        client, album, ["a01", "a31"], asset_files=asset_files, dry_run=False
+    )
+
+    assert earliest == "1973-07-03T02:15:00.000Z"
+    assert sorted(client.bulk_updates) == [
+        (("a01",), "1973-07-03T02:15:00.000Z"),
+        (("a31",), "1988-07-01T21:45:00.000Z"),
+    ]
+
+
+def test_set_album_asset_dates_falls_back_to_album_year_without_sidecar(tmp_path: Path) -> None:
+    image = tmp_path / "Family_1907-1946_B01_P01_V.jpg"
+    image.write_text("img", encoding="utf-8")
+    client = FakeImmichClient()
+    album = LocalAlbum("Family_1907-1946_B01", (tmp_path,), (image,))
+
+    earliest = set_album_asset_dates(
+        client, album, ["a1"], asset_files={"a1": image}, dry_run=False
+    )
+
+    assert earliest == "1907-01-01T00:00:00.000Z"
+    assert client.bulk_updates == [(("a1",), "1907-01-01T00:00:00.000Z")]
