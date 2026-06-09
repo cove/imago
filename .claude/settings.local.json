@@ -463,7 +463,9 @@
       "Bash(sed -n '1,25p')",
       "Bash(sed -n '1552,1620p' photoalbums/lib/ai_index_runner.py)",
       "Bash(sed -n '467,520p' photoalbums/lib/xmp_sidecar.py)",
-      "Bash(sed -n '/def _resolve_parent_page_sidecar/,/return/p' photoalbums/lib/caption_layout_migration.py)"
+      "Bash(sed -n '/def _resolve_parent_page_sidecar/,/return/p' photoalbums/lib/caption_layout_migration.py)",
+      "Bash(Select-String -Pattern \"justfile\")",
+      "Bash(Select-Object -Last 50)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

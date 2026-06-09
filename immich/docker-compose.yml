@@ -7,6 +7,9 @@ services:
     volumes:
       - ${UPLOAD_LOCATION}:/data
       - ${PHOTO_ALBUMS_LOCATION}:/cordell_photos:ro
+      - ${BENNETT_PHOTOS_LOCATION}:/bennett_photos:ro
+      - 'C:\Users\covec\OneDrive\Callahan, Lynda\Videos\Clips:/callahan_clips:ro'
+      - 'C:\Users\covec\OneDrive\Callahan, Lynda\Videos\Videos:/callahan_videos:ro'
       - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
