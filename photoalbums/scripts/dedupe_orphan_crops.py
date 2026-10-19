@@ -35,8 +35,8 @@ _CROP_RE = re.compile(r"^(?P<stem>.+_P\d+)_D\d+-\d+_V\.jpg$", re.IGNORECASE)
 _PHASH_NEAR = 2  # max Hamming distance (out of 256) to treat as the same image
 
 
-def _md5(path: Path) -> str:
-    return hashlib.md5(path.read_bytes()).hexdigest()
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _phash(path: Path) -> np.ndarray:
@@ -57,13 +57,13 @@ def _page_xmp_for_crop(crop: Path) -> Path | None:
 
 
 class _Crop:
-    __slots__ = ("canonical", "md5", "page_stem", "path", "phash")
+    __slots__ = ("canonical", "page_stem", "path", "phash", "sha256")
 
     def __init__(self, path: Path, page_stem: str, canonical: bool):
         self.path = path
         self.page_stem = page_stem
         self.canonical = canonical
-        self.md5 = _md5(path)
+        self.sha256 = _sha256(path)
         self.phash = _phash(path)
 
 
@@ -89,7 +89,7 @@ def _collect(root: Path, album_filter: str) -> list[_Crop]:
 def _find_canonical_dup(orphan: _Crop, canonicals: list[_Crop]) -> _Crop | None:
     # Exact byte match first.
     for c in canonicals:
-        if c.md5 == orphan.md5 and c.page_stem != orphan.page_stem:
+        if c.sha256 == orphan.sha256 and c.page_stem != orphan.page_stem:
             return c
     # Then near-identical image (re-encoded copy).
     for c in canonicals:
@@ -126,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             unique_orphans.append(orphan)
 
     for orphan, dup in to_delete:
-        kind = "exact" if orphan.md5 == dup.md5 else "near"
+        kind = "exact" if orphan.sha256 == dup.sha256 else "near"
         print(f"DUP   {orphan.path.name}  ==({kind})==>  {dup.path.name}")
 
     if unique_orphans:

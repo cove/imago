@@ -1249,8 +1249,15 @@ def _dispatch_pipeline_step(
                 stale_dep=stale_dep,
                 deps=deps,
             )
-        case "face-reconcile":
-            _run_pipeline_face_reconcile_step(
+        case "face-reconcile" | "propagate-scan-context" | "ocr" | "propagate-to-crops":
+            handlers = {
+                "face-reconcile": (_run_pipeline_face_reconcile_step, {"log_thumbnail_width": log_thumbnail_width}),
+                "propagate-scan-context": (_run_pipeline_propagate_scan_context_step, {"primary_scan": primary_scan}),
+                "ocr": (_run_pipeline_ocr_step, {"archive": archive}),
+                "propagate-to-crops": (_run_pipeline_propagate_to_crops_step, {"log_thumbnail_width": log_thumbnail_width}),
+            }
+            handler, extra = handlers[step.id]
+            handler(
                 view_path=view_path,
                 xmp_path=xmp_path,
                 force_this_step=force_this_step,
@@ -1258,40 +1265,7 @@ def _dispatch_pipeline_step(
                 step_just_ran=step_just_ran,
                 stale_dep=stale_dep,
                 deps=deps,
-                log_thumbnail_width=log_thumbnail_width,
-            )
-        case "propagate-scan-context":
-            _run_pipeline_propagate_scan_context_step(
-                primary_scan=primary_scan,
-                view_path=view_path,
-                xmp_path=xmp_path,
-                force_this_step=force_this_step,
-                counters=counters,
-                step_just_ran=step_just_ran,
-                stale_dep=stale_dep,
-                deps=deps,
-            )
-        case "ocr":
-            _run_pipeline_ocr_step(
-                view_path=view_path,
-                xmp_path=xmp_path,
-                archive=archive,
-                force_this_step=force_this_step,
-                counters=counters,
-                step_just_ran=step_just_ran,
-                stale_dep=stale_dep,
-                deps=deps,
-            )
-        case "propagate-to-crops":
-            _run_pipeline_propagate_to_crops_step(
-                view_path=view_path,
-                xmp_path=xmp_path,
-                force_this_step=force_this_step,
-                counters=counters,
-                step_just_ran=step_just_ran,
-                stale_dep=stale_dep,
-                deps=deps,
-                log_thumbnail_width=log_thumbnail_width,
+                **extra,
             )
         case "ai-index":
             ai_page_idx = _run_pipeline_ai_index_step(
