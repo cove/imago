@@ -26,6 +26,7 @@ htmlcov/
 .idea/
 .antigravitycli/
 .pi-lens/
+.claude/
 
 # OS
 .DS_Store
