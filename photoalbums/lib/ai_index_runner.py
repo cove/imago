@@ -1503,16 +1503,6 @@ from .ai_location import (
 from .ai_metadata import MetadataEngine
 from .ai_ocr import OCREngine
 from .ai_page_layout import prepare_image_layout
-from .metadata_resolver import (
-    location_payload_from_caption,
-    location_shown_from_payload,
-    materialize_location_payload,
-    normalize_location_payload,
-    resolve_crop_location,
-    resolve_crop_locations_shown,
-)
-
-
 from .ai_prompt_assets import load_params
 from .ai_render_settings import (
     find_archive_dir_for_image,
@@ -1532,7 +1522,15 @@ from .ai_sidecar_state import (
     read_embedded_create_date,
 )
 from .album_sets import find_archive_set_by_photos_root
-from .metadata_resolver import resolve_person_in_image
+from .metadata_resolver import (
+    location_payload_from_caption,
+    location_shown_from_payload,
+    materialize_location_payload,
+    normalize_location_payload,
+    resolve_crop_location,
+    resolve_crop_locations_shown,
+    resolve_person_in_image,
+)
 from .prompt_debug import PromptDebugSession
 from .xmp_review import load_ai_xmp_review
 from .xmp_sidecar import (

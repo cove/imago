@@ -405,7 +405,7 @@ class TestAIOcr(unittest.TestCase):
     def test_lmstudio_ocr_streaming(self):
         sse_chunks = [
             b'data: {"choices":[{"delta":{"content":"{\\"text\\": \\"MAINLAND "}}]}\n',
-            b'data: {"choices":[{"delta":{"content":"CHINA\\\\n1986\\\\nBOOK 11\\\"}"}}]}\n',
+            b'data: {"choices":[{"delta":{"content":"CHINA\\\\n1986\\\\nBOOK 11\\"}"}}]}\n',
             b"data: [DONE]\n",
         ]
 
@@ -430,7 +430,7 @@ class TestAIOcr(unittest.TestCase):
                     "urlopen",
                     return_value=FakeIterableResponse(sse_chunks),
                 ),
-                mock.patch("builtins.print") as print_mock,
+                mock.patch("builtins.print"),
             ):
                 ocr = ai_ocr.OCREngine(engine="lmstudio", model_name="qwen2.5-vl", stream=True)
                 text = ocr.read_text(

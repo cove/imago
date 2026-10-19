@@ -80,6 +80,7 @@ class TestAIDate(unittest.TestCase):
         captured: dict[str, object] = {}
 
         def fake_request(url, *, payload=None, timeout):
+            assert payload is not None
             captured["max_tokens"] = payload["max_tokens"]
             return {
                 "choices": [

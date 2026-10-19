@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -210,14 +211,12 @@ def main(argv: list[str] | None = None) -> int:
         if page_row is not None:
             rows.append(page_row)
 
-    out_handle = open(args.out, "w", newline="", encoding="utf-8") if args.out else sys.stdout
-    try:
+    with (
+        open(args.out, "w", newline="", encoding="utf-8") if args.out else nullcontext(sys.stdout)
+    ) as out_handle:
         writer = csv.DictWriter(out_handle, fieldnames=CSV_COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
-    finally:
-        if args.out:
-            out_handle.close()
 
     by_reason: dict[str, int] = {}
     for row in rows:

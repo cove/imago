@@ -87,11 +87,11 @@ _C_GREEN   = "\033[1;32m"
 _C_YELLOW  = "\033[33m"
 _C_CYAN    = "\033[36m"
 
-_RE_IMAGE   = re.compile(r'\b([\w][\w.-]*\.(?:jpg|jpeg|tif|tiff|png|xmp))\b', re.IGNORECASE)
-_RE_STEP_ID = re.compile(r'(\[\d+/\d+\])\s+(\S+)')
-_RE_DONE    = re.compile(r'(\.\.\.) (done)\b')
-_RE_SKIPPED = re.compile(r'(\.\.\.) (skipped[^\n]*)')
-_RE_RERUN   = re.compile(r'(\(re-run:[^)]*\))')
+_RE_IMAGE   = re.compile(r"\b([\w][\w.-]*\.(?:jpg|jpeg|tif|tiff|png|xmp))\b", re.IGNORECASE)
+_RE_STEP_ID = re.compile(r"(\[\d+/\d+\])\s+(\S+)")
+_RE_DONE    = re.compile(r"(\.\.\.) (done)\b")
+_RE_SKIPPED = re.compile(r"(\.\.\.) (skipped[^\n]*)")
+_RE_RERUN   = re.compile(r"(\(re-run:[^)]*\))")
 
 
 def _sub_images(msg: str, restore: str = _C_RESET) -> str:

@@ -57,7 +57,7 @@ def _page_xmp_for_crop(crop: Path) -> Path | None:
 
 
 class _Crop:
-    __slots__ = ("path", "page_stem", "canonical", "md5", "phash")
+    __slots__ = ("canonical", "md5", "page_stem", "path", "phash")
 
     def __init__(self, path: Path, page_stem: str, canonical: bool):
         self.path = path

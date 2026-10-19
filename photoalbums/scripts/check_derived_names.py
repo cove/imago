@@ -42,12 +42,12 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from photoalbums import naming as _naming
 from photoalbums.naming import (
     DERIVED_NAME_RE,
     album_sibling_dir,
     is_archive_dir,
 )
-from photoalbums import naming as _naming
 
 PHOTOS_SUFFIX = _naming.ALBUM_DIR_SUFFIX_PHOTOS
 ARCHIVE_IMAGE_EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
@@ -97,7 +97,7 @@ def _orb_similarity(
     """Return ratio of good ORB matches to total keypoints (0.0–1.0)."""
     if des_a is None or des_b is None or len(kp_a) == 0 or len(kp_b) == 0:
         return 0.0
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matcher = cv2.BFMatcher.create(cv2.NORM_HAMMING, crossCheck=True)
     matches = matcher.match(des_a, des_b)
     good = [m for m in matches if m.distance < 50]
     return len(good) / max(len(kp_a), len(kp_b))
