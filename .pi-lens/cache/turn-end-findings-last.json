@@ -1,4 +1,0 @@
-{
-  "signature": "photoalbums/lib/ai_index_runner.py::Unresolved from this turn — photoalbums/lib/ai_index_runner.py:\n🔴 STOP — 20 issue(s) must be fixed:\n  L1628: Unused function argument: `people_identified`\n  L2039: Unnecessary `dict()` call (rewrite as a literal)\n  L2176: Avoid specifying long messages outside the exception class\n  L2242: `print` found\n  L2355: Avoid specifying long messages outside the exception class\n  L2358: Avoid specifying long messages outside the exception class\n  L2397: `print` found\n  L2398: `print` found\n  L2537: `print` found\n  L2754: `print` found\n  ... and 10 more",
-  "sessionId": "lens-mp0q2rc7-1c038bd1"
-}
