@@ -258,6 +258,8 @@ Install Git, uv, and just, and use Python 3.12 (the project requires >=3.12,<3.1
 
 Use `uv sync` to create/update the Python environment and `just bootstrap` to prepare bundled runtime binaries. [`scripts/`](scripts/) contains bootstrap and quality-check tooling; [`software/`](software/) holds bundled runtime assets.
 
+Run `just hooks-install` in each checkout to activate the versioned `.githooks/` scripts. Pre-commit runs `just quality` followed by `just test`; the remaining hooks preserve Git LFS behavior. Git LFS must be installed for the bundled media binaries. Generated Cast face crops stay local and are excluded from Git.
+
 Configure CLI photo paths through `PHOTOALBUMS_DIR`/`PHOTO_SCANNING_DIR`, AI settings in [`photoalbums/ai_models.toml`](photoalbums/ai_models.toml), and MCP collection settings in [`photoalbums/album_sets.toml`](photoalbums/album_sets.toml). Component READMEs describe additional services and credentials.
 
 Run `just --list` to see the root task shortcuts. For Python changes, validate with `just quality` and `just test`; filesystem, metadata, and external-service changes also need checks against the affected data.

@@ -4,16 +4,7 @@ set -eu
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
-staged_python="$(printf '%s\n' "$staged_files" | grep -E '\.py$' || true)"
-
-if [ -n "$staged_python" ]; then
-  echo "[pre-commit] Running Ruff on staged Python files..."
-  printf '%s\n' "$staged_python" | while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    git show ":$path" | uv run python -m ruff check --select E9,F63,F7,F82 --stdin-filename "$path" -
-  done
-
-  echo "[pre-commit] Compiling staged Python files..."
-  printf '%s\n' "$staged_python" | xargs -r uv run python -m py_compile
-fi
+echo "[pre-commit] Running quality checks..."
+just quality
+echo "[pre-commit] Running tests..."
+just test

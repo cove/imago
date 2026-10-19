@@ -1,4 +1,4 @@
-set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
+set windows-shell := ["pwsh", "-NoLogo", "-NoProfile", "-Command"]
 python := "uv run python"
 ruff := "uv run ruff"
 photoalbums_root := `uv run python -c "from photoalbums.common import get_photo_albums_dir; print(get_photo_albums_dir())"`
@@ -22,6 +22,9 @@ sync:
 
 bootstrap:
   {{python}} scripts/bootstrap_runtime.py
+
+hooks-install:
+  git config --local core.hooksPath .githooks
 
 test:
   {{python}} -m pytest "cast/tests" "photoalbums/tests" "vhs/test" "tests"
