@@ -66,6 +66,42 @@ uv run python vhs/vhs.py tuner --host 127.0.0.1 --port 8092
 
 Open `http://127.0.0.1:8092`, select a chapter, review frames/gamma/subtitles, and save. In another terminal, run `just vhs-render` to render using saved settings and `just vhs-verify-archive` to check archive manifests. See the component README for chapter metadata and rendering options.
 
+#### Tuner screenshots
+
+The tuner walks through seven review steps after loading a chapter. Most screenshots use the Pre-Ceremony chapter from a digitized Callahan wedding tape; the bad-frame example shows tracking damage in the Callahan Mother's Day footage.
+
+**Archives and chapters** — Select a tape and load a chapter.
+
+![Archive browser with tapes and chapter selection](vhs/screenshots/tuner-archives.jpg)
+
+**Bad frames** — Score spikes highlight suspect footage. Red borders mark bad frames; green borders mark good frames. Inspect the tracking damage and override classifications as needed.
+
+![Bad-frame review with IQR sensitivity, score graph, and frame grid](vhs/screenshots/tuner-bad-frames.jpg)
+
+**Audio sync** — Align audio with the picture using fine timing offsets.
+
+![Audio sync waveform, video preview, and timing offset controls](vhs/screenshots/tuner-audio-sync.jpg)
+
+**Gamma correction** — Adjust gamma for the whole chapter or visible-range regions.
+
+![Gamma correction controls and chapter frame previews](vhs/screenshots/tuner-gamma.jpg)
+
+**People** — Review who appears and edit their time ranges.
+
+![People timeline and editable name ranges](vhs/screenshots/tuner-people.jpg)
+
+**Subtitles** — Review dialogue and edit subtitle timing, text, and speakers.
+
+![Dialogue timeline and editable subtitle timing and text](vhs/screenshots/tuner-subtitles.jpg)
+
+**Chapter** — Set chapter boundaries and title.
+
+![Chapter frame range and title editor](vhs/screenshots/tuner-chapter.jpg)
+
+**Summary and save** — Check the collected settings before saving.
+
+![Review summary with frame counts, gamma, people, and subtitles](vhs/screenshots/tuner-summary.jpg)
+
 ### Cast — shared people and face identities
 
 [`cast/`](cast/README.md) maintains a shared identity collection for photo albums and video footage.
