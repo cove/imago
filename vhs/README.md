@@ -113,8 +113,66 @@ Open `http://127.0.0.1:8092`.
 
 ## Tracking-Loss Classifier
 
+Bad-frame detection uses image measurements and statistical outlier detection. Its purpose is to highlight likely VHS tracking damage for review; normal scene content can also produce high scores.
+
+### 1. Measure four signals per frame
+
+The detector crops the frame edges before measuring the picture (50 pixels on each side by default, clamped for small images). This reduces the influence of border artifacts. It then measures:
+
+| Signal | Measurement | What it looks for |
+| --- | --- | --- |
+| Color loss (`chroma`) | `1 - mean(HSV saturation) / 255` | A picture losing color and becoming gray during tracking loss. |
+| Horizontal noise (`noise`) | Standard deviation of row variances divided by their mean | Rows with unusually strong noise beside relatively normal rows. |
+| Row tearing (`tear`) | 95th percentile of the mean absolute brightness difference between adjacent rows | Abrupt row-to-row discontinuities caused by tearing. |
+| Horizontal waviness (`wave`) | Standard deviation of each row's brightness center-of-mass after subtracting a five-row moving average | Rapid left/right displacement associated with horizontal sync instability. |
+
+Higher values mean stronger evidence of the corresponding artifact. These are indicators, not proof: grayscale footage, stripes, sharp scene edges, and changes in composition can affect them too.
+
+### 2. Combine the signals into one score
+
+Each signal is normalized across the evaluated frames using a robust z-score:
+
+```text
+normalized signal = (value - median) / (1.4826 × median absolute deviation)
+composite score = weighted sum of normalized signals / sum of weights
 ```
-uv run python tracking_loss.py -h
+
+If the median absolute deviation is effectively zero, normalization uses the standard deviation, or a scale of 1 if that is also zero. All four signal weights default to `0.25`. Normalizing first makes their different units comparable and reduces the influence of extreme values on the baseline. The resulting score is relative to the analyzed footage, not a probability that a frame is damaged.
+
+### 3. Flag statistical outliers
+
+The default threshold is an upper IQR fence:
+
+```text
+Q1 = 25th percentile of scores
+Q3 = 75th percentile of scores
+IQR = Q3 - Q1
+threshold = Q3 + k × IQR
+```
+
+The tuner flags scores at or above the threshold. Its default `k` is `3.5`; lowering `IQR k` catches more possible damage, while raising it limits suggestions to more extreme outliers. For example, if Q1 is 0 and Q3 is 2, the threshold at k = 3.5 is 9.
+
+The tuner calculates the threshold from the currently loaded score set. The standalone classifier uses chapter-aligned windows of up to 1,000 evaluated frames by default, excluding larger overlapping umbrella chapters from window selection. It uses a global threshold for frames not covered by those windows. These different comparison sets can produce different classifications even with the same `k`.
+
+The tuner's automatic `k` suggestion searches values from 0.5 to 8.0 for a gap between good and bad scores, favoring gaps that capture a meaningful number of suspect frames. This is a starting point for review, not a learned judgment about the picture.
+
+### 4. Review and save repair decisions
+
+Inspect red-bordered frames and neighboring footage, adjust `IQR k`, then use individual good/bad overrides for false positives or missed damage. `Force All Good` overrides automatic classification for the loaded frames. The tuner saves archive-global bad-frame IDs by chapter in `vhs/metadata/<archive>/render_settings.json` under `bad_frames_by_chapter`.
+
+Saving changes metadata only. During AviSynth rendering, bad-frame ranges become `FreezeFrame` repairs that copy a clean frame into the damaged positions, preferring a following clean frame and falling back to a preceding one. This preserves frame count and timing but can create a visible pause across longer damaged runs. The original archive remains the source; these replacements are applied to rendered outputs.
+
+### Implementation and command reference
+
+- [Tuner signal extraction and review logic](libs/vhs_tuner_core.py): `_compute_signals`, `suggest_iqr_k`, and `_update_bad_frame_set`.
+- [Shared score normalization and thresholds](common.py): `robust_zscore`, `combine_signal_scores`, and `compute_threshold`.
+- [Standalone classifier](tracking_loss.py): signal extraction and chapter-window thresholding.
+- [Render pipeline](vhs_pipeline/render_pipeline.py): conversion of repair ranges into AviSynth `FreezeFrame` calls.
+
+From the repository root, inspect standalone options with:
+
+```sh
+uv run python vhs/tracking_loss.py -h
 ```
 
 ## Capture Guide

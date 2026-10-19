@@ -45,6 +45,8 @@ The watcher and map are long-running processes; run processing commands in a sep
 - Generates dialogue transcription and can prefill people subtitle ranges from Cast face matches.
 - Renders delivery clips and original-versus-processed comparison videos.
 
+Automatic bad-frame detection looks for four signs of tracking trouble: loss of color, uneven horizontal noise, torn rows, and horizontal waviness. It combines these measurements into a score and flags unusually high-scoring frames relative to the footage being reviewed. The tuner's `IQR k` control adjusts sensitivity: lower values flag more frames, higher values flag fewer. Review the suggestions and override individual frames before saving; detection records repair metadata without changing the archive video. See the [full bad-frame detection breakdown](vhs/README.md#tracking-loss-classifier) for the scoring, threshold calculation, and rendering behavior.
+
 Use it after tape capture to organize recordings, review restoration settings, and export family videos. Start with `uv run python vhs/vhs.py -h` or open the tuner with `just vhs-tuner`. The [capture guide](vhs/CAPTURE_GUIDE.md) covers capture preparation.
 
 #### Setup and run
