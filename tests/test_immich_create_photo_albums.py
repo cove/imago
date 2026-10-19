@@ -56,7 +56,7 @@ class FakeImmichClient:
         self.bulk_updates.append((tuple(asset_ids), date_time_original))
 
 
-def test_discovers_logical_albums_from_archive_pages_and_photos_dirs(tmp_path: Path) -> None:
+def test_discovers_separate_albums_for_archive_pages_and_photos(tmp_path: Path) -> None:
     root = tmp_path / "Photo Albums"
     (root / "Family_1975_B01_Archive").mkdir(parents=True)
     (root / "Family_1975_B01_Pages").mkdir()
@@ -69,16 +69,20 @@ def test_discovers_logical_albums_from_archive_pages_and_photos_dirs(tmp_path: P
 
     albums = discover_local_albums(root)
 
-    assert [album.name for album in albums] == ["Family_1975_B01"]
-    assert [path.name for path in albums[0].directories] == [
+    assert [album.name for album in albums] == [
         "Family_1975_B01_Archive",
         "Family_1975_B01_Pages",
         "Family_1975_B01_Photos",
     ]
-    assert [path.name for path in albums[0].files] == [
-        "Family_1975_B01_P01.tif",
-        "Family_1975_B01_P01.jpg",
-        "Family_1975_B01_P01_D01_01.jpg",
+    assert [[path.name for path in album.directories] for album in albums] == [
+        ["Family_1975_B01_Archive"],
+        ["Family_1975_B01_Pages"],
+        ["Family_1975_B01_Photos"],
+    ]
+    assert [[path.name for path in album.files] for album in albums] == [
+        ["Family_1975_B01_P01.tif"],
+        ["Family_1975_B01_P01.jpg"],
+        ["Family_1975_B01_P01_D01_01.jpg"],
     ]
 
 

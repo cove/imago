@@ -417,58 +417,19 @@ def _has_xmp_regions(xmp_path: Path) -> bool:
 
 
 def _read_regions_from_xmp(xmp_path: Path, img_w: int, img_h: int) -> list[RegionResult]:
-    import xml.etree.ElementTree as ET  # pylint: disable=import-outside-toplevel
+    from .xmp_sidecar import read_region_list
 
-    MWGRS_NS = "http://www.metadataworkinggroup.com/schemas/regions/"
-    STAREA_NS = "http://ns.adobe.com/xap/1.0/sType/Area#"
-    RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-    DC_NS = "http://purl.org/dc/elements/1.1/"
-    IMAGO_NS = "https://imago.local/ns/1.0/"
-
-    try:
-        tree = ET.parse(str(xmp_path))
-    except ET.ParseError:
-        return []
-
-    results: list[RegionResult] = []
-    for li in tree.iter(f"{{{RDF_NS}}}li"):
-        cx_t = li.get(f"{{{STAREA_NS}}}x")
-        cy_t = li.get(f"{{{STAREA_NS}}}y")
-        nw_t = li.get(f"{{{STAREA_NS}}}w")
-        nh_t = li.get(f"{{{STAREA_NS}}}h")
-        if not all((cx_t, cy_t, nw_t, nh_t)):
-            continue
-        try:
-            cx = float(cx_t)
-            cy = float(cy_t)
-            nw = float(nw_t)
-            nh = float(nh_t)
-        except (TypeError, ValueError) as exc:
-            log.debug("Skipping region with invalid coordinate values: %s", exc)
-            continue
-        px = max(0, int(round((cx - nw / 2.0) * img_w)))
-        py = max(0, int(round((cy - nh / 2.0) * img_h)))
-        pw = max(1, int(round(nw * img_w)))
-        ph = max(1, int(round(nh * img_h)))
-        caption = str(li.get(f"{{{MWGRS_NS}}}Name") or "").strip()
-        if not caption:
-            desc_el = li.find(f".//{{{DC_NS}}}description")
-            text_el = desc_el.find(f".//{{{RDF_NS}}}li") if desc_el is not None else None
-            if text_el is not None and text_el.text:
-                caption = text_el.text.strip()
-        if not caption:
-            caption = str(li.get(f"{{{IMAGO_NS}}}CaptionHint") or "").strip()
-        results.append(
-            RegionResult(
-                index=len(results),
-                x=px,
-                y=py,
-                width=pw,
-                height=ph,
-                caption_hint=caption,
-            )
+    return [
+        RegionResult(
+            index=region["index"],
+            x=region["x"],
+            y=region["y"],
+            width=region["width"],
+            height=region["height"],
+            caption_hint=region["caption"] or region["caption_hint"],
         )
-    return results
+        for region in read_region_list(xmp_path, img_w, img_h)
+    ]
 
 
 def _failed_regions_debug_path(image_path: str | Path, attempt_number: int | None = None) -> Path:

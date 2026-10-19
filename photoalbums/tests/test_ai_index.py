@@ -3881,6 +3881,7 @@ class TestAIIndex(unittest.TestCase):
             )
             analysis = ai_index.ImageAnalysis(
                 image_path=stitched_path,
+                dc_date="1986",  # Keep this stitching test independent of live date inference.
                 people_names=[],
                 object_labels=[],
                 ocr_text="MAINLAND CHINA 1986 BOOK 11",

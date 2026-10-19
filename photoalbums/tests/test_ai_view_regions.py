@@ -6,6 +6,7 @@ import json
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
@@ -231,7 +232,8 @@ class TestRegionListXmpRoundTrip(unittest.TestCase):
             # caption_hint goes to imago:CaptionHint when caption is empty
             self.assertIn('imago:CaptionHint="Left hint"', xml)
             # caption goes to mwg-rs:Name
-            self.assertIn('mwg-rs:Name="Right caption"', xml)
+            names = ET.fromstring(xml).iter("{http://www.metadataworkinggroup.com/schemas/regions/}Name")
+            self.assertIn("Right caption", [name.text for name in names])
             self.assertNotIn("dc:description", xml)
 
             read_back = read_region_list(xmp_path, 800, 600)

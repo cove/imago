@@ -818,30 +818,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help="Read exact model caption prompt text from a file. Overrides --caption-prompt when set.",
     )
-    parser.add_argument(
-        "--local-prompt",
-        dest="caption_prompt",
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--local-prompt-file",
-        dest="caption_prompt_file",
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--qwen-prompt",
-        dest="caption_prompt",
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--qwen-prompt-file",
-        dest="caption_prompt_file",
-        default=argparse.SUPPRESS,
-        help=argparse.SUPPRESS,
-    )
+    for flag, destination in (
+        ("--local-prompt", "caption_prompt"),
+        ("--local-prompt-file", "caption_prompt_file"),
+        ("--qwen-prompt", "caption_prompt"),
+        ("--qwen-prompt-file", "caption_prompt_file"),
+    ):
+        parser.add_argument(flag, dest=destination, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     parser.add_argument(
         "--lmstudio-base-url",
         default=default_lmstudio_base_url(),

@@ -242,43 +242,23 @@ def build_parser() -> argparse.ArgumentParser:
         "repair-crop-source",
         help="Rewrite crop XMP imago:AlbumTitle and dc:source from archive scan lineage without rerunning crops.",
     )
-    repair_crop_source_parser.add_argument(
-        "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
-    )
-    repair_crop_source_parser.add_argument(
-        "--photos-root", required=True, help="Path to the Photo Albums root directory"
-    )
-    repair_crop_source_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
-    repair_crop_source_parser.add_argument(
-        "--verify-only",
-        action="store_true",
-        help="Fail if any crop sidecars under the selection still need dc:source/AlbumTitle repair.",
-    )
 
     repair_crop_numbers_parser = subparsers.add_parser(
         "repair-crop-numbers",
         help="Rename crop JPEG/XMP pairs to canonical derived numbers after the page's archive-derived max.",
     )
-    repair_crop_numbers_parser.add_argument(
-        "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
-    )
-    repair_crop_numbers_parser.add_argument(
-        "--photos-root", required=True, help="Path to the Photo Albums root directory"
-    )
-    repair_crop_numbers_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
 
     repair_page_derived_views_parser = subparsers.add_parser(
         "repair-page-derived-views",
         help="Force-regenerate _Pages derived views from _Archive and remove orphan page-derived outputs.",
     )
-    repair_page_derived_views_parser.add_argument(
-        "album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums"
-    )
-    repair_page_derived_views_parser.add_argument(
-        "--photos-root", required=True, help="Path to the Photo Albums root directory"
-    )
-    repair_page_derived_views_parser.add_argument(
-        "--page", default=None, help="Page number to process; omit for all pages"
+    for repair_parser in (repair_crop_source_parser, repair_crop_numbers_parser, repair_page_derived_views_parser):
+        repair_parser.add_argument("album_id", nargs="?", default="", help="Album folder name fragment; omit for all albums")
+        repair_parser.add_argument("--photos-root", required=True, help="Path to the Photo Albums root directory")
+        repair_parser.add_argument("--page", default=None, help="Page number to process; omit for all pages")
+    repair_crop_source_parser.add_argument(
+        "--verify-only", action="store_true",
+        help="Fail if any crop sidecars under the selection still need dc:source/AlbumTitle repair.",
     )
 
     process_parser = subparsers.add_parser(

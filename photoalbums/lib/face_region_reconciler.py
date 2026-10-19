@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from ..naming import (
     DERIVED_NAME_RE,
@@ -85,7 +85,7 @@ class SourceFaceBox:
     ry: float  # top-left y, normalized 0–1
     rw: float  # width, normalized 0–1
     rh: float  # height, normalized 0–1
-    source_kind: str  # "page" | "scan" | "crop"
+    source_kind: Literal["page", "scan", "crop"]
     source_xmp: Path
 
 
@@ -524,7 +524,9 @@ def _scan_to_page_transform_cached(
     return tuple(float(v) for v in matrix.reshape(-1)), (scan_w, scan_h), (page_w, page_h)
 
 
-def _scan_to_page_transform(scan_xmp: Path, page_xmp: Path):
+def _scan_to_page_transform(
+    scan_xmp: Path, page_xmp: Path,
+) -> tuple[tuple[float, ...], tuple[int, int], tuple[int, int]] | None:
     scan_image = _scan_image_for_xmp(scan_xmp)
     page_image = _page_image_for_xmp(page_xmp)
     if scan_image is None:
@@ -546,6 +548,7 @@ def _scan_to_page_transform(scan_xmp: Path, page_xmp: Path):
 
 def _project_box_with_homography(
     matrix_values: tuple[float, ...],
+    *,
     rx: float,
     ry: float,
     rw: float,
@@ -581,30 +584,33 @@ def _project_box_with_homography(
     return x0 / target_w, y0 / target_h, (x1 - x0) / target_w, (y1 - y0) / target_h
 
 
-def _project_scan_face_to_page(face: dict[str, Any], scan_xmp: Path, page_xmp: Path):
+def _project_scan_face_to_page(
+    face: dict[str, Any], scan_xmp: Path, page_xmp: Path,
+) -> tuple[float, float, float, float] | None:
     transform = _scan_to_page_transform(scan_xmp, page_xmp)
     if transform is None:
         return None
     matrix_values, scan_size, page_size = transform
     return _project_box_with_homography(
         matrix_values,
-        face["rx"],
-        face["ry"],
-        face["rw"],
-        face["rh"],
-        scan_size,
-        page_size,
+        rx=face["rx"],
+        ry=face["ry"],
+        rw=face["rw"],
+        rh=face["rh"],
+        source_size=scan_size,
+        target_size=page_size,
     )
 
 
 def _project_page_face_to_scan(
+    *,
     page_rx: float,
     page_ry: float,
     page_rw: float,
     page_rh: float,
     scan_xmp: Path,
     page_xmp: Path,
-):
+) -> tuple[float, float, float, float] | None:
     import numpy as np
 
     transform = _scan_to_page_transform(scan_xmp, page_xmp)
@@ -614,12 +620,12 @@ def _project_page_face_to_scan(
     inverse = np.linalg.inv(np.asarray(matrix_values, dtype=np.float64).reshape(3, 3))
     return _project_box_with_homography(
         tuple(float(v) for v in inverse.reshape(-1)),
-        page_rx,
-        page_ry,
-        page_rw,
-        page_rh,
-        page_size,
-        scan_size,
+        rx=page_rx,
+        ry=page_ry,
+        rw=page_rw,
+        rh=page_rh,
+        source_size=page_size,
+        target_size=scan_size,
     )
 
 
@@ -839,6 +845,7 @@ def _source_already_in_cluster(cluster: FaceCluster, xmp_path: Path) -> bool:
 
 def _plan_crop_backfills_for_cluster(
     page_xmp: Path,
+    *,
     cluster: FaceCluster,
     crop_xmps: list[Path],
     page_regions: list[dict[str, float]],
@@ -878,6 +885,7 @@ def _plan_crop_backfills_for_cluster(
 
 def _plan_scan_backfills_for_cluster(
     page_xmp: Path,
+    *,
     cluster: FaceCluster,
     scan_xmps: list[Path],
     resolved_name: str,
@@ -889,7 +897,7 @@ def _plan_scan_backfills_for_cluster(
     for scan_xmp in scan_xmps:
         if _source_already_in_cluster(cluster, scan_xmp):
             continue
-        scan_box = _project_page_face_to_scan(rx, ry, rw, rh, scan_xmp, page_xmp)
+        scan_box = _project_page_face_to_scan(page_rx=rx, page_ry=ry, page_rw=rw, page_rh=rh, scan_xmp=scan_xmp, page_xmp=page_xmp)
         if scan_box is None:
             # Two reasons scan_box can be None:
             # 1. OpenCV alignment failed — already logged by _scan_to_page_transform.
@@ -913,12 +921,12 @@ def _plan_scan_backfills_for_cluster(
 
 def plan_backfill(
     page_xmp: Path,
+    *,
     clusters: list[FaceCluster],
     scan_xmps: list[Path],
     crop_xmps: list[Path],
     page_regions: list[dict[str, float]],
     archive_max: int,
-    *,
     skip_conflicts: bool = True,
     iou_threshold: float = _DEFAULT_IOU_THRESHOLD,
 ) -> list[PendingWrite]:
@@ -956,10 +964,10 @@ def plan_backfill(
 
         page_box = (rx, ry, rw, rh)
         pending.extend(_plan_crop_backfills_for_cluster(
-            page_xmp, cluster, crop_xmps, page_regions, archive_max, resolved_name, page_box, iou_threshold
+            page_xmp, cluster=cluster, crop_xmps=crop_xmps, page_regions=page_regions, archive_max=archive_max, resolved_name=resolved_name, page_box=page_box, iou_threshold=iou_threshold
         ))
         pending.extend(_plan_scan_backfills_for_cluster(
-            page_xmp, cluster, scan_xmps, resolved_name, page_box, iou_threshold
+            page_xmp, cluster=cluster, scan_xmps=scan_xmps, resolved_name=resolved_name, page_box=page_box, iou_threshold=iou_threshold
         ))
 
     return pending
@@ -998,7 +1006,7 @@ def _build_minimal_xmp_tree() -> ET.ElementTree:
     return ET.ElementTree(xmpmeta)
 
 
-def _add_iptc_face_li(bag: ET.Element, face_n: int, name: str, rx: float, ry: float, rw: float, rh: float) -> None:
+def _add_iptc_face_li(bag: ET.Element, face_n: int, name: str, *, rx: float, ry: float, rw: float, rh: float) -> None:
     li = ET.SubElement(bag, _RDF_LI)
     li.set(_RDF_PARSE_TYPE, "Resource")
     boundary = ET.SubElement(li, _IPTC_REGION_BOUNDARY)
@@ -1022,11 +1030,11 @@ def _add_iptc_face_li(bag: ET.Element, face_n: int, name: str, rx: float, ry: fl
 def merge_iptc_face_box(
     xmp_path: Path,
     name: str,
+    *,
     rx: float,
     ry: float,
     rw: float,
     rh: float,
-    *,
     iou_threshold: float = _DEFAULT_IOU_THRESHOLD,
 ) -> bool:
     """Add a single IPTC face region to an XMP sidecar if not already present.
@@ -1062,7 +1070,7 @@ def merge_iptc_face_box(
 
     # Count existing face-li items to assign next face-N id
     face_n = sum(1 for li in bag.findall(_RDF_LI) if _is_face_li(li)) + 1
-    _add_iptc_face_li(bag, face_n, name, rx, ry, rw, rh)
+    _add_iptc_face_li(bag, face_n, name, rx=rx, ry=ry, rw=rw, rh=rh)
 
     ET.indent(tree, space="  ")
     xmp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1116,32 +1124,16 @@ def reconcile_page(
 
     pending_writes = plan_backfill(
         page_xmp,
-        clusters,
-        scan_xmps,
-        crop_xmps,
-        page_regions,
-        archive_max,
+        clusters=clusters,
+        scan_xmps=scan_xmps,
+        crop_xmps=crop_xmps,
+        page_regions=page_regions,
+        archive_max=archive_max,
         skip_conflicts=skip_conflicts,
         iou_threshold=iou_threshold,
     )
 
-    if not dry_run:
-        for pw in pending_writes:
-            try:
-                wrote = merge_iptc_face_box(
-                    pw.xmp_path,
-                    pw.name,
-                    pw.rx, pw.ry, pw.rw, pw.rh,
-                    iou_threshold=iou_threshold,
-                )
-                if wrote:
-                    log.info(
-                        "Wrote face '%s' → %s (%s)", pw.name, pw.xmp_path.name, pw.source_kind
-                    )
-            except Exception:
-                log.exception("Failed to write face region to %s", pw.xmp_path)
-
-    return ReconcileResult(
+    result = ReconcileResult(
         page_xmp=page_xmp,
         clusters=clusters,
         conflicts=conflicts,
@@ -1149,3 +1141,18 @@ def reconcile_page(
         pending_writes=pending_writes,
         sources_scanned=sources_scanned,
     )
+    if dry_run:
+        return result
+    for pw in pending_writes:
+        try:
+            wrote = merge_iptc_face_box(
+                pw.xmp_path,
+                pw.name,
+                rx=pw.rx, ry=pw.ry, rw=pw.rw, rh=pw.rh,
+                iou_threshold=iou_threshold,
+            )
+            if wrote:
+                log.info("Wrote face '%s' → %s (%s)", pw.name, pw.xmp_path.name, pw.source_kind)
+        except Exception:
+            log.exception("Failed to write face region to %s", pw.xmp_path)
+    return result

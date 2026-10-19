@@ -99,7 +99,7 @@ def _crop_rows(crop_sidecar: Path, cache: _PageCache) -> list[dict]:
     """Return audit rows (0 or 1) for a single crop sidecar."""
     crop_state = read_ai_sidecar_state(crop_sidecar)
     if not isinstance(crop_state, dict):
-        return [_row(crop_sidecar.name, crop_sidecar.name, "", "", "crop_sidecar_unreadable", "high")]
+        return [_row(crop_sidecar.name, crop_sidecar.name, "", "", reason="crop_sidecar_unreadable", confidence="high")]
     crop_caption = str(crop_state.get("description") or "").strip()
 
     page_sidecar = _resolve_parent_page_sidecar(crop_sidecar)
@@ -111,7 +111,7 @@ def _crop_rows(crop_sidecar: Path, cache: _PageCache) -> list[dict]:
     page_name = page_sidecar.name
     regions = cache.regions(page_sidecar)
     if region_index >= len(regions):
-        return [_row(page_name, crop_sidecar.name, crop_caption, "", "region_index_out_of_range", "high")]
+        return [_row(page_name, crop_sidecar.name, crop_caption, "", reason="region_index_out_of_range", confidence="high")]
 
     region = regions[region_index]
     region_caption = str(region.get("caption") or "").strip()
@@ -120,7 +120,7 @@ def _crop_rows(crop_sidecar: Path, cache: _PageCache) -> list[dict]:
     expected = resolve_region_caption(region_caption, region_hint, page_description).strip()
 
     def row(reason: str, confidence: str) -> dict:
-        return _row(page_name, crop_sidecar.name, crop_caption, region_caption or expected, reason, confidence)
+        return _row(page_name, crop_sidecar.name, crop_caption, region_caption or expected, reason=reason, confidence=confidence)
 
     # Priority order: most specific / highest-confidence flags first.
     if crop_caption.startswith("Page Captions:"):
@@ -153,11 +153,11 @@ def _page_row(page_sidecar: Path, cache: _PageCache) -> dict | None:
     photo_regions = [r for r in cache.regions(page_sidecar) if int(r.get("photo_number") or 0) > 0]
     if len(metadata_photos) > len(photo_regions):
         detail = f"caption.photos={len(metadata_photos)} photo_regions={len(photo_regions)}"
-        return _row(page_sidecar.name, "", "", detail, "metadata_photos_exceed_regions", "medium")
+        return _row(page_sidecar.name, "", "", detail, reason="metadata_photos_exceed_regions", confidence="medium")
     return None
 
 
-def _row(page: str, crop: str, crop_caption: str, page_region_caption: str, reason: str, confidence: str) -> dict:
+def _row(page: str, crop: str, crop_caption: str, page_region_caption: str, *, reason: str, confidence: str) -> dict:
     return {
         "page": page,
         "crop": crop,
@@ -200,13 +200,13 @@ def main(argv: list[str] | None = None) -> int:
         try:
             rows.extend(_crop_rows(crop_sidecar, cache))
         except Exception as exc:
-            rows.append(_row("", crop_sidecar.name, "", "", f"audit_error: {exc}", "high"))
+            rows.append(_row("", crop_sidecar.name, "", "", reason=f"audit_error: {exc}", confidence="high"))
 
     for page_sidecar in seen_pages:
         try:
             page_row = _page_row(page_sidecar, cache)
         except Exception as exc:
-            rows.append(_row(page_sidecar.name, "", "", "", f"audit_error: {exc}", "high"))
+            rows.append(_row(page_sidecar.name, "", "", "", reason=f"audit_error: {exc}", confidence="high"))
             continue
         if page_row is not None:
             rows.append(page_row)

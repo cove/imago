@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from functools import partial
 from pathlib import Path
 
 from ..lib._docling_ocr import run_docling_ocr
@@ -60,6 +61,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     engines = [e.strip().lower() for e in str(args.engines).split(",") if e.strip()]
+    runners = {
+        "docling": _run_docling,
+        "lmstudio": partial(_run_vlm, "lmstudio", model=args.model, base_url=args.base_url),
+        "local": partial(_run_vlm, "local", model=args.model, base_url=args.base_url),
+    }
     exit_code = 0
     for image in args.images:
         path = Path(image)
@@ -69,13 +75,12 @@ def main(argv: list[str] | None = None) -> int:
             exit_code = 1
             continue
         for engine_name in engines:
+            runner = runners.get(engine_name)
+            if runner is None:
+                print(f"  (unknown engine: {engine_name})")
+                continue
             try:
-                if engine_name == "docling":
-                    _run_docling(path)
-                elif engine_name in {"lmstudio", "local"}:
-                    _run_vlm(engine_name, path, model=args.model, base_url=args.base_url)
-                else:
-                    print(f"  (unknown engine: {engine_name})")
+                runner(path)
             except Exception as exc:  # pragma: no cover - prototype diagnostics
                 print(f"  [{engine_name}] FAILED: {exc}\n")
                 exit_code = 1

@@ -156,6 +156,7 @@ class TestAICaption(unittest.TestCase):
                     model_name=["bad-model", "good-model"],
                     prompt_text="Describe this exact image",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 details = captioner.describe(
                     image_path=image_path,
@@ -246,6 +247,7 @@ class TestAICaption(unittest.TestCase):
                 captioner = ai_caption.LMStudioCaptioner(
                     prompt_text="Describe this exact image",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 details = captioner.describe(
                     image_path=image_path,
@@ -318,6 +320,7 @@ class TestAICaption(unittest.TestCase):
                 captioner = ai_caption.LMStudioCaptioner(
                     prompt_text="Describe this exact image",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 details = captioner.estimate_people(
                     image_path=image_path,
@@ -498,6 +501,7 @@ class TestAICaption(unittest.TestCase):
                 captioner = ai_caption.LMStudioCaptioner(
                     prompt_text="Describe this exact image",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 details = captioner.estimate_location(
                     image_path=image_path,
@@ -585,6 +589,7 @@ class TestAICaption(unittest.TestCase):
                 captioner = ai_caption.LMStudioCaptioner(
                     prompt_text="Describe this exact image",
                     base_url="http://127.0.0.1:1234",
+                    stream=False,
                 )
                 captioner._resolved_model_name = "qwen2.5-vl"
                 details = captioner.estimate_locations_shown(

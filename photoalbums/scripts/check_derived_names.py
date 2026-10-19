@@ -122,7 +122,7 @@ def _next_d_number(archive_dir: Path, collection: str, year: str, book: str, pag
 
 
 def _next_iter_number(
-    archive_dir: Path, collection: str, year: str, book: str, page: str, d_num: int
+    archive_dir: Path, collection: str, year: str, book: str, page: str, *, d_num: int
 ) -> int:
     """Next iteration number for a given D## on this page, scanning Archive only."""
     used: set[int] = set()
@@ -247,6 +247,76 @@ def cmd_check(args: argparse.Namespace) -> None:
 # Subcommand: place
 # ---------------------------------------------------------------------------
 
+def _place_colorized_file(
+    color_file: Path,
+    args: argparse.Namespace,
+    *,
+    archive_dir: Path,
+    archive_hashes: dict[str, Path],
+    archive_entries: list,
+    allocated_iters: dict,
+    col_w: int,
+) -> None:
+    # Check if this exact file is already in the archive
+    color_hash = _file_hash(color_file)
+    if color_hash in archive_hashes:
+        existing = archive_hashes[color_hash]
+        already_name = f"already copied - {color_file.name}"
+        print(f"{color_file.name:<{col_w}}  ALREADY IN ARCHIVE ({existing.name}) — renaming source")
+        if args.execute:
+            color_file.rename(color_file.parent / already_name)
+        else:
+            print(f"  WOULD RENAME source → {already_name}")
+        return
+
+    img_c = _load_gray_thumb(color_file)
+    if img_c is None:
+        print(f"{color_file.name:<{col_w}}  LOAD ERROR")
+        return
+
+    kp_c, des_c = _orb_descriptors(img_c)
+
+    # Find best matching archive image
+    best_sim = 0.0
+    best_entry: tuple[Path, re.Match[str], list, np.ndarray | None] | None = None
+    for arch_file, arch_m, kp_a, des_a in archive_entries:
+        sim = _orb_similarity(kp_c, des_c, kp_a, des_a)
+        if sim > best_sim:
+            best_sim = sim
+            best_entry = (arch_file, arch_m, kp_a, des_a)
+
+    if best_entry is None or best_sim < args.threshold:
+        print(f"{color_file.name:<{col_w}}  NO MATCH  (best={best_sim:.4f})")
+        return
+
+    arch_file, arch_m, _, _ = best_entry
+    collection, year, book, page = _page_key(arch_m)
+    d_num = int(arch_m.group("derived"))
+    alloc_key = (collection, year, book, page, d_num)
+
+    if alloc_key not in allocated_iters:
+        allocated_iters[alloc_key] = _next_iter_number(
+            archive_dir, collection, year, book, page, d_num=d_num
+        )
+    iter_num = allocated_iters[alloc_key]
+    allocated_iters[alloc_key] = iter_num + 1
+
+    new_stem = _build_stem(arch_m, d_num, iter_num)
+    dest = archive_dir / (new_stem + ".png")
+
+    action = "COPIED" if args.execute else "WOULD COPY"
+    print(f"{color_file.name:<{col_w}}  sim={best_sim:.4f}  {action} → {dest.name}")
+    print(f"  matched: {arch_file.name}")
+
+    if not args.no_preview:
+        _viu(color_file, "Colorized (source)", args.width)
+        _viu(arch_file, "Archive match", args.width)
+        print()
+
+    if args.execute:
+        shutil.copy2(color_file, dest)
+
+
 def cmd_place(args: argparse.Namespace) -> None:
     archive_dir: Path = args.archive_dir.expanduser().resolve()
     colorized_dir: Path = args.colorized_dir.expanduser().resolve()
@@ -291,64 +361,15 @@ def cmd_place(args: argparse.Namespace) -> None:
     allocated_iters: dict[tuple[str, str, str, str, int], int] = {}
 
     for color_file in colorized_files:
-        # Check if this exact file is already in the archive
-        color_hash = _file_hash(color_file)
-        if color_hash in archive_hashes:
-            existing = archive_hashes[color_hash]
-            already_name = f"already copied - {color_file.name}"
-            print(f"{color_file.name:<{col_w}}  ALREADY IN ARCHIVE ({existing.name}) — renaming source")
-            if args.execute:
-                color_file.rename(color_file.parent / already_name)
-            else:
-                print(f"  WOULD RENAME source → {already_name}")
-            continue
-
-        img_c = _load_gray_thumb(color_file)
-        if img_c is None:
-            print(f"{color_file.name:<{col_w}}  LOAD ERROR")
-            continue
-
-        kp_c, des_c = _orb_descriptors(img_c)
-
-        # Find best matching archive image
-        best_sim = 0.0
-        best_entry: tuple[Path, re.Match[str], list, np.ndarray | None] | None = None
-        for arch_file, arch_m, kp_a, des_a in archive_entries:
-            sim = _orb_similarity(kp_c, des_c, kp_a, des_a)
-            if sim > best_sim:
-                best_sim = sim
-                best_entry = (arch_file, arch_m, kp_a, des_a)
-
-        if best_entry is None or best_sim < args.threshold:
-            print(f"{color_file.name:<{col_w}}  NO MATCH  (best={best_sim:.4f})")
-            continue
-
-        arch_file, arch_m, _, _ = best_entry
-        collection, year, book, page = _page_key(arch_m)
-        d_num = int(arch_m.group("derived"))
-        alloc_key = (collection, year, book, page, d_num)
-
-        if alloc_key not in allocated_iters:
-            allocated_iters[alloc_key] = _next_iter_number(
-                archive_dir, collection, year, book, page, d_num
-            )
-        iter_num = allocated_iters[alloc_key]
-        allocated_iters[alloc_key] = iter_num + 1
-
-        new_stem = _build_stem(arch_m, d_num, iter_num)
-        dest = archive_dir / (new_stem + ".png")
-
-        action = "COPIED" if args.execute else "WOULD COPY"
-        print(f"{color_file.name:<{col_w}}  sim={best_sim:.4f}  {action} → {dest.name}")
-        print(f"  matched: {arch_file.name}")
-
-        if not args.no_preview:
-            _viu(color_file, "Colorized (source)", args.width)
-            _viu(arch_file, "Archive match", args.width)
-            print()
-
-        if args.execute:
-            shutil.copy2(color_file, dest)
+        _place_colorized_file(
+            color_file,
+            args,
+            archive_dir=archive_dir,
+            archive_hashes=archive_hashes,
+            archive_entries=archive_entries,
+            allocated_iters=allocated_iters,
+            col_w=col_w,
+        )
 
 
 # ---------------------------------------------------------------------------

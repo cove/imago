@@ -196,7 +196,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
                         "cast_store_signature": "old-sig",
                         "size": int(stat.st_size),
                         "mtime_ns": int(stat.st_mtime_ns),
-                        "date_estimate_input_hash": "",
+                        "date_estimate_input_hash": ai_index._date_estimate_input_hash("March 1975", "Egypt 1975"),
                         "analysis_mode": "single_image",
                     },
                 },
@@ -231,6 +231,7 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             with (
                 mock.patch.object(ai_index_runner, "_init_people_matcher", return_value=fake_matcher),
                 mock.patch.object(ai_index_runner, "_init_caption_engine", return_value=fake_caption_engine),
+                mock.patch.object(ai_index_runner, "_init_date_engine") as date_engine_mock,
                 mock.patch.object(ai_index_runner, "_compute_people_positions", return_value={"New Name": "center"}),
                 mock.patch.object(ai_index_runner, "_resolve_people_count_metadata", return_value=(True, 1)),
                 mock.patch.object(ai_index_runner, "_get_image_dimensions", return_value=(200, 100)),
@@ -238,7 +239,9 @@ class TestRenderFaceRegionRefresh(unittest.TestCase):
             ):
                 ai_index_runner.refresh_rendered_view_people_metadata(image)
 
+            date_engine_mock.assert_not_called()
             write_mock.assert_called_once()
+            self.assertEqual(write_mock.call_args.kwargs["dc_date"], ["1975-03"])
             self.assertEqual(write_mock.call_args.kwargs["person_names"], ["New Name"])
             self.assertEqual(
                 write_mock.call_args.kwargs["detections_payload"]["people"][0]["name"],

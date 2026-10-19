@@ -7,6 +7,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Literal
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -314,7 +315,7 @@ class TestReadPagePhotoRegions(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-def _make_projected(name: str, rx: float, ry: float, rw: float, rh: float, kind: str = "page", xmp: Path | None = None) -> ProjectedFaceBox:
+def _make_projected(name: str, rx: float, ry: float, rw: float, rh: float, kind: Literal["page", "scan", "crop"] = "page", xmp: Path | None = None) -> ProjectedFaceBox:
     src = SourceFaceBox(name=name, rx=rx, ry=ry, rw=rw, rh=rh, source_kind=kind, source_xmp=xmp or Path("/dummy.xmp"))
     return ProjectedFaceBox(name=name, page_rx=rx, page_ry=ry, page_rw=rw, page_rh=rh, confidence="high", origin=src)
 
@@ -386,7 +387,7 @@ class TestMergeIptcFaceBox(unittest.TestCase):
     def test_writes_to_empty_xmp(self):
         xmp = self.tmpdir / "test.xmp"
         _write_xmp(xmp, _empty_xmp())
-        wrote = merge_iptc_face_box(xmp, "Alice", 0.1, 0.2, 0.3, 0.4)
+        wrote = merge_iptc_face_box(xmp, "Alice", rx=0.1, ry=0.2, rw=0.3, rh=0.4)
         self.assertTrue(wrote)
         boxes = read_iptc_face_boxes(xmp)
         self.assertEqual(len(boxes), 1)
@@ -395,20 +396,20 @@ class TestMergeIptcFaceBox(unittest.TestCase):
     def test_skips_duplicate(self):
         xmp = self.tmpdir / "test.xmp"
         _write_xmp(xmp, _face_xmp([{"name": "Alice", "rx": 0.1, "ry": 0.2, "rw": 0.3, "rh": 0.4}]))
-        wrote = merge_iptc_face_box(xmp, "Alice", 0.11, 0.21, 0.3, 0.4)
+        wrote = merge_iptc_face_box(xmp, "Alice", rx=0.11, ry=0.21, rw=0.3, rh=0.4)
         self.assertFalse(wrote)  # high IoU with existing box
 
     def test_creates_new_file(self):
         xmp = self.tmpdir / "new.xmp"
         self.assertFalse(xmp.exists())
-        wrote = merge_iptc_face_box(xmp, "Bob", 0.5, 0.5, 0.1, 0.1)
+        wrote = merge_iptc_face_box(xmp, "Bob", rx=0.5, ry=0.5, rw=0.1, rh=0.1)
         self.assertTrue(wrote)
         self.assertTrue(xmp.exists())
 
     def test_adds_to_existing_faces(self):
         xmp = self.tmpdir / "test.xmp"
         _write_xmp(xmp, _face_xmp([{"name": "Alice", "rx": 0.1, "ry": 0.1, "rw": 0.1, "rh": 0.1}]))
-        wrote = merge_iptc_face_box(xmp, "Bob", 0.8, 0.8, 0.1, 0.1)
+        wrote = merge_iptc_face_box(xmp, "Bob", rx=0.8, ry=0.8, rw=0.1, rh=0.1)
         self.assertTrue(wrote)
         boxes = read_iptc_face_boxes(xmp)
         self.assertEqual(len(boxes), 2)
@@ -420,7 +421,7 @@ class TestMergeIptcFaceBox(unittest.TestCase):
         corrupt = "<x:xmpmeta><unterminated>"
         xmp.write_text(corrupt)
         with self.assertRaises(RuntimeError):
-            merge_iptc_face_box(xmp, "Alice", 0.1, 0.2, 0.3, 0.4)
+            merge_iptc_face_box(xmp, "Alice", rx=0.1, ry=0.2, rw=0.3, rh=0.4)
         self.assertEqual(xmp.read_text(), corrupt)
 
 
@@ -626,7 +627,7 @@ class TestReconcilePage(unittest.TestCase):
         page_xmp = self._page_xmp()
         _write_xmp(page_xmp, _page_region_xmp([{"cx": 0.25, "cy": 0.25, "nw": 0.4, "nh": 0.4}]))
         self._write_alignment_images(page_xmp, {"Family_2020_B01_P05_S01.tif": (16, 9, 128, 72)})
-        merge_iptc_face_box(page_xmp, "Alice", 0.09, 0.09, 0.12, 0.12)
+        merge_iptc_face_box(page_xmp, "Alice", rx=0.09, ry=0.09, rw=0.12, rh=0.12)
         crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
         _write_xmp(crop_xmp, _empty_xmp())
         scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
@@ -824,7 +825,7 @@ class TestReconcilePage(unittest.TestCase):
         cv2.imwrite(str(crop_img_path), page_arr[9:81, 16:144])
         # Place face in page at a position inside the crop region
         # (region spans page 0.05–0.45 in both axes; face at 0.09,0.09 is inside it)
-        merge_iptc_face_box(page_xmp, "Alice", 0.09, 0.09, 0.12, 0.12)
+        merge_iptc_face_box(page_xmp, "Alice", rx=0.09, ry=0.09, rw=0.12, rh=0.12)
         crop_xmp = self.photos_dir / "Family_2020_B01_P05_D01-00_V.xmp"
         _write_xmp(crop_xmp, _empty_xmp())
         scan_xmp = self.archive_dir / "Family_2020_B01_P05_S01.xmp"
@@ -940,10 +941,10 @@ class TestReconcilePage(unittest.TestCase):
         merge_iptc_face_box(
             page_xmp,
             "Alice",
-            (scan_box[0] + 0.25 * scan_box[2]) / 320,
-            (scan_box[1] + 0.3 * scan_box[3]) / 180,
-            0.35 * scan_box[2] / 320,
-            0.35 * scan_box[3] / 180,
+            rx=(scan_box[0] + 0.25 * scan_box[2]) / 320,
+            ry=(scan_box[1] + 0.3 * scan_box[3]) / 180,
+            rw=0.35 * scan_box[2] / 320,
+            rh=0.35 * scan_box[3] / 180,
         )
 
         result = reconcile_page(page_xmp, dry_run=True)
@@ -980,7 +981,7 @@ class TestReconcilePage(unittest.TestCase):
         ir = ET.SubElement(desc, _IPTC_IMAGE_REGION)
         bag = ET.SubElement(ir, _RDF_BAG)
         # Bob at same projected location as Alice's face
-        _add_iptc_face_li(bag, 1, "Bob", 0.09, 0.09, 0.08, 0.08)
+        _add_iptc_face_li(bag, 1, "Bob", rx=0.09, ry=0.09, rw=0.08, rh=0.08)
         page_tree.write(str(page_xmp), encoding="utf-8", xml_declaration=True)
 
         result = reconcile_page(page_xmp, dry_run=True, skip_conflicts=True)

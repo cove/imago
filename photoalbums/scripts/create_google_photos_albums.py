@@ -17,6 +17,7 @@ import sys
 import time
 import urllib.parse
 import webbrowser
+from abc import abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -146,16 +147,22 @@ class GoogleOAuthCredentials:
 
 
 class GooglePhotosAlbumClient(Protocol):
+    @abstractmethod
     def create_album(self, title: str) -> dict[str, Any]: ...
 
+    @abstractmethod
     def list_albums(self) -> list[dict[str, Any]]: ...
 
+    @abstractmethod
     def list_album_media_items(self, album_id: str) -> list[ExistingMediaItem]: ...
 
+    @abstractmethod
     def upload_media(self, media_path: Path) -> str: ...
 
+    @abstractmethod
     def batch_create_media_items(self, album_id: str, items: Sequence[tuple[str, str]]) -> list[str]: ...
 
+    @abstractmethod
     def batch_add_media_items(self, album_id: str, media_item_ids: Sequence[str]) -> None: ...
 
 
@@ -169,7 +176,7 @@ def _rewind_request_data(data: Any | None) -> None:
         seek(0)
 
 
-def _parse_response(method: str, url: str, response: requests.Response, expected: tuple[int, ...]) -> Any:
+def _parse_response(method: str, url: str, response: requests.Response, expected: tuple[int, ...]) -> Any | None:
     if response.status_code not in expected:
         details = response.text.strip()
         message = details or response.reason
@@ -927,7 +934,7 @@ def _ensure_google_album_title(
 def _mark_existing_album_media(
     client: GooglePhotosAlbumClient,
     album_id: str,
-    album_state: dict[str, Any],
+    *, album_state: dict[str, Any],
     prepared_media: Sequence[PreparedMedia],
     staging_root: Path,
     state_path: Path,
@@ -1221,7 +1228,7 @@ def sync_google_album_with_media(
         return None
     album_state = _album_state(state, album)
     album_id = _ensure_google_album_id(client, album, album_state, state_path, state)
-    _mark_existing_album_media(client, album_id, album_state, prepared_media, staging_root, state_path, state)
+    _mark_existing_album_media(client, album_id, album_state=album_state, prepared_media=prepared_media, staging_root=staging_root, state_path=state_path, state=state)
     pending_media: list[PreparedMedia] = []
     for item in prepared_media:
         state_key = _prepared_state_key(item, staging_root)
