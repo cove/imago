@@ -189,10 +189,10 @@ def run_stitch_validate() -> int:
     return _call_main(stitch_oversized_pages_validate.main)
 
 
-def run_watch_incoming(*, album_id: str = "") -> int:
+def run_watch_incoming(*, album_id: str = "", validate_stitch: bool = True, single_scan: bool = False) -> int:
     import incoming_scans_watcher
 
-    return _call_main(lambda: incoming_scans_watcher.main(album_id=album_id))
+    return _call_main(lambda: incoming_scans_watcher.main(album_id=album_id, validate_stitch=validate_stitch, single_scan=single_scan))
 
 
 def run_checksum_tree(*, base_dir: str, verify: bool) -> int:

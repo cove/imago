@@ -1077,6 +1077,10 @@ def _run_metadata_analysis_step(
     state["metadata_output"] = dict(metadata_output or {})
     if not ran["value"]:
         _metadata_cached_state(state, image_path, existing_sidecar_state)
+    elif not state.get("ocr_text"):
+        from .ai_sidecar_state import _effective_sidecar_ocr_text
+
+        state["ocr_text"] = str(_effective_sidecar_ocr_text(image_path, existing_sidecar_state) or "").strip()
     state["location_payload"], _ = apply_title_location(
         image_path=image_path,
         location_payload=state["location_payload"],

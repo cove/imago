@@ -250,15 +250,30 @@ def _read_original_page_date(sidecar: Path) -> str:
     desc = root.find(f".//{{{RDF_NS}}}Description")
     if desc is None:
         return ""
-    original = str(desc.findtext(f"{{{IMAGO_NS}}}OriginalEstimatedDate", default="") or "").strip()
-    if original:
-        return original
+    dc_date_text = ""
     dc_date = desc.find(f"{{{DC_NS}}}date")
     if dc_date is not None:
         item = dc_date.find(".//{http://www.w3.org/1999/02/22-rdf-syntax-ns#}li")
         if item is not None and item.text:
-            return item.text.strip()
-    return ""
+            dc_date_text = item.text.strip()
+    # A dc:date that no longer matches the pinned ViewerSortDate means a fresh
+    # estimate was written since the last sequencing pass; it supersedes the
+    # OriginalEstimatedDate memo stored by that pass.
+    viewer_sort = str(desc.findtext(f"{{{IMAGO_NS}}}ViewerSortDate", default="") or "").strip()
+    if dc_date_text and dc_date_text != viewer_sort:
+        return dc_date_text
+    original = str(desc.findtext(f"{{{IMAGO_NS}}}OriginalEstimatedDate", default="") or "").strip()
+    # Genuine estimates are date-precision only (YYYY[-MM[-DD]]); a memo carrying a
+    # time component is the sequencer's own synthetic output that leaked into the
+    # memo on an earlier pass. Ignore it so the page re-slews.
+    if original and "T" not in original:
+        return original
+    # dc:date still equals the pinned ViewerSortDate with no usable memo: this is
+    # the sequencer's own slewed synthetic output, not a real estimate. Returning
+    # it would freeze slewed pages as anchors forever; re-slew instead.
+    if dc_date_text and dc_date_text == viewer_sort:
+        return ""
+    return dc_date_text
 
 
 def _date_text_to_sort_time(date_text: str) -> datetime:

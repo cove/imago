@@ -142,7 +142,7 @@ class TestPhotoalbumsCLI(unittest.TestCase):
             rc = cli.main(["watch", "--album", "Family_1907-1946_B01"])
 
         self.assertEqual(rc, 0)
-        fake.run_watch_incoming.assert_called_once_with(album_id="Family_1907-1946_B01")
+        fake.run_watch_incoming.assert_called_once_with(album_id="Family_1907-1946_B01", validate_stitch=True, single_scan=False)
 
     def test_face_refresh_dispatch(self):
         fake = mock.Mock()

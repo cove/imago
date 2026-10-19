@@ -230,6 +230,73 @@ class TestPageDateSequence(unittest.TestCase):
                 _read_text(pages / "Family_1970-1974_B01_P02_V.xmp", IMAGO_NS, "ViewerSortDate")
             )
 
+    def test_resequence_uses_fresh_dc_date_estimate_over_memo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Family_1970-1974_B01_Archive"
+            pages = root / "Family_1970-1974_B01_Pages"
+            archive.mkdir()
+            pages.mkdir()
+
+            for page in ("01", "02", "03"):
+                _touch(archive / f"Family_1970-1974_B01_P{page}_S01.tif")
+                _touch(pages / f"Family_1970-1974_B01_P{page}_V.jpg")
+            _write_page_sidecar(pages / "Family_1970-1974_B01_P02_V.xmp", dc_date="1972-06-03")
+
+            from photoalbums.lib.page_date_sequence import sequence_album_page_dates
+
+            sequence_album_page_dates(archive)
+            page_02 = pages / "Family_1970-1974_B01_P02_V.xmp"
+            self.assertEqual(_read_text(page_02, IMAGO_NS, "OriginalEstimatedDate"), "1972-06-03")
+
+            # ai-index writes a fresh estimate into dc:date (replace mode); the
+            # sequencer must prefer it over its own OriginalEstimatedDate memo.
+            _write_page_sidecar(page_02, dc_date="1973-02-10")
+            result = sequence_album_page_dates(archive)
+
+            self.assertEqual(_read_sort_time(page_02).date().isoformat(), "1973-02-10")
+            self.assertEqual(_read_text(page_02, IMAGO_NS, "OriginalEstimatedDate"), "1973-02-10")
+            self.assertEqual(result["warnings"], [])
+
+    def test_resequence_reslews_pages_with_synthetic_timestamp_memo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "Family_1970-1974_B01_Archive"
+            pages = root / "Family_1970-1974_B01_Pages"
+            archive.mkdir()
+            pages.mkdir()
+
+            for page in ("01", "02"):
+                _touch(archive / f"Family_1970-1974_B01_P{page}_S01.tif")
+                _touch(pages / f"Family_1970-1974_B01_P{page}_V.jpg")
+            _write_page_sidecar(pages / "Family_1970-1974_B01_P01_V.xmp", dc_date="1972")
+            _write_page_sidecar(pages / "Family_1970-1974_B01_P02_V.xmp")
+
+            from photoalbums.lib.page_date_sequence import sequence_album_page_dates
+
+            sequence_album_page_dates(archive)
+            page_01 = pages / "Family_1970-1974_B01_P01_V.xmp"
+            page_02 = pages / "Family_1970-1974_B01_P02_V.xmp"
+
+            # Simulate memo pollution from an earlier pass: a slewed synthetic
+            # timestamp leaked into OriginalEstimatedDate.
+            root_el = ET.parse(page_02)
+            desc = root_el.getroot().find(f".//{{{'http://www.w3.org/1999/02/22-rdf-syntax-ns#'}}}Description")
+            memo = desc.find(f"{{{IMAGO_NS}}}OriginalEstimatedDate")
+            if memo is None:
+                memo = ET.SubElement(desc, f"{{{IMAGO_NS}}}OriginalEstimatedDate")
+            memo.text = "1972-05-05T08:12:37"
+            root_el.write(page_02, encoding="utf-8", xml_declaration=True)
+
+            # Move page 1's estimate later; the polluted memo would otherwise
+            # anchor page 2 before page 1 and force a nudge warning.
+            _write_page_sidecar(page_01, dc_date="1973")
+            result = sequence_album_page_dates(archive)
+
+            self.assertEqual(result["warnings"], [])
+            self.assertLess(_read_sort_time(page_01), _read_sort_time(page_02))
+            self.assertIn("slew", _read_text(page_02, IMAGO_NS, "EstimatedDateProvenance").casefold())
+
     def test_sequence_album_page_dates_errors_when_album_has_no_year(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

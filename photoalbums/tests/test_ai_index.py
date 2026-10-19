@@ -601,6 +601,65 @@ class TestAIIndex(unittest.TestCase):
         self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=True))
         self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=False))
 
+    def test_dc_date_needs_refresh_when_ocr_changed_since_estimate(self):
+        image = Path("Egypt_1975_B00_P02_S01.tif")
+        state = {
+            "dc_date": "1975-01-10",
+            "date_time_original": "1975-01-10T12:00:00",
+            "ocr_text": "FEBRUARY 10, 1975",
+            "album_title": "Egypt 1975",
+            "date_estimate_input_hash": ai_index._date_estimate_input_hash("old ocr text", "Egypt 1975"),
+        }
+        # Existing date with matching DateTimeOriginal, but the OCR text changed
+        # since the stored estimate: a fresh estimate is required.
+        self.assertTrue(ai_index._dc_date_needs_refresh(image, state, enabled=True))
+        self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=False))
+
+        state["date_estimate_input_hash"] = ai_index._date_estimate_input_hash(
+            str(state["ocr_text"]),
+            str(state["album_title"]),
+        )
+        self.assertFalse(ai_index._dc_date_needs_refresh(image, state, enabled=True))
+
+    def test_resolve_dc_date_reestimates_when_inputs_stale(self):
+        from photoalbums.lib.ai_date import DateEstimateOutput
+
+        class _StubEngine:
+            def estimate(self, **_kwargs):
+                return DateEstimateOutput(engine="lmstudio", date="1975-02-10")
+
+        stale_state = {
+            "date_estimate_input_hash": ai_index._date_estimate_input_hash("old ocr text", "Egypt 1975"),
+        }
+        self.assertEqual(
+            ai_index._resolve_dc_date(
+                existing_dc_date="1975-01-10",
+                ocr_text="FEBRUARY 10, 1975",
+                album_title="Egypt 1975",
+                image_path=Path("Egypt_1975_B00_P02_S01.tif"),
+                date_engine=_StubEngine(),
+                prompt_debug=None,
+                existing_sidecar_state=stale_state,
+            ),
+            "1975-02-10",
+        )
+        # Matching hash: the existing value is kept without re-estimating.
+        fresh_state = {
+            "date_estimate_input_hash": ai_index._date_estimate_input_hash("FEBRUARY 10, 1975", "Egypt 1975"),
+        }
+        self.assertEqual(
+            ai_index._resolve_dc_date(
+                existing_dc_date="1975-01-10",
+                ocr_text="FEBRUARY 10, 1975",
+                album_title="Egypt 1975",
+                image_path=Path("Egypt_1975_B00_P02_S01.tif"),
+                date_engine=_StubEngine(),
+                prompt_debug=None,
+                existing_sidecar_state=fresh_state,
+            ),
+            "1975-01-10",
+        )
+
     def test_resolve_dc_date_preserves_existing_multiple_values(self):
         self.assertEqual(
             ai_index._resolve_dc_date(
@@ -2255,6 +2314,11 @@ class TestAIIndex(unittest.TestCase):
                 detections_payload={
                     "people": [],
                     "objects": [],
+                    "processing": {
+                        # Matches the sidecar's ocr_text/album_title so the stored
+                        # date does not read as stale.
+                        "date_estimate_input_hash": ai_index._date_estimate_input_hash("hello", ""),
+                    },
                     "ocr": {
                         "engine": "lmstudio",
                         "language": "eng",
@@ -2747,6 +2811,11 @@ class TestAIIndex(unittest.TestCase):
                         }
                     ],
                     "objects": [],
+                    "processing": {
+                        # Matches the sidecar's ocr_text/album_title so the stored
+                        # date does not read as stale.
+                        "date_estimate_input_hash": ai_index._date_estimate_input_hash("hello", ""),
+                    },
                     "ocr": {
                         "engine": "local",
                         "language": "eng",

@@ -2,6 +2,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 python := "uv run python"
 ruff := "uv run ruff"
 photoalbums_root := `uv run --directory ".." python -c "from photoalbums.common import get_photo_albums_dir; print(get_photo_albums_dir())"`
+bennette_albums_root := `uv run --directory ".." python -c "from photoalbums.lib.album_sets import get_album_set; print(get_album_set('bennette').photos_root)"`
 
 [default]
 default:
@@ -34,8 +35,11 @@ scan-pipeline album="":
 scan-pipeline-prev album="":
   $env:LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"; {{python}} -m photoalbums watch {{if album != "" { "--album " + '"' + album + '"' } else { "" }}}
 
-bennett-scan-pipeline:
-  {{python}} -m photoalbums.bennett watch
+bennette-scan-pipeline:
+  {{python}} -m photoalbums watch --album bennette --no-stitch-validation --single-scan
+
+bennette-render-pipeline *args:
+  {{python}} -m photoalbums process --photos-root "{{bennette_albums_root}}" {{args}}
 
 checksums:
   {{python}} -m photoalbums.sha3_tree_hashes "{{photoalbums_root}}"

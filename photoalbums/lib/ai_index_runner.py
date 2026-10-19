@@ -582,6 +582,33 @@ def _has_dc_date(value: str | list[str]) -> bool:
     return bool(str(value or "").strip())
 
 
+def _stored_date_estimate_hash(sidecar_state: dict[str, Any] | None) -> str:
+    state = sidecar_state or {}
+    stored = str(state.get("date_estimate_input_hash") or "").strip()
+    if stored:
+        return stored
+    # Review-shaped dicts (load_ai_xmp_review) keep the hash under detections.processing.
+    detections = state.get("detections")
+    if isinstance(detections, dict):
+        processing = detections.get("processing")
+        if isinstance(processing, dict):
+            return str(processing.get("date_estimate_input_hash") or "").strip()
+    return ""
+
+
+def _date_estimate_stale(
+    sidecar_state: dict[str, Any] | None,
+    *,
+    ocr_text: str,
+    album_title: str,
+) -> bool:
+    """True when the stored estimate was made from different OCR/album-title inputs."""
+    current_hash = _date_estimate_input_hash(ocr_text, album_title)
+    if not current_hash:
+        return False
+    return current_hash != _stored_date_estimate_hash(sidecar_state)
+
+
 def _dc_date_needs_refresh(
     image_path: Path,
     sidecar_state: dict[str, Any] | None,
@@ -592,17 +619,18 @@ def _dc_date_needs_refresh(
         return False
     current_dc_date = _dc_date_value(sidecar_state)
     current_date_time_original = str(sidecar_state.get("date_time_original") or "").strip()
-    if _has_dc_date(current_dc_date):
-        return _resolve_date_time_original(dc_date=current_dc_date) != current_date_time_original
+    if (
+        _has_dc_date(current_dc_date)
+        and _resolve_date_time_original(dc_date=current_dc_date) != current_date_time_original
+    ):
+        return True
     if not enabled:
         return False
-    current_hash = _date_estimate_input_hash(
-        _effective_sidecar_ocr_text(image_path, sidecar_state),
-        str(sidecar_state.get("album_title") or ""),
+    return _date_estimate_stale(
+        sidecar_state,
+        ocr_text=_effective_sidecar_ocr_text(image_path, sidecar_state),
+        album_title=str(sidecar_state.get("album_title") or ""),
     )
-    if not current_hash:
-        return False
-    return current_hash != str(sidecar_state.get("date_estimate_input_hash") or "").strip()
 
 
 def _clean_existing_dc_date(existing_dc_date: str | list[str]) -> str | list[str] | None:
@@ -644,19 +672,24 @@ def _resolve_dc_date(
     image_path: Path,
     date_engine: DateEstimateEngine | None,
     prompt_debug: PromptDebugSession | None,
+    existing_sidecar_state: dict[str, Any] | None = None,
 ) -> str | list[str]:
     cleaned = _clean_existing_dc_date(existing_dc_date)
-    if cleaned is not None:
+    stale = _date_estimate_stale(existing_sidecar_state, ocr_text=ocr_text, album_title=album_title)
+    if cleaned is not None and not (stale and date_engine is not None):
         return cleaned
     if date_engine is None:
-        return ""
-    return _estimate_dc_date_from_engine(
+        return cleaned if cleaned is not None else ""
+    estimated = _estimate_dc_date_from_engine(
         ocr_text=ocr_text,
         album_title=album_title,
         image_path=image_path,
         date_engine=date_engine,
         prompt_debug=prompt_debug,
     )
+    if estimated:
+        return estimated
+    return cleaned if cleaned is not None else ""
 
 
 def _write_sidecar_and_record(*args: Any, **kwargs: Any) -> None:
@@ -1775,9 +1808,18 @@ def _full_resolve_location_payload(
     return effective_location_payload or location_payload
 
 
-def _full_final_dc_date(analysis: Any, existing_sidecar_state: dict | None) -> Any:
+def _full_final_dc_date(
+    analysis: Any,
+    existing_sidecar_state: dict | None,
+    *,
+    ocr_text: str,
+    album_title: str,
+) -> Any:
     metadata_dc_date = str(analysis.dc_date or "").strip()
-    if metadata_dc_date and not _has_dc_date(_dc_date_value(existing_sidecar_state)):
+    if metadata_dc_date and (
+        not _has_dc_date(_dc_date_value(existing_sidecar_state))
+        or _date_estimate_stale(existing_sidecar_state, ocr_text=ocr_text, album_title=album_title)
+    ):
         return metadata_dc_date
     return _dc_date_value(existing_sidecar_state)
 
@@ -1798,7 +1840,10 @@ def _full_processing_payload(
     date_estimation_enabled: bool,
 ) -> dict[str, Any]:
     stat = image_path.stat()
-    if date_estimation_enabled or final_dc_date:
+    # Only stamp the current input hash when date estimation could actually run this
+    # pass; otherwise preserve the stored hash so a later estimation-enabled run can
+    # still detect that the kept date came from older OCR/album-title inputs.
+    if date_estimation_enabled:
         date_hash: str = _date_estimate_input_hash(ocr_text, final_album_title)
     else:
         date_hash = str((existing_sidecar_state or {}).get("date_estimate_input_hash") or "")
@@ -1918,15 +1963,22 @@ def _refresh_processing_payload(
     effective: dict[str, Any],
     refresh_ocr_text: str,
     refresh_album_title: str,
+    date_estimation_enabled: bool,
 ) -> dict[str, Any]:
     stat = image_path.stat()
+    # See _full_processing_payload: never overwrite the stored hash unless estimation
+    # could actually run, so hash-vs-input staleness stays detectable.
+    if date_estimation_enabled:
+        date_hash = _date_estimate_input_hash(refresh_ocr_text, refresh_album_title)
+    else:
+        date_hash = str(existing_sidecar_state.get("date_estimate_input_hash") or "")
     return {
         "processor_signature": PROCESSOR_SIGNATURE,
         "settings_signature": settings_sig,
         "cast_store_signature": (current_cast_signature if bool(effective.get("enable_people", True)) else ""),
         "size": int(stat.st_size),
         "mtime_ns": int(stat.st_mtime_ns),
-        "date_estimate_input_hash": _date_estimate_input_hash(refresh_ocr_text, refresh_album_title),
+        "date_estimate_input_hash": date_hash,
         "ocr_authority_signature": str(existing_sidecar_state.get("ocr_authority_signature") or ""),
         "ocr_authority_hash": str(existing_sidecar_state.get("ocr_authority_hash") or ""),
         "analysis_mode": _refresh_analysis_mode(existing_sidecar_state, review),
@@ -2004,6 +2056,9 @@ def _refresh_writer_kwargs(
         create_date=(str(review.get("create_date") or "").strip() or read_embedded_create_date(image_path)),
         dc_date=refresh_dc_date,
         date_time_original=refresh_date_time_original,
+        # The resolved dc_date is authoritative (kept-existing or fresh estimate);
+        # merging would leave a stale first value in front of a new estimate.
+        replace_dc_date=_has_dc_date(refresh_dc_date),
         ocr_ran=bool(review.get("ocr_ran")),
         people_detected=bool(review.get("people_detected")),
         people_identified=bool(review.get("people_identified")),
@@ -2815,7 +2870,13 @@ class IndexRunner:
         text_layers = _refresh_text_layers(image_path, review, refresh_ocr_text, refresh_detections)
         xmp_title, xmp_title_source = _refresh_xmp_title(image_path, review, text_layers)
         refresh_album_title = _refresh_album_title(image_path, review, refresh_ocr_text)
-        date_engine = self._refresh_date_engine(effective, date_estimation_enabled, review)
+        date_engine = self._refresh_date_engine(
+            effective,
+            date_estimation_enabled,
+            review,
+            ocr_text=refresh_ocr_text,
+            album_title=refresh_album_title,
+        )
         refresh_dc_date = _resolve_dc_date(
             existing_dc_date=_dc_date_value(review),
             ocr_text=refresh_ocr_text,
@@ -2823,6 +2884,7 @@ class IndexRunner:
             image_path=image_path,
             date_engine=date_engine,
             prompt_debug=prompt_debug,
+            existing_sidecar_state=review,
         )
         refresh_date_time_original = _resolve_date_time_original(
             dc_date=refresh_dc_date,
@@ -2837,6 +2899,7 @@ class IndexRunner:
             effective=effective,
             refresh_ocr_text=refresh_ocr_text,
             refresh_album_title=refresh_album_title,
+            date_estimation_enabled=date_estimation_enabled,
         )
         refresh_write_location = _refresh_write_location(
             refresh_detections, refresh_location, refresh_gps_lat, refresh_gps_lon
@@ -2865,8 +2928,15 @@ class IndexRunner:
         effective: dict[str, Any],
         date_estimation_enabled: bool,
         existing: dict[str, Any],
+        *,
+        ocr_text: str,
+        album_title: str,
     ) -> DateEstimateEngine | None:
-        if date_estimation_enabled and not _has_dc_date(_dc_date_value(existing)):
+        if not date_estimation_enabled:
+            return None
+        if not _has_dc_date(_dc_date_value(existing)) or _date_estimate_stale(
+            existing, ocr_text=ocr_text, album_title=album_title
+        ):
             return self._get_date_engine(effective)
         return None
 
@@ -3077,7 +3147,13 @@ class IndexRunner:
         pu_inputs: _PeopleUpdateInputs,
         pu_prompt_debug: PromptDebugSession | None,
     ) -> tuple[str, str, str]:
-        date_engine = self._refresh_date_engine(effective, date_estimation_enabled, state)
+        date_engine = self._refresh_date_engine(
+            effective,
+            date_estimation_enabled,
+            state,
+            ocr_text=pu_inputs.existing_ocr_text,
+            album_title=pu_album_title,
+        )
         pu_dc_date = _resolve_dc_date(
             existing_dc_date=_dc_date_value(state),
             ocr_text=pu_inputs.existing_ocr_text,
@@ -3085,6 +3161,7 @@ class IndexRunner:
             image_path=image_path,
             date_engine=date_engine,
             prompt_debug=pu_prompt_debug,
+            existing_sidecar_state=state,
         )
         pu_date_time_original = _resolve_date_time_original(
             dc_date=pu_dc_date,
@@ -3169,7 +3246,7 @@ class IndexRunner:
             cast_store_signature=current_cast_signature,
             ocr_text=pu_inputs.existing_ocr_text,
             album_title=pu_album_title,
-            stamp_date_hash=date_estimation_enabled or bool(pu_dc_date),
+            stamp_date_hash=date_estimation_enabled,
         )
         create_date = str(state.get("create_date") or "").strip() or read_embedded_create_date(image_path)
         _write_sidecar_and_record(
@@ -3192,6 +3269,7 @@ class IndexRunner:
             create_date=create_date,
             dc_date=pu_dc_date,
             date_time_original=pu_date_time_original,
+            replace_dc_date=_has_dc_date(pu_dc_date),
             ocr_ran=bool(state.get("ocr_ran") or True),
             people_detected=pu_people_detected,
             people_identified=pu_people_identified,
@@ -3538,7 +3616,12 @@ class IndexRunner:
             ),
             context="write",
         )
-        final_dc_date = _full_final_dc_date(outcome.analysis, existing_sidecar_state)
+        final_dc_date = _full_final_dc_date(
+            outcome.analysis,
+            existing_sidecar_state,
+            ocr_text=outcome.ocr_text,
+            album_title=final_album_title,
+        )
         existing_dto = str((existing_sidecar_state or {}).get("date_time_original") or "")
         final_date_time_original = _resolve_date_time_original(
             dc_date=final_dc_date,
@@ -3595,6 +3678,32 @@ class IndexRunner:
         final_album_title, final_dc_date, final_date_time_original = self._full_resolve_album_and_dates(
             image_path, outcome, existing_sidecar_state
         )
+        # Text-only pages have no photos so analysis.dc_date is empty; fall back to OCR-text date estimation.
+        if (
+            date_estimation_enabled
+            and outcome.ocr_text
+            and not str(outcome.analysis.dc_date or "").strip()
+            and (
+                not _has_dc_date(final_dc_date)
+                or _date_estimate_stale(
+                    existing_sidecar_state, ocr_text=outcome.ocr_text, album_title=final_album_title
+                )
+            )
+        ):
+            _date_engine = self._get_date_engine(effective)
+            _estimated = _estimate_dc_date_from_engine(
+                ocr_text=outcome.ocr_text,
+                album_title=final_album_title,
+                image_path=image_path,
+                date_engine=_date_engine,
+                prompt_debug=None,
+            )
+            if _estimated:
+                final_dc_date = _estimated
+                final_date_time_original = _resolve_date_time_original(
+                    dc_date=final_dc_date,
+                    date_time_original=str((existing_sidecar_state or {}).get("date_time_original") or ""),
+                )
         text_layers, xmp_title, xmp_title_source = self._full_resolve_text_layers(
             image_path, outcome, layout, scan_ocr_authority
         )
@@ -3637,6 +3746,7 @@ class IndexRunner:
             create_date=read_embedded_create_date(image_path),
             dc_date=final_dc_date,
             date_time_original=final_date_time_original,
+            replace_dc_date=_has_dc_date(final_dc_date),
             ocr_ran=ocr_engine_name != "none",
             people_detected=analysis.faces_detected > 0 or len(outcome.person_names) > 0,
             people_identified=len(outcome.person_names) > 0,

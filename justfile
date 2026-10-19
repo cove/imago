@@ -2,6 +2,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 python := "uv run python"
 ruff := "uv run ruff"
 photoalbums_root := `uv run python -c "from photoalbums.common import get_photo_albums_dir; print(get_photo_albums_dir())"`
+bennette_albums_root := `uv run python -c "from photoalbums.lib.album_sets import get_album_set; print(get_album_set('bennette').photos_root)"`
 llama_install := if os() == "windows" {
   "if (Get-Command llama-server -ErrorAction SilentlyContinue) { exit 0 }; winget list --id ggml.llamacpp --exact | Out-Null; if ($LASTEXITCODE -eq 0) { exit 0 }; winget install --id ggml.llamacpp --exact --accept-package-agreements --accept-source-agreements"
 } else if os() == "macos" {
@@ -123,8 +124,11 @@ photoalbums-scan-pipeline album="":
 photoalbums-scan-pipeline-prev album="":
   $env:LMSTUDIO_BASE_URL = "http://192.168.4.72:1234/v1"; {{python}} -m photoalbums watch {{if album != "" { "--album " + '"' + album + '"' } else { "" }}}
 
-photoalbums-bennett-scan-pipeline:
-  {{python}} -m photoalbums.bennett watch
+photoalbums-bennette-scan-pipeline:
+  {{python}} -m photoalbums watch --album bennette --no-stitch-validation --single-scan
+
+photoalbums-bennette-render-pipeline *args:
+  {{python}} -m photoalbums process --photos-root "{{bennette_albums_root}}" {{args}}
 
 photoalbums-checksums:
   {{python}} -m photoalbums.sha3_tree_hashes "{{photoalbums_root}}"

@@ -465,7 +465,11 @@
       "Bash(sed -n '467,520p' photoalbums/lib/xmp_sidecar.py)",
       "Bash(sed -n '/def _resolve_parent_page_sidecar/,/return/p' photoalbums/lib/caption_layout_migration.py)",
       "Bash(Select-String -Pattern \"justfile\")",
-      "Bash(Select-Object -Last 50)"
+      "Bash(Select-Object -Last 50)",
+      "Bash(Get-ChildItem -Recurse -Force)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\covec\\\\Videos\\\\bennette_albums\" -Directory)",
+      "Bash(Select-Object -First 20 Name)"
     ],
     "additionalDirectories": [
       "C:\\Users\\covec\\.claude",

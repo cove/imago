@@ -212,7 +212,12 @@ def derive_prefix(dir_path: str | Path) -> str:
     return base
 
 
-def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILENAME_PATTERN) -> str:
+def get_next_filename(
+    watch_dir: str | Path,
+    filename_pattern: re.Pattern = FILENAME_PATTERN,
+    *,
+    max_scans_per_page: int = 2,
+) -> str:
     watch_path = Path(watch_dir)
     files = [f.name for f in watch_path.iterdir() if f.suffix.lower() == ".tif"]
     valid_files = [f for f in files if filename_pattern.match(f)]
@@ -234,7 +239,7 @@ def get_next_filename(watch_dir: str | Path, filename_pattern: re.Pattern = FILE
         page = 2
         scan = 1
     else:
-        if scan < 2:
+        if scan < max_scans_per_page:
             scan += 1
         else:
             page += 1
@@ -412,8 +417,8 @@ def _replace_tiff_with_retry(
 def process_tiff_in_place(
     tiff_path: Path,
     *,
-    replace_attempts: int = 10,
-    replace_delay: float = 0.5,
+    replace_attempts: int = 30,
+    replace_delay: float = 1.0,
     log_error: Callable[[str], None] | None = None,
 ) -> bool:
     if not tiff_needs_conversion(tiff_path):

@@ -143,9 +143,13 @@ class ScanWatchService:
         display_image_fn=display_inline_image,
         orient_image_fn=correct_orientation_after_scan,
         tiff_needs_conversion_fn=tiff_needs_conversion,
+        validate_stitch: bool = True,
+        single_scan: bool = False,
     ) -> None:
         self.root = _normalize_path(root)
         self.incoming_name = incoming_name
+        self._validate_stitch = validate_stitch
+        self._single_scan = single_scan
         self.sleep_fn = sleep_fn
         self.log_info_fn = log_info_fn
         self.log_error_fn = log_error_fn
@@ -382,10 +386,10 @@ class ScanWatchService:
                     current = self._events.get(event.id)
                     if current is None or current.status != "pending":
                         continue
-                target_name = get_next_filename(event.archive_dir)
+                target_name = get_next_filename(event.archive_dir, max_scans_per_page=1 if self._single_scan else 2)
                 log_info(f"Auto-applying scan event {event.id} -> {target_name}")
                 try:
-                    results.append(self.apply_decision(event.id, target_name))
+                    results.append(self.apply_decision(event.id, target_name, validate_stitch=self._validate_stitch))
                 except Exception as exc:
                     self.log_error_fn(f"Auto-apply scan event {event.id} failed: {exc}")
                     with self._lock:
@@ -922,6 +926,17 @@ def resolve_watch_root(album_id: str = "", *, base_dir: str | Path = PHOTO_ALBUM
     if not album_filter:
         return base_path
 
+    try:
+        from .lib.album_sets import get_album_set
+    except ImportError:
+        from lib.album_sets import get_album_set
+
+    try:
+        album_set = get_album_set(album_filter)
+        return _normalize_path(album_set.photos_root)
+    except ValueError:
+        pass
+
     archive_dirs = list_archive_dirs(base_path)
     album_filter_lower = album_filter.casefold()
     matches = [path for path in archive_dirs if album_filter_lower in path.name.casefold()]
@@ -934,14 +949,14 @@ def resolve_watch_root(album_id: str = "", *, base_dir: str | Path = PHOTO_ALBUM
     return _normalize_path(matches[0])
 
 
-def main(album_id: str = "") -> int:
+def main(album_id: str = "", *, validate_stitch: bool = True, single_scan: bool = False) -> int:
     try:
         root = resolve_watch_root(album_id)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    service = ScanWatchService(root=root)
+    service = ScanWatchService(root=root, validate_stitch=validate_stitch, single_scan=single_scan)
     startup_scan_dir = root if str(album_id or "").strip() else None
     stopped = False
     try:

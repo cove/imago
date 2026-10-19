@@ -28,3 +28,20 @@ sublocation = "2240 Lorain Rd"
 kind = "scanwatch"
 description = "Incoming scan intake workspace"
 photos_root = "C:/Users/covec/OneDrive/Photo Scans"
+
+[sets.bennette]
+kind = "archive"
+description = "Bennette family photo albums archive"
+photos_root = "C:/Users/covec/Videos/bennette_albums"
+cast_store = "../cast/data"
+skill = "bennette-photo-albums"
+
+# Name expansion roster: maps lowercase shorthand (as used in hyphenated captions)
+# to the full name for PersonInImage and dc:subject. Fill in any unknowns.
+[sets.bennette.people]
+# TODO: add family member shorthands, e.g.: john = "John Bennette"
+
+[sets.bennette_incoming_scans]
+kind = "scanwatch"
+description = "Bennette incoming scan intake"
+photos_root = "C:/Users/covec/Videos/bennette_albums"
