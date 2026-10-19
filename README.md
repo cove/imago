@@ -254,7 +254,7 @@ For stdio clients, use command `uv` with arguments `run python -m imago_mcp.serv
 
 ## Shared setup and development
 
-Install Git, uv, and just, and use Python 3.12 (the project requires >=3.12,<3.13). Run commands from the repository root. Replace example paths and IDs with your own values. Set environment variables in your shell before launching a component: `export NAME="value"` in bash/zsh or `$env:NAME = "value"` in PowerShell.
+Install Git with Git LFS, uv, and just, and use Python 3.12 (the project requires >=3.12,<3.13). Windows recipes also require PowerShell 7 (`pwsh`) on PATH. Run commands from the repository root. Replace example paths and IDs with your own values. Set environment variables in your shell before launching a component: `export NAME="value"` in bash/zsh or `$env:NAME = "value"` in PowerShell.
 
 Use `uv sync` to create/update the Python environment and `just bootstrap` to prepare bundled runtime binaries. [`scripts/`](scripts/) contains bootstrap and quality-check tooling; [`software/`](software/) holds bundled runtime assets.
 
@@ -263,3 +263,26 @@ Run `just hooks-install` in each checkout to activate the versioned `.githooks/`
 Configure CLI photo paths through `PHOTOALBUMS_DIR`/`PHOTO_SCANNING_DIR`, AI settings in [`photoalbums/ai_models.toml`](photoalbums/ai_models.toml), and MCP collection settings in [`photoalbums/album_sets.toml`](photoalbums/album_sets.toml). Component READMEs describe additional services and credentials.
 
 Run `just --list` to see the root task shortcuts. For Python changes, validate with `just quality` and `just test`; filesystem, metadata, and external-service changes also need checks against the affected data.
+
+### Returning to the project
+
+Verify setup in an independent checkout using only the GitHub repository:
+
+In Windows PowerShell, first set `$env:PYTHONUTF8 = "1"` so redirected CLI output uses UTF-8.
+
+```sh
+git clone https://github.com/cove/imago.git
+cd imago
+git lfs install --local --skip-repo
+git lfs pull
+uv sync --locked
+just hooks-install
+just bootstrap
+git lfs fsck
+just quality
+just test
+```
+
+The lockfile pins Python dependencies, and Git LFS supplies the bundled media tools. `--skip-repo` leaves the versioned hooks intact; `just hooks-install` activates them. Configure external media locations and model/service settings using the component setup sections above before processing real archives. `.mcp.json` and the album-set configuration contain machine-specific paths; update them for the new checkout when using those integrations. Do not copy another checkout's virtual environment or runtime job state.
+
+The test suite contains existing legacy and optional-integration skips; check pytest's reported skip count when resuming work. Type checking uses the committed baseline and still reports existing warnings. Unhandled background-thread exceptions are test failures, and job runners must finish saving their state before their working directories are removed.

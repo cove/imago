@@ -61,6 +61,7 @@ pythonpath = ["."]
 # On Windows, colored pytest output has intermittently surfaced as
 # KeyboardInterrupt failures in photoalbums tests via colorama/console handling.
 addopts = "--color=no -p scripts.pytest_config"
+filterwarnings = ["error::pytest.PytestUnhandledThreadExceptionWarning"]
 markers = [
   "integration: tests that require external services (LM Studio, network) — excluded from pre-push",
 ]

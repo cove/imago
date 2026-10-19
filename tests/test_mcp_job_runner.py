@@ -4,6 +4,7 @@ import http.client
 import json
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -34,8 +35,8 @@ _FAKE_JOB = {
 
 class TestJobRunnerPersistence(unittest.TestCase):
     def setUp(self):
-        # ignore_cleanup_errors so open log file handles on Windows don't fail tearDown
-        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.tmp = tempfile.TemporaryDirectory()
+        self._runners = []
         self.jobs_dir = Path(self.tmp.name) / "jobs"
         self.jobs_dir.mkdir(parents=True)
         self.jobs_state = self.jobs_dir / "jobs.json"
@@ -48,10 +49,17 @@ class TestJobRunnerPersistence(unittest.TestCase):
         mcp_console._JOBS_STATE = self.jobs_state
 
     def tearDown(self):
+        for runner in self._runners:
+            runner.shutdown()
         mcp_job_runner.JOBS_DIR = self._orig_jobs_dir
         mcp_job_runner.JOBS_STATE = self._orig_jobs_state
         mcp_console._JOBS_STATE = self._orig_console_state
         self.tmp.cleanup()
+
+    def _new_runner(self):
+        runner = mcp_job_runner.JobRunner()
+        self._runners.append(runner)
+        return runner
 
     def _write_fake_jobs(self, data):
         self.jobs_state.write_text(json.dumps(data), encoding="utf-8")
@@ -64,7 +72,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
     def test_fresh_start_creates_jobs_json(self):
         """A runner starting with no pre-existing jobs.json should create it."""
         self.assertFalse(self.jobs_state.exists())
-        mcp_job_runner.JobRunner()
+        self._new_runner()
         self.assertTrue(
             self.jobs_state.exists(),
             "jobs.json should be created on startup even when there are no jobs",
@@ -75,7 +83,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
         """On restart, running jobs must be written back to disk as interrupted."""
         self._write_fake_jobs({"abc12345": dict(_FAKE_JOB)})
 
-        mcp_job_runner.JobRunner()  # simulate server restart
+        self._new_runner()  # simulate server restart
 
         data = self._read_disk_jobs()
         self.assertEqual(
@@ -94,7 +102,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
         )
         self._write_fake_jobs({"abc12345": job})
 
-        mcp_job_runner.JobRunner()
+        self._new_runner()
 
         data = self._read_disk_jobs()
         self.assertEqual(data["abc12345"]["status"], "completed")
@@ -103,7 +111,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
 
     def test_start_writes_job_to_disk_immediately(self):
         """start() must write the new job to jobs.json before returning."""
-        runner = mcp_job_runner.JobRunner()
+        runner = self._new_runner()
         job_id = runner.start("test", [sys.executable, "-c", "import time; time.sleep(5)"])
         try:
             self.assertTrue(self.jobs_state.exists())
@@ -116,7 +124,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
 
     def test_completed_job_written_to_disk(self):
         """When a job exits, its final status must be written to disk."""
-        runner = mcp_job_runner.JobRunner()
+        runner = self._new_runner()
         job_id = runner.start("quick", [sys.executable, "-c", "pass"])
         for _ in range(50):
             time.sleep(0.1)
@@ -126,9 +134,53 @@ class TestJobRunnerPersistence(unittest.TestCase):
         self.assertIn(data[job_id]["status"], ("completed", "failed"))
         self.assertIsNotNone(data[job_id]["exit_code"])
 
+    def test_shutdown_waits_for_final_state_before_job_directory_can_be_removed(self):
+        runner = self._new_runner()
+        waiting = threading.Event()
+        release = threading.Event()
+        joining = threading.Event()
+        shutdown_done = threading.Event()
+        proc = mock.Mock(pid=4321, returncode=0)
+
+        def wait(timeout=None):
+            if timeout is None:
+                waiting.set()
+                release.wait(5)
+            return 0
+
+        proc.wait.side_effect = wait
+        with mock.patch.object(mcp_job_runner.subprocess, "Popen", return_value=proc):
+            job_id = runner.start("finishing", [sys.executable, "-c", "pass"])
+        self.assertTrue(waiting.wait(2))
+        worker = next(thread for thread in threading.enumerate() if thread.name == f"job-{job_id}")
+        original_join = worker.join
+
+        def join(timeout=None):
+            joining.set()
+            original_join(timeout)
+
+        def shutdown():
+            runner.shutdown()
+            shutdown_done.set()
+
+        shutdown_thread = threading.Thread(target=shutdown, daemon=True)
+        try:
+            with mock.patch.object(worker, "join", side_effect=join):
+                shutdown_thread.start()
+                self.assertTrue(joining.wait(2), "Shutdown must wait for the job's final state writer")
+                self.assertFalse(shutdown_done.is_set())
+        finally:
+            release.set()
+            shutdown_thread.join(5)
+            worker.join(5)
+
+        self.assertTrue(shutdown_done.is_set())
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(self._read_disk_jobs()[job_id]["status"], "completed")
+
     def test_status_does_not_include_log_content(self):
         """status() should return metadata only; logs come from logs()."""
-        runner = mcp_job_runner.JobRunner()
+        runner = self._new_runner()
         job_id = runner.start("quick", [sys.executable, "-c", "print('hello from job')"])
         for _ in range(50):
             time.sleep(0.1)
@@ -143,7 +195,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
 
     def test_start_records_artifact_file_and_passes_env(self):
         """start() should persist an artifact path and expose it to the subprocess."""
-        runner = mcp_job_runner.JobRunner()
+        runner = self._new_runner()
         job_id = runner.start(
             "env",
             [sys.executable, "-c", "import os; print(os.environ['IMAGO_JOB_ARTIFACTS'])"],
@@ -159,7 +211,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
         self.assertIn(str(artifact_file), log_path.read_text(encoding="utf-8"))
 
     def test_start_launches_background_process_isolated_from_console(self):
-        runner = mcp_job_runner.JobRunner()
+        runner = self._new_runner()
         proc = mock.Mock()
         proc.pid = 4321
         proc.returncode = 0
@@ -182,8 +234,8 @@ class TestJobRunnerPersistence(unittest.TestCase):
 
     def test_save_state_merges_jobs_from_other_runner_instances(self):
         """Saving from one runner must not drop jobs started by another runner."""
-        runner_a = mcp_job_runner.JobRunner()
-        runner_b = mcp_job_runner.JobRunner()
+        runner_a = self._new_runner()
+        runner_b = self._new_runner()
 
         job_a = runner_a.start("job-a", [sys.executable, "-c", "import time; time.sleep(5)"])
         try:
@@ -214,7 +266,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
 
     def test_console_reads_jobs_written_by_runner(self):
         """_Handler._read_jobs() must see jobs written by JobRunner.start()."""
-        runner = mcp_job_runner.JobRunner()
+        runner = self._new_runner()
         job_id = runner.start("test", [sys.executable, "-c", "import time; time.sleep(5)"])
         try:
             jobs = mcp_console._Handler._read_jobs()
@@ -231,7 +283,7 @@ class TestJobRunnerPersistence(unittest.TestCase):
         self._write_fake_jobs({"abc12345": dict(_FAKE_JOB)})
 
         # Simulate server restart
-        mcp_job_runner.JobRunner()
+        self._new_runner()
 
         jobs = mcp_console._Handler._read_jobs()
         self.assertTrue(len(jobs) > 0, "Console should show jobs after restart")

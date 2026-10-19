@@ -28,6 +28,7 @@ class JobRunner:
         self._jobs: dict[str, dict] = {}
         self._processes: dict[str, subprocess.Popen] = {}
         self._log_handles: dict[str, object] = {}
+        self._waiters: dict[str, threading.Thread] = {}
         self._load_state()
 
     @staticmethod
@@ -125,12 +126,6 @@ class JobRunner:
 
         job["pid"] = proc.pid
 
-        with self._lock:
-            self._jobs[job_id] = job
-            self._processes[job_id] = proc
-            self._log_handles[job_id] = log_file
-            self._save_state()
-
         def _wait() -> None:
             proc.wait()
             log_file.close()
@@ -141,8 +136,16 @@ class JobRunner:
                 self._processes.pop(job_id, None)
                 self._log_handles.pop(job_id, None)
                 self._save_state()
+                self._waiters.pop(job_id, None)
 
-        threading.Thread(target=_wait, daemon=True, name=f"job-{job_id}").start()
+        with self._lock:
+            self._jobs[job_id] = job
+            self._processes[job_id] = proc
+            self._log_handles[job_id] = log_file
+            self._save_state()
+            waiter = threading.Thread(target=_wait, daemon=True, name=f"job-{job_id}")
+            self._waiters[job_id] = waiter
+            waiter.start()
         return job_id
 
     def status(self, job_id: str) -> dict:
@@ -191,12 +194,12 @@ class JobRunner:
         return sorted(jobs, key=lambda j: j.get("started_at", ""), reverse=True)
 
     def shutdown(self, wait_timeout_seconds: float = 5.0) -> None:
-        """Terminate running jobs and clean up any stale lock files they leave behind."""
+        """Terminate running jobs and wait for their final state to be saved."""
         with self._lock:
             processes = dict(self._processes)
-            jobs = {job_id: self._jobs.get(job_id) for job_id in processes}
+            waiters = dict(self._waiters)
 
-        if not processes:
+        if not processes and not waiters:
             return
 
         for proc in processes.values():
@@ -208,6 +211,12 @@ class JobRunner:
             remaining = max(0.0, deadline - time.monotonic())
             with contextlib.suppress(Exception):
                 proc.wait(timeout=remaining)
+
+        for job_id, waiter in waiters.items():
+            waiter.join(timeout=max(0.0, deadline - time.monotonic()))
+            if waiter.is_alive():
+                message = f"Job {job_id} did not finish saving its state before shutdown timed out"
+                raise TimeoutError(message)
 
         ended_at = datetime.now(timezone.utc).isoformat()
         with self._lock:
