@@ -790,11 +790,12 @@ def crop_page_regions(
     # Read regions
     regions = read_region_list(view_xmp, img_w, img_h)
 
-    if no_regions_recorded and not regions:
-        # Genuinely empty: normalise the sidecar to an explicit empty RegionList.
-        write_region_list(view_xmp, [], img_w, img_h)
+    if not regions:
+        if no_regions_recorded:
+            # Genuinely empty: normalise the sidecar to an explicit empty RegionList.
+            write_region_list(view_xmp, [], img_w, img_h)
         return 0
-    if no_regions_recorded and regions:
+    if no_regions_recorded:
         # A weaker re-detection recorded no_regions, but an earlier detector already
         # wrote a RegionList that these crops were derived from. Never wipe it -- crop
         # the regions that are still present.
@@ -803,9 +804,6 @@ def crop_page_regions(
             view_xmp.name,
             len(regions),
         )
-    if not regions:
-        return 0
-
     # Pipeline state check
     if _should_skip_existing_crop_regions(
         view_path,
@@ -835,11 +833,9 @@ def crop_page_regions(
     photos_dir.mkdir(parents=True, exist_ok=True)
 
     archive_max_derived = highest_archive_derived_number(view_path)
-    geocoder = None
-    if _crop_run_needs_geocoder(regions, locations_shown, page_description):
-        from .ai_geocode import NominatimGeocoder
+    from .ai_geocode import NominatimGeocoder
 
-        geocoder = NominatimGeocoder()
+    geocoder = NominatimGeocoder() if _crop_run_needs_geocoder(regions, locations_shown, page_description) else None
 
     crops_written, failed = _write_page_crop_regions(
         Image,

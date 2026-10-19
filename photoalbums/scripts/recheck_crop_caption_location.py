@@ -519,14 +519,10 @@ def main(argv: list[str] | None = None) -> int:
             failures += 1
             print(f"FAIL  {crop_name}: {exc}")
             continue
-        if result["caption_changed"]:
-            cap_changed += 1
-        if result["location_changed"]:
-            loc_changed += 1
-        if not result["caption_changed"] and not result["location_changed"]:
-            unchanged += 1
-        if result["backed_up"]:
-            backups += 1
+        cap_changed += bool(result["caption_changed"])
+        loc_changed += bool(result["location_changed"])
+        unchanged += not (result["caption_changed"] or result["location_changed"])
+        backups += bool(result["backed_up"])
         _print_crop_result(result)
 
     total_elapsed = time.monotonic() - start
